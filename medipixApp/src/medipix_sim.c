@@ -150,6 +150,9 @@ int echo_request(int socket_fd)
     }
 
     nleft = nleft - nread;
+    
+    printf("nread: %d\n", nread);
+    printf("We got: %s\n", bptr);
 
     //Read until '\r\n', then print the string. Then reset the buffer pointer.
     for (i=0; i<nread; i++) {
@@ -162,7 +165,7 @@ int echo_request(int socket_fd)
     }
 
     /*Default response is an error (for a SET command)*/
-    strncpy(response, "MPX,1,\r\n", MAXLINE);
+    strncpy(response, "MPX,1\r\n", MAXLINE);
 
 
     //Handle command
@@ -175,14 +178,14 @@ int echo_request(int socket_fd)
 	tok = strtok(NULL, ",");
 	if (!strncmp(tok,"SET",3)) {
 	  tok = strtok(NULL, ",");
-	  strncpy(response,"MPX,0,\r\n",MAXLINE);
+	  strncpy(response,"MPX,0\r\n",MAXLINE);
 	}
 	else if (!strncmp(tok,"GET",3)) {
 	  tok = strtok(NULL, ",");
 	  if (tok != NULL) {
-	    sprintf(response, "MPX,0,%s,5,\r\n", tok);
+	    sprintf(response, "MPX,0,%s,5\r\n", tok);
 	  } else {
-	    if (write(socket_fd, "MPX,1,\r\n", 8) <= 0) {
+	    if (write(socket_fd, "MPX,1\r\n", 8) <= 0) {
 	      printf("Error writing back to client.\n");
 	      return EXIT_FAILURE;
 	    }
@@ -195,7 +198,7 @@ int echo_request(int socket_fd)
 	}
 	
       } else {
-	if (write(socket_fd, "MPX,1,\r\n", 8) <= 0) {
+	if (write(socket_fd, "MPX,1\r\n", 8) <= 0) {
 	  printf("Error writing back to client.\n");
 	  return EXIT_FAILURE;
 	}

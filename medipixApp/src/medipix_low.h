@@ -20,15 +20,22 @@
 #define MPX_ERROR 1 /*Unknown Error*/
 #define MPX_CMD 2   /*Command not known.*/
 #define MPX_PARAM 3 /*Param out of range.*/
-#define MPX_CONN 4  /*Not connected to detector.*/
+#define MPX_CONN 100  /*Not connected to detector.*/
+#define MPX_WRITE 101 /*Error writing to socket.*/
+#define MPX_READ 102 /*Error reading from socket.*/
+#define MPX_LEN 103 /*Length of command and value too long, or NULL*/
+#define MPX_DATA 110 /*Data formatting error.*/
 
 /* Function prototypes*/
-extern int mpxSet(const char *command, double value);
-extern int mpxGet(const char *command, double *value);
+extern int mpxSet(const char *command, const char *value);
+extern int mpxGet(const char *command, char *value);
 extern int mpxData(unsigned int *data);
 extern int mpxConnect(const char *host, int commandPort, int dataPort);
+extern int mpxIsConnected(int *conn);
 extern int mpxDisconnect(void); 
 extern int mpxError(int error, char *errMsg);
 
+static int mpxWriteRead(const char *buff);
+static int mpxRead(char *input);
 
 #endif /* MPX_LOW_H */
