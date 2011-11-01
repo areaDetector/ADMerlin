@@ -173,15 +173,23 @@ int echo_request(int socket_fd)
       bptr = &buffer;
       strncpy(tempbuf, buffer, MAXLINE);
       
-      tok = strtok(tempbuf, ",");
+      /*Remove the terminator.*/
+      tok = strtok(tempbuf, "\r\n");
+      //printf("tok: %s\n", tok);
+      tok = strtok(tok, ",");
+      //printf("tok: %s\n", tok);
       if (!strncmp(tok,"MPX",3)) {
 	tok = strtok(NULL, ",");
+	//printf("tok: %s\n", tok);
 	if (!strncmp(tok,"SET",3)) {
+	  //printf("tok: %s\n", tok);
 	  tok = strtok(NULL, ",");
 	  strncpy(response,"MPX,0\r\n",MAXLINE);
 	}
 	else if (!strncmp(tok,"GET",3)) {
+	  //printf("tok: %s\n", tok);
 	  tok = strtok(NULL, ",");
+	  //printf("tok: %s\n", tok);
 	  if (tok != NULL) {
 	    sprintf(response, "MPX,0,%s,5\r\n", tok);
 	  } else {

@@ -12,7 +12,6 @@
 #define MPX_HEADER "MPX"
 #define MPX_SET "SET"
 #define MPX_GET "GET"
-#define MPX_TERM "\r\n"
 
 #define MPX_MAXLINE 256
 
@@ -35,7 +34,8 @@ extern int mpxIsConnected(int *conn);
 extern int mpxDisconnect(void); 
 extern int mpxError(int error, char *errMsg);
 
-static int mpxWriteRead(const char *buff);
+static int mpxWriteRead(const char *buff, char *response);
 static int mpxRead(char *input);
+static int mpxWrite(const char *buff);
 
 #endif /* MPX_LOW_H */

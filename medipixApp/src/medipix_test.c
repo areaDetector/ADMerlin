@@ -12,7 +12,7 @@
 
 int main(int argc, char *argv[]) 
 {
-  double value = 0;
+  char value[64] = {'\0'};
   int conn_flag = 0;
   int status = 0;
 
@@ -32,19 +32,19 @@ int main(int argc, char *argv[])
     }
   }
 
-  if ((status = mpxGet("NUMFRAMESTOACQUIRE", &value)) != MPX_OK) {
+  if ((status = mpxGet("NUMFRAMESTOACQUIRE", value)) != MPX_OK) {
     printf("ERROR. status: %d\n", status);
   }
-  printf("NUMFRAMESTOACQUIRE: %f\n", value);
+  printf("NUMFRAMESTOACQUIRE: %s\n", value);
 
   if ((status = mpxSet("NUMFRAMESTOACQUIRE", "2")) != MPX_OK) {
     printf("ERROR. status: %d\n", status);
   }
 
-  if ((status = mpxGet("NUMFRAMESTOACQUIRE", &value)) != MPX_OK) {
+  if ((status = mpxGet("NUMFRAMESTOACQUIRE", value)) != MPX_OK) {
     printf("ERROR. status: %d\n", status);
   }
-  printf("NUMFRAMESTOACQUIRE: %f\n", value);
+  printf("NUMFRAMESTOACQUIRE: %s\n", value);
 
   sleep(5);
 
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
     printf("ERROR Disconnecting . status: %d\n", status);
   }
 
-  if ((status = mpxGet("NUMFRAMESTOACQUIRE", &value)) != MPX_OK) {
+  if ((status = mpxGet("NUMFRAMESTOACQUIRE", value)) != MPX_OK) {
     printf("ERROR. status: %d\n", status);
   }
 

@@ -54,14 +54,55 @@ int mpxSet(const char *command, const char *value)
   
   printf("mpxSet: Command:%s", buff);
   
-  return mpxWriteRead(buff);
+  if ((status = mpxWriteRead(buff, NULL)) != MPX_OK) {
+    return status;
+  }
+
+  return MPX_OK;
 }
 
 
-
+/**
+ * Get a value for the specified command.
+ * @arg command - command name
+ * @arg value - returned value
+ * @return int - error code
+ */
 int mpxGet(const char *command, char *value) 
 {
-  printf("mpxGet. command: %s\n", command);
+  char buff[MPX_MAXLINE] = {'\0'};
+  char input[MPX_MAXLINE] = {'\0'};
+  int buff_len = 0;
+  char *function = "mpxSet";
+  int status = 0;
+  char *tok = NULL;
+
+  if (!connected) {
+    return MPX_CONN;
+  }
+
+  if (((command) || (value)) == NULL) {
+    return MPX_LEN;
+  }
+  
+  /*Build up comand to be sent.*/
+  buff_len = strlen(command) + strlen(MPX_HEADER) + strlen(MPX_GET) + 4;
+  if (buff_len > MPX_MAXLINE) {
+    return MPX_LEN;
+  }
+  sprintf(buff, "%s,%s,%s\r\n", MPX_HEADER, MPX_GET, command);
+  
+  printf("mpxGet: Command:%s", buff);
+  
+  if ((status = mpxWriteRead(buff, input)) != MPX_OK) {
+    return status;
+  }
+
+  printf ("mpsGet: input = %s\n", input);
+  tok = strtok(input, ",");
+  tok = strtok(NULL, ",");
+  strncpy(value, tok, MPX_MAXLINE);
+
   return MPX_OK;
 }
 
@@ -177,15 +218,17 @@ int mpxError(int error, char *errMsg)
 
 
 
-static int mpxWriteRead(const char *buff)
+static int mpxWriteRead(const char *buff, char *input)
 {
   char *function = "mpxWriteRead";
   char response[MPX_MAXLINE] = {'\0'};
   int status = 0;
+  char *tok = NULL;
+  char command[MPX_MAXLINE] = {'\0'};
+  char value[MPX_MAXLINE] = {'\0'};
 
-  if (write(fd, buff, strlen(buff)) <= 0) {
-    perror(function);
-    return MPX_WRITE;
+  if ((status = mpxWrite(buff)) != MPX_OK) {
+    return status;
   }
 
   if ((status = mpxRead(response)) != MPX_OK) {
@@ -194,8 +237,46 @@ static int mpxWriteRead(const char *buff)
 
   printf("mpxWriteRead got back: %s\n", response);
 
-  
-  
+  /* Parse the response to detect an error. 
+     If no error, return the response.
+     If an error, return the error code.*/
+  tok = strtok(response, ",");
+  printf("tok: %s\n", tok);
+  if (!strncmp(tok,"MPX",3)) {
+    tok = strtok(NULL, ",");
+    printf("tok: %s\n", tok);
+    if (atoi(tok) != 0) {
+      printf("Returning atoi(tok): %d\n", atoi(tok));
+      return atoi(tok);
+    } else {
+      printf("Returning command and value\n");
+      tok = strtok(NULL, ",");
+      printf("tok: %s\n", tok);
+      if ((tok != NULL) && (input != NULL)) {
+	strncpy(command, tok, MPX_MAXLINE);
+	tok = strtok(NULL, ",");
+	if (tok != NULL) {
+	  strncpy(value, tok, MPX_MAXLINE);
+	}
+	sprintf(input, "%s,%s", command, value);
+      } 
+    }
+  } else {
+    return MPX_READ;
+  }
+    
+  return MPX_OK;
+}
+
+static int mpxWrite(const char *buff)
+{
+  char *function = "mpxWrite";
+
+  if (write(fd, buff, strlen(buff)) <= 0) {
+    perror(function);
+    return MPX_WRITE;
+  }
+
   return MPX_OK;
 }
 
@@ -211,7 +292,7 @@ static int mpxRead(char *input)
 
   bptr = &buffer;
 
-  ///Read until nothing left.
+  ///Read until nothing left in socket.
   while (nleft > 0) {
     if ((nread = read(fd, bptr, nleft)) < 0) {
       if (errno == EINTR) {
@@ -226,11 +307,9 @@ static int mpxRead(char *input)
 
     nleft = nleft - nread;
     
-    //Read until '\r\n', then print the string. Then reset the buffer pointer.
+    //Read until '\r\n'.
     for (i=0; i<nread; i++) {
       if ((*bptr=='\r')&&(*(bptr+1)=='\n')) {
-	//printf("From client: %s\n", buffer);
-	//bptr = &buffer;
 	nleft = 0;
 	break;
       }
@@ -238,7 +317,7 @@ static int mpxRead(char *input)
     }
   }
 
-  printf("mpxRead got back: %s\n", buffer);
+  printf("mpxRead: buffer: %s\n", buffer); 
   strncpy(input, buffer, MPX_MAXLINE);
   
   return MPX_OK;
