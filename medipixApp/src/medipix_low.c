@@ -52,7 +52,7 @@ int mpxSet(const char *command, const char *value)
   }
   sprintf(buff, "%s,%s,%s,%s\r\n", MPX_HEADER, MPX_SET, command, value);
   
-  printf("mpxSet: Command:%s", buff);
+  //printf("mpxSet: Command:%s", buff);
   
   if ((status = mpxWriteRead(buff, NULL)) != MPX_OK) {
     return status;
@@ -73,7 +73,7 @@ int mpxGet(const char *command, char *value)
   char buff[MPX_MAXLINE] = {'\0'};
   char input[MPX_MAXLINE] = {'\0'};
   int buff_len = 0;
-  char *function = "mpxSet";
+  char *function = "mpxGet";
   int status = 0;
   char *tok = NULL;
 
@@ -92,13 +92,13 @@ int mpxGet(const char *command, char *value)
   }
   sprintf(buff, "%s,%s,%s\r\n", MPX_HEADER, MPX_GET, command);
   
-  printf("mpxGet: Command:%s", buff);
+  //printf("mpxGet: Command:%s", buff);
   
   if ((status = mpxWriteRead(buff, input)) != MPX_OK) {
     return status;
   }
 
-  printf ("mpsGet: input = %s\n", input);
+  //printf ("mpsGet: input = %s\n", input);
   tok = strtok(input, ",");
   tok = strtok(NULL, ",");
   strncpy(value, tok, MPX_MAXLINE);
@@ -119,7 +119,7 @@ int mpxConnect(const char *host, int commandPort, int dataPort)
 
   char *function = "mpxConnect";
 
-  printf("mpxSet. host: %s, command port: %d, data port: %d\n", host, commandPort, dataPort);
+  printf("mpxConnect. host: %s, command port: %d, data port: %d\n", host, commandPort, dataPort);
 
   if (!connected) {
     /*Create a TCP socket*/
@@ -169,7 +169,7 @@ int mpxDisconnect(void)
 {
   char *function = "mpxDisconnect";
 
-  printf("mpxDisconnect.\n");
+  //printf("mpxDisconnect.\n");
 
   if (connected == 1) {
     if (close(fd)) {
@@ -235,23 +235,24 @@ static int mpxWriteRead(const char *buff, char *input)
     return status;
   }
 
-  printf("mpxWriteRead got back: %s\n", response);
+  //printf("mpxWriteRead got back: %s\n", response);
 
   /* Parse the response to detect an error. 
      If no error, return the response.
      If an error, return the error code.*/
-  tok = strtok(response, ",");
-  printf("tok: %s\n", tok);
+   tok = strtok(response, "\r\n");
+  tok = strtok(tok, ",");
+  //printf("tok: %s\n", tok);
   if (!strncmp(tok,"MPX",3)) {
     tok = strtok(NULL, ",");
-    printf("tok: %s\n", tok);
+    //printf("tok: %s\n", tok);
     if (atoi(tok) != 0) {
-      printf("Returning atoi(tok): %d\n", atoi(tok));
+      //printf("Returning atoi(tok): %d\n", atoi(tok));
       return atoi(tok);
     } else {
-      printf("Returning command and value\n");
+      //printf("Returning command and value\n");
       tok = strtok(NULL, ",");
-      printf("tok: %s\n", tok);
+      //printf("tok: %s\n", tok);
       if ((tok != NULL) && (input != NULL)) {
 	strncpy(command, tok, MPX_MAXLINE);
 	tok = strtok(NULL, ",");
@@ -263,7 +264,7 @@ static int mpxWriteRead(const char *buff, char *input)
     }
   } else {
     return MPX_READ;
-  }
+    }
     
   return MPX_OK;
 }
@@ -317,7 +318,8 @@ static int mpxRead(char *input)
     }
   }
 
-  printf("mpxRead: buffer: %s\n", buffer); 
+  //printf("mpxRead: buffer: %s\n", buffer);
+  
   strncpy(input, buffer, MPX_MAXLINE);
   
   return MPX_OK;
