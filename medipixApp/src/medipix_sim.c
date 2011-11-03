@@ -25,7 +25,9 @@
 /*Function prototypes.*/
 void sig_chld(int signo);
 int echo_request(int socket_fd);
+int produce_data(int socket_fd);
 void *commandThread(void* command_fd);
+void *dataThread(void* data_fd);
 
 
 int main(int argc, char *argv[])
@@ -36,7 +38,7 @@ int main(int argc, char *argv[])
   struct sockaddr_in server_addr, client_addr, server_addr_data, client_addr_data;
   char *buff = NULL;
 
-  pthread_t tid;
+  pthread_t tid, tid_data;
 
   printf("Started Medipix simulation server...\n");
 
@@ -47,7 +49,7 @@ int main(int argc, char *argv[])
   
   /* Create a TCP socket.*/
   fd = socket(AF_INET, SOCK_STREAM, 0);
-  //fd_data = socket(AF_INET, SOCK_STREAM, 0);
+  fd_data = socket(AF_INET, SOCK_STREAM, 0);
 
   /* Create and initialise a socket address structure.*/
   memset(&server_addr, 0, sizeof(struct sockaddr_in));
@@ -55,18 +57,18 @@ int main(int argc, char *argv[])
   server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   server_addr.sin_port = htons(atoi(argv[1]));
 
-  //memset(&server_addr_data, 0, sizeof(struct sockaddr_in));
-  //server_addr.sin_family = AF_INET;
-  //server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  //server_addr.sin_port = htons(atoi(argv[2]));
+  memset(&server_addr_data, 0, sizeof(struct sockaddr_in));
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  server_addr.sin_port = htons(atoi(argv[2]));
 
   /* Bind the socket address to the socket buffer.*/
   bind(fd, (struct sockaddr *) &server_addr, sizeof(server_addr));
-  //bind(fd_data, (struct sockaddr *) &server_addr_data, sizeof(server_addr_data));
+  bind(fd_data, (struct sockaddr *) &server_addr_data, sizeof(server_addr_data));
 
   /* Listen for incoming connections. */
   listen(fd, 10);
-  //listen(fd_data, 10);
+  listen(fd_data, 10);
 
   /* Install signal handler to clean up children.*/
   signal(SIGCHLD, sig_chld);
@@ -74,6 +76,8 @@ int main(int argc, char *argv[])
   /*Loop forever.*/
   while(1) {
 
+    printf("fd2: %d\n", fd2);
+    
     /*Command socket*/
     printf("Connecting command socket...\n");
     client_size = sizeof(client_addr);
@@ -86,39 +90,26 @@ int main(int argc, char *argv[])
       }
     }
 
+    printf("fd2: %d\n", fd2);
+
     /*Data socket*/
-    //printf("Connecting data socket...\n");
-    //client_size = sizeof(client_addr_data);
-    //if ((fd2_data = accept(fd_data, (struct sockaddr *) &client_addr_data, &client_size)) < 0) {
-    //  if (errno == EINTR) {
-    //continue; /*Deal with interupted system call, since this blocks.*/
-    // } else {
-    //perror(argv[0]);
-    //exit(EXIT_FAILURE);
-    //}
-    //}
-
+    printf("Connecting data socket...\n");
+    client_size = sizeof(client_addr_data);
+    if ((fd2_data = accept(fd_data, (struct sockaddr *) &client_addr_data, &client_size)) < 0) {
+      if (errno == EINTR) {
+	continue; /*Deal with interupted system call, since this blocks.*/
+      } else {
+	perror(argv[0]);
+	exit(EXIT_FAILURE);
+      }
+    }
+    
     pthread_create(&tid, NULL, &commandThread, (void *) fd2);
+    pthread_create(&tid, NULL, &dataThread, (void *) fd2_data);
 
+    
 
-    /*Deal with commands in a new thread.*/
-    //if ((child_pid = fork()) == 0) {
-      /*Child process.*/
-      //printf("In child...\n");
-      //close(fd);
-      //while(1) { /*Keep reading until connection is closed or there is an error.*/
-      //if (echo_request(fd2) != EXIT_SUCCESS) {
-    //	  perror(argv[0]);
-    //  printf("  Client failed to handle protocol, or connection closed.\n");
-    //  exit(EXIT_FAILURE);
-    //}
-    //}
-    //exit(EXIT_SUCCESS);
-    //}
-
-    /*Parent process.*/
-    //close(fd2);
-    //close(fd2_data);
+    
   }
 
   /*Should never get here.*/
@@ -133,16 +124,31 @@ void * commandThread(void *command_fd)
   /*No need to check status of this thread.*/
   pthread_detach(pthread_self());
   printf("Started commandThread.\n");
-  while (1) {
-    if (echo_request((int)command_fd) != EXIT_SUCCESS) {
-      printf("  Client failed to handle protocol, or connection closed.\n");
-      /*close connected socket*/
-      close((int) command_fd);
-      return EXIT_FAILURE;
-    }
-  }
   
+  if (echo_request((int)command_fd) != EXIT_SUCCESS) {
+    printf("  Client failed to handle protocol, or connection closed.\n");
+    /*close connected socket*/
+    close((int) command_fd);
+    return EXIT_FAILURE;
+  }  
 }
+
+
+void * dataThread(void *data_fd)
+{
+  /*No need to check status of this thread.*/
+  pthread_detach(pthread_self());
+  printf("Started dataThread.\n");
+  
+  if (produce_data((int)data_fd) != EXIT_SUCCESS) {
+    printf("  Client failed to handle protocol, or connection closed.\n");
+    /*close connected socket*/
+    close((int) data_fd);
+    return EXIT_FAILURE;
+  }
+}  
+}
+
 
 
 /**
@@ -274,5 +280,19 @@ int echo_request(int socket_fd)
 
   printf("Buffer full. From client: %s\n", buffer);
 
-  return(EXIT_SUCCESS);
+  return EXIT_SUCCESS;
+}
+
+
+
+/**
+ * Produce simulation data when we start acquisition. 
+ */
+int produce_data(int socket_fd) 
+{
+  while (1) {
+    sleep(1);
+  }
+
+  return EXIT_SUCCESS;
 }
