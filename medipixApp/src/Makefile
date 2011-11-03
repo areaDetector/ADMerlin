@@ -23,6 +23,8 @@ PROD += medipix_test
 medipix_sim_SRCS += medipix_sim.c
 medipix_test_SRCS += medipix_test.c
 
+medipix_sim_LDFLAGS += -lpthread
+
 medipix_test_LIBS += medipix_low
 
 

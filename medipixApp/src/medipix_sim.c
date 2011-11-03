@@ -18,31 +18,36 @@
 #include <signal.h>
 #include <errno.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #define MAXLINE 256
 
 /*Function prototypes.*/
 void sig_chld(int signo);
 int echo_request(int socket_fd);
+void *commandThread(void* command_fd);
 
 
 int main(int argc, char *argv[])
 {
-  int fd, fd2; 
+  int fd, fd2, fd_data, fd2_data; 
   socklen_t client_size;
   pid_t child_pid = 0;
-  struct sockaddr_in server_addr, client_addr;
+  struct sockaddr_in server_addr, client_addr, server_addr_data, client_addr_data;
   char *buff = NULL;
+
+  pthread_t tid;
 
   printf("Started Medipix simulation server...\n");
 
-  if (argc != 2) {
-    printf("  ERROR: Use: %s {port number to use for listen socket}\n", argv[0]);
+  if (argc != 3) {
+    printf("  ERROR: Use: %s {command socket} {data socket}\n", argv[0]);
     exit(EXIT_FAILURE);
   }
   
   /* Create a TCP socket.*/
   fd = socket(AF_INET, SOCK_STREAM, 0);
+  //fd_data = socket(AF_INET, SOCK_STREAM, 0);
 
   /* Create and initialise a socket address structure.*/
   memset(&server_addr, 0, sizeof(struct sockaddr_in));
@@ -50,17 +55,27 @@ int main(int argc, char *argv[])
   server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
   server_addr.sin_port = htons(atoi(argv[1]));
 
+  //memset(&server_addr_data, 0, sizeof(struct sockaddr_in));
+  //server_addr.sin_family = AF_INET;
+  //server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+  //server_addr.sin_port = htons(atoi(argv[2]));
+
   /* Bind the socket address to the socket buffer.*/
   bind(fd, (struct sockaddr *) &server_addr, sizeof(server_addr));
+  //bind(fd_data, (struct sockaddr *) &server_addr_data, sizeof(server_addr_data));
 
   /* Listen for incoming connections. */
   listen(fd, 10);
+  //listen(fd_data, 10);
 
   /* Install signal handler to clean up children.*/
   signal(SIGCHLD, sig_chld);
 
   /*Loop forever.*/
   while(1) {
+
+    /*Command socket*/
+    printf("Connecting command socket...\n");
     client_size = sizeof(client_addr);
     if ((fd2 = accept(fd, (struct sockaddr *) &client_addr, &client_size)) < 0) {
       if (errno == EINTR) {
@@ -71,28 +86,62 @@ int main(int argc, char *argv[])
       }
     }
 
-    if ((child_pid = fork()) == 0) {
+    /*Data socket*/
+    //printf("Connecting data socket...\n");
+    //client_size = sizeof(client_addr_data);
+    //if ((fd2_data = accept(fd_data, (struct sockaddr *) &client_addr_data, &client_size)) < 0) {
+    //  if (errno == EINTR) {
+    //continue; /*Deal with interupted system call, since this blocks.*/
+    // } else {
+    //perror(argv[0]);
+    //exit(EXIT_FAILURE);
+    //}
+    //}
+
+    pthread_create(&tid, NULL, &commandThread, (void *) fd2);
+
+
+    /*Deal with commands in a new thread.*/
+    //if ((child_pid = fork()) == 0) {
       /*Child process.*/
-      printf("In child...\n");
-      close(fd);
-      while(1) { /*Keep reading until connection is closed or there is an error.*/
-	if (echo_request(fd2) != EXIT_SUCCESS) {
-	  perror(argv[0]);
-	  printf("  Client failed to handle protocol, or connection closed.\n");
-	  exit(EXIT_FAILURE);
-	}
-      }
-      exit(EXIT_SUCCESS);
-    }
+      //printf("In child...\n");
+      //close(fd);
+      //while(1) { /*Keep reading until connection is closed or there is an error.*/
+      //if (echo_request(fd2) != EXIT_SUCCESS) {
+    //	  perror(argv[0]);
+    //  printf("  Client failed to handle protocol, or connection closed.\n");
+    //  exit(EXIT_FAILURE);
+    //}
+    //}
+    //exit(EXIT_SUCCESS);
+    //}
 
     /*Parent process.*/
-    close(fd2);
+    //close(fd2);
+    //close(fd2_data);
   }
 
   /*Should never get here.*/
   printf("Finishing Medipix server.\n");
   return EXIT_SUCCESS;
 
+}
+
+
+void * commandThread(void *command_fd)
+{
+  /*No need to check status of this thread.*/
+  pthread_detach(pthread_self());
+  printf("Started commandThread.\n");
+  while (1) {
+    if (echo_request((int)command_fd) != EXIT_SUCCESS) {
+      printf("  Client failed to handle protocol, or connection closed.\n");
+      /*close connected socket*/
+      close((int) command_fd);
+      return EXIT_FAILURE;
+    }
+  }
+  
 }
 
 
@@ -130,6 +179,7 @@ int echo_request(int socket_fd)
   bptr = &buffer;
 
   if (socket_fd == NULL) {
+    printf("NULL sokcet fd in echo_request.\n");
     return EXIT_FAILURE;
   }
 
