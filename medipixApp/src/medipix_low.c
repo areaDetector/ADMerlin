@@ -11,16 +11,14 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-//#include <sys/wait.h>
 #include <netinet/in.h>
 #include <string.h>
-//#include <signal.h>
 #include <errno.h>
 #include <unistd.h>
 
 static int connected = 0;
 static int fd = 0;
-
+static int fd_data = 0;
 
 /**
  * Set a value for the specified command.
@@ -106,15 +104,9 @@ int mpxGet(const char *command, char *value)
   return MPX_OK;
 }
 
-int mpxData(unsigned int *data)
-{
-
-  return MPX_OK;
-}
-
 int mpxConnect(const char *host, int commandPort, int dataPort)
 {
-  struct sockaddr_in server_addr;
+  struct sockaddr_in server_addr, server_addr_data;
   struct timeval tv;
 
   char *function = "mpxConnect";
@@ -140,11 +132,36 @@ int mpxConnect(const char *host, int commandPort, int dataPort)
       return MPX_CONN;
     }
 
+    /*Create a TCP socket*/
+    if ((fd_data = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+      perror(function);
+      close(fd);
+      return MPX_CONN;
+    }
+    
+    /*Create and initialise a socket address structure*/
+    memset(&server_addr_data, 0, sizeof(struct sockaddr_in));
+    server_addr_data.sin_family = AF_INET;
+    server_addr_data.sin_addr.s_addr = inet_addr(host);
+    server_addr_data.sin_port = htons(dataPort);
+    
+    /*Connect to the server.*/
+    if ((connect(fd_data, (struct sockaddr*) &server_addr_data, sizeof(server_addr))) < 0) {
+      perror(function);
+      return MPX_CONN;
+    }
+
+
     /* Set a 5s timeout on read functions.*/
     tv.tv_sec = 5;  
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
+    /* Set a 30s timeout on data read functions.*/
+    tv.tv_sec = 30;  
+    setsockopt(fd_data, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
     
     connected = 1;
+
+
   }
   
   return MPX_OK;
@@ -176,7 +193,12 @@ int mpxDisconnect(void)
       perror(function);
       return MPX_CONN;
     } else {
-      connected = 0;
+      if (close(fd_data)) {
+	perror(function);
+	return MPX_CONN;
+      } else {
+	connected = 0;
+      }
     }
   } else {
     return MPX_CONN;
@@ -324,3 +346,32 @@ static int mpxRead(char *input)
   
   return MPX_OK;
 }
+
+
+
+/**
+ * Read the latest data frame. 
+ *
+ * This blocks until either a frame is read or
+ * the socket is closed (either using mpxDisconnect
+ * or another mechanism).
+ *
+ * The data buffer must be assigned by the user, and it
+ * won't be overwritten until this function is called again.
+ */
+int mpxData(unsigned int *data)
+{
+
+  if (connected) {
+
+    printf("mpxData.\n");
+
+    /*Read from socket until we get a complete frame.*/
+
+    /*Point to data buffer*/
+  
+  }
+
+  return EXIT_SUCCESS;
+}
+

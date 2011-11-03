@@ -17,6 +17,8 @@ int main(int argc, char *argv[])
   int conn_flag = 0;
   int status = 0;
 
+  unsigned int data[1000000];
+
   printf("Test program for medipix_low interface library.\n");
 
   if ((status = mpxConnect("172.23.244.34", 14000, 14001)) != MPX_OK) {
@@ -32,7 +34,9 @@ int main(int argc, char *argv[])
       printf("We are NOT connected.\n");
     }
   }
-  
+
+  sleep(5);
+
   if ((status = mpxGet("NUMFRAMESTOACQUIRE", value)) != MPX_OK) {
     printf("ERROR. status: %d\n", status);
   }
@@ -49,8 +53,12 @@ int main(int argc, char *argv[])
     printf("ERROR. status: %d\n", status);
   }
   printf("NUMFRAMESTOACQUIRE: %s\n", value);
-  
-  sleep(2);
+
+  sleep(5);
+
+  if ((status = mpxData(data)) != MPX_OK) {
+    printf("ERROR reading data. status: %d\n", status);
+  }
 
   if ((status = mpxDisconnect()) != MPX_OK) {
     printf("ERROR Disconnecting . status: %d\n", status);
