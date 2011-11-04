@@ -35,14 +35,6 @@ extern int mpxData(unsigned int *data);
 extern int mpxConnect(const char *host, int commandPort, int dataPort);
 extern int mpxIsConnected(int *conn);
 extern int mpxDisconnect(void); 
-extern int mpxError(int error, char *errMsg);
-
-/* local static function prototypes*/
-static int mpxWriteRead(const char *buff, char *response);
-static int mpxRead(char *input);
-static int mpxWrite(const char *buff);
-
-//static void * mpxDataThread(void *data_fd);
-//static int mpxReadData(int data_fd) 
+extern char * mpxError(int error, char *errMsg);
 
 #endif /* MPX_LOW_H */

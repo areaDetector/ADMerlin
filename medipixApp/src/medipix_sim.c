@@ -40,9 +40,7 @@ int main(int argc, char *argv[])
 {
   int fd, fd2, fd_data, fd2_data; 
   socklen_t client_size;
-  pid_t child_pid = 0;
   struct sockaddr_in server_addr, client_addr, server_addr_data, client_addr_data;
-  char *buff = NULL;
 
   pthread_t tid, tid_data;
 
@@ -148,8 +146,9 @@ void * commandThread(void *command_fd)
     data_exit = 1;
     pthread_cond_signal(&do_data_cond);
     pthread_mutex_unlock(&do_data_mutex);
-    return EXIT_FAILURE;
-  }  
+    return (void *)EXIT_FAILURE;
+  } 
+  return (void *)EXIT_SUCCESS;
 }
 
 
@@ -161,8 +160,9 @@ void * dataThread(void *data_fd)
     printf("  Data client failed to handle protocol, or connection closed.\n");
     /*close connected socket*/
     close((int) data_fd);
-    return EXIT_FAILURE;
+    return (void *)EXIT_FAILURE;
   }
+  return (void *)EXIT_SUCCESS;
 }  
 
 
@@ -198,10 +198,10 @@ int echo_request(int socket_fd)
   int command = 0;
   char *tok = NULL;
 
-  bptr = &buffer;
+  bptr = buffer;
 
-  if (socket_fd == NULL) {
-    printf("NULL sokcet fd in echo_request.\n");
+  if (socket_fd == 0) {
+    printf("NULL socket fd in echo_request.\n");
     return EXIT_FAILURE;
   }
 
@@ -230,7 +230,7 @@ int echo_request(int socket_fd)
     for (i=0; i<nread; i++) {
       if ((*bptr=='\r')&&(*(bptr+1)=='\n')) {
 	//printf("From client: %s\n", buffer);
-	bptr = &buffer;
+	bptr = buffer;
 	command = 1;
       }
       bptr++;
@@ -242,7 +242,7 @@ int echo_request(int socket_fd)
 
     //Handle command
     if (command == 1) {
-      bptr = &buffer;
+      bptr = buffer;
       strncpy(tempbuf, buffer, MAXLINE);
       
       /*Remove the terminator.*/

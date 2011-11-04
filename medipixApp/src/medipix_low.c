@@ -5,16 +5,21 @@
  * Nov 2011
  */
 
-#include "medipix_low.h"
-
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <netinet/in.h>
-#include <string.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 #include <errno.h>
+#include <string.h>
 #include <unistd.h>
+
+#include "medipix_low.h"
+
+/* local functions*/
+static int mpxWriteRead(const char *buff, char *response);
+static int mpxRead(char *input);
+static int mpxWrite(const char *buff);
 
 static int connected = 0;
 static int fd = 0;
@@ -30,7 +35,6 @@ int mpxSet(const char *command, const char *value)
 {
   char buff[MPX_MAXLINE] = {'\0'};
   int buff_len = 0;
-  char *function = "mpxSet";
   int status = 0;
 
   //printf("mpxSet input. command: %s, value: %s\n", command, value);
@@ -39,7 +43,7 @@ int mpxSet(const char *command, const char *value)
     return MPX_CONN;
   }
 
-  if (((command) || (value)) == NULL) {
+  if ((command == NULL) || (value == NULL)) {
     return MPX_LEN;
   }
 
@@ -71,7 +75,6 @@ int mpxGet(const char *command, char *value)
   char buff[MPX_MAXLINE] = {'\0'};
   char input[MPX_MAXLINE] = {'\0'};
   int buff_len = 0;
-  char *function = "mpxGet";
   int status = 0;
   char *tok = NULL;
 
@@ -79,7 +82,7 @@ int mpxGet(const char *command, char *value)
     return MPX_CONN;
   }
 
-  if (((command) || (value)) == NULL) {
+  if ((command == NULL) || (value == NULL)) {
     return MPX_LEN;
   }
   
@@ -113,7 +116,6 @@ int mpxCmd(const char *command)
 {
   char buff[MPX_MAXLINE] = {'\0'};
   int buff_len = 0;
-  char *function = "mpxCmd";
   int status = 0;
 
   if (!connected) {
@@ -139,6 +141,14 @@ int mpxCmd(const char *command)
 }
 
 
+/**
+ * Connect to the Labview program. This opens two TCP/IP sockets.
+ *
+ * @arg host - IP address
+ * @commandPort - port number to send commands
+ * @dataPort - port number to read data from
+ * @return int - error code
+ */
 int mpxConnect(const char *host, int commandPort, int dataPort)
 {
   struct sockaddr_in server_addr, server_addr_data;
@@ -217,6 +227,12 @@ int mpxIsConnected(int *conn)
   return MPX_OK;
 }
 
+/**
+ * Disconnect from the Labview program. This closes the sockets 
+ * opened using mpxConnect.
+ * 
+ * @return int - error code
+ */
 int mpxDisconnect(void) 
 {
   char *function = "mpxDisconnect";
@@ -247,7 +263,7 @@ int mpxDisconnect(void)
  * @arg int - error number
  * @char pointer - pointer to char array. Must be at least MPX_MAXLINE bytes.
  */
-int mpxError(int error, char *errMsg)
+char * mpxError(int error, char *errMsg)
 {
   if (error == MPX_OK) {
     strncpy(errMsg, "OK", MPX_MAXLINE);
@@ -270,14 +286,15 @@ int mpxError(int error, char *errMsg)
   } else {
     strncpy(errMsg, "Unknown Error Code", MPX_MAXLINE);
   }
-  return MPX_OK;
+  errMsg[MPX_MAXLINE-1] = '\0'; 
+
+  return errMsg;
 }
 
 
 
 static int mpxWriteRead(const char *buff, char *input)
 {
-  char *function = "mpxWriteRead";
   char response[MPX_MAXLINE] = {'\0'};
   int status = 0;
   char *tok = NULL;
@@ -348,7 +365,7 @@ static int mpxRead(char *input)
   int i = 0;
   char *function = "mpxRead";
 
-  bptr = &buffer;
+  bptr = buffer;
 
   ///Read until nothing left in socket.
   while (nleft > 0) {
@@ -401,7 +418,7 @@ int mpxData(unsigned int *data)
   int i = 0;
   char *function = "mpxData";
 
-  bptr = &data;
+  bptr = (char *)data;
 
   if (connected) {
 
@@ -423,7 +440,7 @@ int mpxData(unsigned int *data)
       bptr+=nread;
     }
     
-    bptr=&data;
+    bptr = (char *)data;
       
     //Read until '\r\n'.
     for (i=0; i<MPX_DATAFRAME; i++) {
