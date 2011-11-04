@@ -116,31 +116,20 @@ int mpxCmd(const char *command)
   char *function = "mpxCmd";
   int status = 0;
 
-  printf("Inside mpxCmd...\n");
-
   if (!connected) {
     return MPX_CONN;
   }
-  
-  printf("Inside mpxCmd 2...\n");
 
   if (command == NULL) {
     return MPX_LEN;
   }
-
-  printf("Inside mpxCmd 3...\n");
   
   /*Build up comand to be sent.*/
-  buff_len = strlen(command) + strlen(MPX_HEADER) + strlen("CMD") + 4;
-  printf("Inside mpxCmd 4...\n");
-  printf("mpxCmd: buff_len:%d\n", buff_len);
+  buff_len = strlen(command) + strlen(MPX_HEADER) + strlen(MPX_COMMAND) + 4;
   if (buff_len > MPX_MAXLINE) {
     return MPX_LEN;
   }
-  printf("Inside mpxCmd 5...\n");
-  sprintf(buff, "%s,%s,%s\r\n", MPX_HEADER, "CMD", command);
-  
-  printf("mpxCmd: Command:%s\n", buff);
+  sprintf(buff, "%s,%s,%s\r\n", MPX_HEADER, MPX_COMMAND, command);
   
   if ((status = mpxWriteRead(buff, NULL)) != MPX_OK) {
     return status;
@@ -363,7 +352,6 @@ static int mpxRead(char *input)
 
   ///Read until nothing left in socket.
   while (nleft > 0) {
-    printf("***fd: %d\n");
     if ((nread = read(fd, bptr, nleft)) < 0) {
       if (errno == EINTR) {
 	nread = 0;
@@ -386,8 +374,6 @@ static int mpxRead(char *input)
       bptr++;
     }
   }
-
-  printf("mpxRead: buffer: %s\n", buffer);
   
   strncpy(input, buffer, MPX_MAXLINE);
   
@@ -419,10 +405,6 @@ int mpxData(unsigned int *data)
 
   if (connected) {
 
-    printf("nread = %d\n", nread);
-    printf("nleft = %d\n", nleft);
-    printf("MPX_DATAFRAME = %d\n", MPX_DATAFRAME);
-
     /*Read from socket until we get a complete frame.*/
     while (nleft > 0) {
       if ((nread = read(fd_data, bptr, nleft)) < 0) {
@@ -438,20 +420,15 @@ int mpxData(unsigned int *data)
       
       nleft = nleft - nread;
 
-      printf("nread = %d\n", nread);
-      printf("nleft = %d\n", nleft);
-      
       bptr+=nread;
-
     }
     
     bptr=&data;
       
     //Read until '\r\n'.
     for (i=0; i<MPX_DATAFRAME; i++) {
-      printf("  data[%d]: %x\n", i, (*bptr)&0xFF); 
+      //printf("  data[%d]: %x\n", i, (*bptr)&0xFF); 
       if ((*bptr=='\r')&&(*(bptr+1)=='\n')) {
-	printf("found terminator!\n");
 	nleft = 0;
 	break;
       }

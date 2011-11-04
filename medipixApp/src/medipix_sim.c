@@ -21,7 +21,7 @@
 #include <pthread.h>
 
 #define MAXLINE 256
-#define MAXDATA 400
+#define MAXDATA 128000
 
 /*Function prototypes.*/
 void sig_chld(int signo);
@@ -223,8 +223,8 @@ int echo_request(int socket_fd)
 
     nleft = nleft - nread;
     
-    printf("nread: %d\n", nread);
-    printf("We got: %s\n", bptr);
+    //printf("nread: %d\n", nread);
+    //printf("We got: %s\n", bptr);
 
     //Read until '\r\n', then print the string. Then reset the buffer pointer.
     for (i=0; i<nread; i++) {
@@ -283,7 +283,6 @@ int echo_request(int socket_fd)
 	  }
 	}
 	
-	printf("socket_fd: %d\n", socket_fd);
 	if (write(socket_fd, response, MAXLINE-nleft+1) <= 0) {
 	  printf("Error writing back to client.\n");
 	  return EXIT_FAILURE;
@@ -327,7 +326,7 @@ int produce_data(int data_fd)
 
   for (i = 0; i<MAXDATA; i++) {
     data[i] = (i % 255) & 0xFF;
-    printf("data[%d]: %x\n", i, data[i] & 0xFF);
+    //printf("data[%d]: %x\n", i, data[i] & 0xFF);
   }
   data[MAXDATA-1] = 0xA;
   data[MAXDATA-2] = 0xD;
@@ -348,11 +347,11 @@ int produce_data(int data_fd)
     //printf("data_exit: %d\n", data_exit);
     //printf("do_data: %d\n", do_data);
     
-    printf("MAXDATA: %d\n", MAXDATA);
+    //printf("MAXDATA: %d\n", MAXDATA);
 
     if ((do_data == 1) && (data_exit == 0)) {
       if (write(data_fd, data, MAXDATA) <= 0) {
-	printf("Error writing back to client.\n");
+	//printf("Error writing back to client.\n");
 	do_data = 0;
 	pthread_mutex_unlock(&do_data_mutex);
 	return EXIT_FAILURE;
@@ -360,7 +359,7 @@ int produce_data(int data_fd)
       do_data = 0;
     } else {
       if (data_exit) {
-	printf("Exiting data thread.\n");
+	//printf("Exiting data thread.\n");
 	data_exit = 0;
 	pthread_mutex_unlock(&do_data_mutex);
 	break;

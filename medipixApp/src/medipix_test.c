@@ -68,9 +68,9 @@ int main(int argc, char *argv[])
     printf("ERROR reading data. status: %d\n", status);
   }
 
-  //for (i=0; i<MPX_DATA; i++) {
-  //  printf("data[%d]=%x\n", i, data[i]);
-  //}
+  for (i=0; i<5; i++) {
+    printf("data[%d]=%x\n", i, data[i]);
+  }
 
   //sleep(1);
 
@@ -78,13 +78,13 @@ int main(int argc, char *argv[])
     printf("ERROR Disconnecting . status: %d\n", status);
   }
 
-  if ((status = mpxGet("NUMFRAMESTOACQUIRE", value)) != MPX_OK) {
-    printf("ERROR. status: %d\n", status);
-    mpxError(status, errMsg);
-    printf("ERROR Message: %s\n", errMsg);
-  }
+  //if ((status = mpxGet("NUMFRAMESTOACQUIRE", value)) != MPX_OK) {
+  //  printf("ERROR. status: %d\n", status);
+  //  mpxError(status, errMsg);
+  //  printf("ERROR Message: %s\n", errMsg);
+  //}
   
-  sleep(1);
+  //sleep(1);
 
   //if ((status = mpxConnect("172.23.244.34", 14000, 14001)) != MPX_OK) {
   //  printf("ERROR Connecting. status: %d\n", status);

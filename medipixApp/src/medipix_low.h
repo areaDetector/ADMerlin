@@ -12,10 +12,10 @@
 #define MPX_HEADER "MPX"
 #define MPX_SET "SET"
 #define MPX_GET "GET"
-//#define MPX_CMD "CMD"
+#define MPX_COMMAND "CMD"
 
 #define MPX_MAXLINE 256
-#define MPX_DATAFRAME 400
+#define MPX_DATAFRAME 128000
 
 #define MPX_OK 0    /*Ok*/
 #define MPX_ERROR 1 /*Unknown Error*/
