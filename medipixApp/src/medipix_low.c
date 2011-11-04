@@ -152,8 +152,6 @@ int mpxCmd(const char *command)
  */
 int mpxConnect(const char *host, int commandPort, int dataPort)
 {
-  //struct sockaddr_in server_addr, server_addr_data;
-  //struct timeval tv;
 
   printf("mpxConnect. host: %s, command port: %d, data port: %d\n", host, commandPort, dataPort);
 
