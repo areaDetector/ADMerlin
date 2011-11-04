@@ -15,7 +15,7 @@
 //#define MPX_CMD "CMD"
 
 #define MPX_MAXLINE 256
-#define MPX_DATA 128000
+#define MPX_DATAFRAME 400
 
 #define MPX_OK 0    /*Ok*/
 #define MPX_ERROR 1 /*Unknown Error*/

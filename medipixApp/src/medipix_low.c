@@ -409,7 +409,7 @@ static int mpxRead(char *input)
 int mpxData(unsigned int *data)
 {
 
-  int nleft = MPX_DATA;
+  int nleft = MPX_DATAFRAME;
   int nread = 0;
   char *bptr = NULL;
   int i = 0;
@@ -418,6 +418,10 @@ int mpxData(unsigned int *data)
   bptr = &data;
 
   if (connected) {
+
+    printf("nread = %d\n", nread);
+    printf("nleft = %d\n", nleft);
+    printf("MPX_DATAFRAME = %d\n", MPX_DATAFRAME);
 
     /*Read from socket until we get a complete frame.*/
     while (nleft > 0) {
@@ -435,15 +439,23 @@ int mpxData(unsigned int *data)
       nleft = nleft - nread;
 
       printf("nread = %d\n", nread);
+      printf("nleft = %d\n", nleft);
       
-      //Read until '\r\n'.
-      for (i=0; i<nread; i++) {
-	if ((*bptr=='\r')&&(*(bptr+1)=='\n')) {
-	  nleft = 0;
-	  break;
-	}
-	bptr++;
+      bptr+=nread;
+
+    }
+    
+    bptr=&data;
+      
+    //Read until '\r\n'.
+    for (i=0; i<MPX_DATAFRAME; i++) {
+      printf("  data[%d]: %x\n", i, (*bptr)&0xFF); 
+      if ((*bptr=='\r')&&(*(bptr+1)=='\n')) {
+	printf("found terminator!\n");
+	nleft = 0;
+	break;
       }
+      bptr++;
     }
   
   } else {

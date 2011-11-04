@@ -21,7 +21,7 @@
 #include <pthread.h>
 
 #define MAXLINE 256
-#define MAXDATA 128000
+#define MAXDATA 400
 
 /*Function prototypes.*/
 void sig_chld(int signo);
@@ -158,7 +158,7 @@ void * dataThread(void *data_fd)
   printf("Started dataThread.\n");
   
   if (produce_data((int)data_fd) != EXIT_SUCCESS) {
-    printf("  Datat client failed to handle protocol, or connection closed.\n");
+    printf("  Data client failed to handle protocol, or connection closed.\n");
     /*close connected socket*/
     close((int) data_fd);
     return EXIT_FAILURE;
@@ -320,15 +320,17 @@ int produce_data(int data_fd)
 {
   //char *data = "Here is some data.\r\n";
 
-  unsigned int trailer = 0xDA; /* CR LF */
+  //unsigned int trailer = 0xDA; /* CR LF */
 
-  unsigned int data[MAXDATA] = {0};
+  char data[MAXDATA] = {0};
   unsigned int i;
 
   for (i = 0; i<MAXDATA; i++) {
-    data[i] = i;
+    data[i] = (i % 255) & 0xFF;
+    printf("data[%d]: %x\n", i, data[i] & 0xFF);
   }
-  data[MAXDATA] = trailer;
+  data[MAXDATA-1] = 0xA;
+  data[MAXDATA-2] = 0xD;
 
   while (1) {
 
@@ -346,11 +348,11 @@ int produce_data(int data_fd)
     //printf("data_exit: %d\n", data_exit);
     //printf("do_data: %d\n", do_data);
     
-    printf("strlen(data): %d\n", strlen(data));
+    printf("MAXDATA: %d\n", MAXDATA);
 
     if ((do_data == 1) && (data_exit == 0)) {
-      if (write(data_fd, data, strlen(data)) <= 0) {
-	//printf("Error writing back to client.\n");
+      if (write(data_fd, data, MAXDATA) <= 0) {
+	printf("Error writing back to client.\n");
 	do_data = 0;
 	pthread_mutex_unlock(&do_data_mutex);
 	return EXIT_FAILURE;
@@ -358,7 +360,7 @@ int produce_data(int data_fd)
       do_data = 0;
     } else {
       if (data_exit) {
-	//printf("Exiting data thread.\n");
+	printf("Exiting data thread.\n");
 	data_exit = 0;
 	pthread_mutex_unlock(&do_data_mutex);
 	break;
