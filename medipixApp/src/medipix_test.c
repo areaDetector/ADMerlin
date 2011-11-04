@@ -17,7 +17,7 @@ int main(int argc, char *argv[])
   int conn_flag = 0;
   int status = 0;
 
-  unsigned int data[1000000];
+  unsigned int data[MPX_DATA] = {0};
 
   printf("Test program for medipix_low interface library.\n");
 
@@ -66,6 +66,11 @@ int main(int argc, char *argv[])
   if ((status = mpxData(data)) != MPX_OK) {
     printf("ERROR reading data. status: %d\n", status);
   }
+
+  printf("data[0]=%x\n", data[0]);
+  printf("data[1]=%x\n", data[1]);
+  printf("data[2]=%x\n", data[2]);
+  printf("data[3]=%x\n", data[3]);
 
   //sleep(1);
 

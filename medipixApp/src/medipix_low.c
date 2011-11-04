@@ -409,30 +409,18 @@ static int mpxRead(char *input)
 int mpxData(unsigned int *data)
 {
 
-  int nleft = MPX_MAXLINE-1;
+  int nleft = MPX_DATA;
   int nread = 0;
-  char buffer[MPX_MAXLINE] = {'\0'};
   char *bptr = NULL;
   int i = 0;
   char *function = "mpxData";
 
-  int status = 0;
-
-  bptr = &buffer;
+  bptr = &data;
 
   if (connected) {
 
-    printf("mpxData.\n");
-
-    
-
-
     /*Read from socket until we get a complete frame.*/
-    /*As a quick test, use the command read to see if it works for a short string sent back from the simulation.*/
-    ///Read until nothing left in socket.
     while (nleft > 0) {
-      printf("***before read...\n");
-      printf("***fd_data: %d\n");
       if ((nread = read(fd_data, bptr, nleft)) < 0) {
 	if (errno == EINTR) {
 	  nread = 0;
@@ -443,9 +431,10 @@ int mpxData(unsigned int *data)
       } else if (nread == 0) {
 	return MPX_READ; //Done. Socket may have closed.
       }
-      printf("***after read...\n");
       
       nleft = nleft - nread;
+
+      printf("nread = %d\n", nread);
       
       //Read until '\r\n'.
       for (i=0; i<nread; i++) {
@@ -456,14 +445,9 @@ int mpxData(unsigned int *data)
 	bptr++;
       }
     }
-    
-  //printf("mpxRead: buffer: %s\n", buffer);
-
-    printf("We read in mpxData: %s\n", buffer);
-
-
-    /*Point to data buffer*/
   
+  } else {
+    return MPX_CONN;
   }
 
   return EXIT_SUCCESS;
