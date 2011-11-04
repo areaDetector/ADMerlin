@@ -12,6 +12,7 @@
 #define MPX_HEADER "MPX"
 #define MPX_SET "SET"
 #define MPX_GET "GET"
+//#define MPX_CMD "CMD"
 
 #define MPX_MAXLINE 256
 
@@ -28,6 +29,7 @@
 /* Function prototypes*/
 extern int mpxSet(const char *command, const char *value);
 extern int mpxGet(const char *command, char *value);
+extern int mpxCmd(const char *command);
 extern int mpxData(unsigned int *data);
 extern int mpxConnect(const char *host, int commandPort, int dataPort);
 extern int mpxIsConnected(int *conn);

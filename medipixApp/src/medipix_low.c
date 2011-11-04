@@ -104,6 +104,52 @@ int mpxGet(const char *command, char *value)
   return MPX_OK;
 }
 
+/**
+ * Send a cmd command.
+ * @arg command - command name
+ * @return int - error code
+ */
+int mpxCmd(const char *command) 
+{
+  char buff[MPX_MAXLINE] = {'\0'};
+  int buff_len = 0;
+  char *function = "mpxCmd";
+  int status = 0;
+
+  printf("Inside mpxCmd...\n");
+
+  if (!connected) {
+    return MPX_CONN;
+  }
+  
+  printf("Inside mpxCmd 2...\n");
+
+  if (command == NULL) {
+    return MPX_LEN;
+  }
+
+  printf("Inside mpxCmd 3...\n");
+  
+  /*Build up comand to be sent.*/
+  buff_len = strlen(command) + strlen(MPX_HEADER) + strlen("CMD") + 4;
+  printf("Inside mpxCmd 4...\n");
+  printf("mpxCmd: buff_len:%d\n", buff_len);
+  if (buff_len > MPX_MAXLINE) {
+    return MPX_LEN;
+  }
+  printf("Inside mpxCmd 5...\n");
+  sprintf(buff, "%s,%s,%s\r\n", MPX_HEADER, "CMD", command);
+  
+  printf("mpxCmd: Command:%s\n", buff);
+  
+  if ((status = mpxWriteRead(buff, NULL)) != MPX_OK) {
+    return status;
+  }
+
+  return MPX_OK;
+}
+
+
 int mpxConnect(const char *host, int commandPort, int dataPort)
 {
   struct sockaddr_in server_addr, server_addr_data;
@@ -156,7 +202,7 @@ int mpxConnect(const char *host, int commandPort, int dataPort)
     tv.tv_sec = 5;  
     setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
     /* Set a 30s timeout on data read functions.*/
-    tv.tv_sec = 30;  
+    //tv.tv_sec = 30;  
     setsockopt(fd_data, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
     
     connected = 1;
@@ -317,6 +363,7 @@ static int mpxRead(char *input)
 
   ///Read until nothing left in socket.
   while (nleft > 0) {
+    printf("***fd: %d\n");
     if ((nread = read(fd, bptr, nleft)) < 0) {
       if (errno == EINTR) {
 	nread = 0;
@@ -340,7 +387,7 @@ static int mpxRead(char *input)
     }
   }
 
-  //printf("mpxRead: buffer: %s\n", buffer);
+  printf("mpxRead: buffer: %s\n", buffer);
   
   strncpy(input, buffer, MPX_MAXLINE);
   
@@ -362,11 +409,58 @@ static int mpxRead(char *input)
 int mpxData(unsigned int *data)
 {
 
+  int nleft = MPX_MAXLINE-1;
+  int nread = 0;
+  char buffer[MPX_MAXLINE] = {'\0'};
+  char *bptr = NULL;
+  int i = 0;
+  char *function = "mpxData";
+
+  int status = 0;
+
+  bptr = &buffer;
+
   if (connected) {
 
     printf("mpxData.\n");
 
+    
+
+
     /*Read from socket until we get a complete frame.*/
+    /*As a quick test, use the command read to see if it works for a short string sent back from the simulation.*/
+    ///Read until nothing left in socket.
+    while (nleft > 0) {
+      printf("***before read...\n");
+      printf("***fd_data: %d\n");
+      if ((nread = read(fd_data, bptr, nleft)) < 0) {
+	if (errno == EINTR) {
+	  nread = 0;
+	} else {
+	  perror(function);
+	  return MPX_READ;
+	}
+      } else if (nread == 0) {
+	return MPX_READ; //Done. Socket may have closed.
+      }
+      printf("***after read...\n");
+      
+      nleft = nleft - nread;
+      
+      //Read until '\r\n'.
+      for (i=0; i<nread; i++) {
+	if ((*bptr=='\r')&&(*(bptr+1)=='\n')) {
+	  nleft = 0;
+	  break;
+	}
+	bptr++;
+      }
+    }
+    
+  //printf("mpxRead: buffer: %s\n", buffer);
+
+    printf("We read in mpxData: %s\n", buffer);
+
 
     /*Point to data buffer*/
   

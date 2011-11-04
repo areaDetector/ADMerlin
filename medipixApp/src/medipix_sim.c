@@ -76,7 +76,7 @@ int main(int argc, char *argv[])
   listen(fd_data, 10);
 
   /* Install signal handler to clean up children.*/
-  signal(SIGCHLD, sig_chld);
+  //  signal(SIGCHLD, sig_chld);
 
   /*Loop forever.*/
   while(1) {
@@ -143,6 +143,7 @@ void * commandThread(void *command_fd)
     /*signal data thread to exit.*/
     printf("***signalling data thread to exit.\n");
     pthread_mutex_lock(&do_data_mutex);
+    do_data = 1;
     data_exit = 1;
     pthread_cond_signal(&do_data_cond);
     pthread_mutex_unlock(&do_data_mutex);
@@ -156,7 +157,7 @@ void * dataThread(void *data_fd)
   printf("Started dataThread.\n");
   
   if (produce_data((int)data_fd) != EXIT_SUCCESS) {
-    printf("  Client failed to handle protocol, or connection closed.\n");
+    printf("  Datat client failed to handle protocol, or connection closed.\n");
     /*close connected socket*/
     close((int) data_fd);
     return EXIT_FAILURE;
@@ -275,11 +276,13 @@ int echo_request(int socket_fd)
 	    /*signal data thread to send some data back.*/
 	    printf("***signalling data thread.\n");
 	    pthread_mutex_lock(&do_data_mutex);
+	    do_data = 1;
 	    pthread_cond_signal(&do_data_cond);
 	    pthread_mutex_unlock(&do_data_mutex);
 	  }
 	}
 	
+	printf("socket_fd: %d\n", socket_fd);
 	if (write(socket_fd, response, MAXLINE-nleft+1) <= 0) {
 	  printf("Error writing back to client.\n");
 	  return EXIT_FAILURE;
@@ -317,23 +320,42 @@ int produce_data(int data_fd)
   char *data = "Here is some data.\r\n";
 
   while (1) {
-    printf("***waiting in data thread.\n");
+
+    printf("***taking mutex in data thread.\n");
     /*Wait for signal to produce some data.*/
     pthread_mutex_lock(&do_data_mutex);
-    pthread_cond_wait(&do_data_cond, &do_data_mutex);
+    while (do_data == 0) {
+      printf("***waiting in data thread.\n");
+      pthread_cond_wait(&do_data_cond, &do_data_mutex);
+    }
+      
+    printf("***got signal in data thread.\n");
+    
+    printf("data_fd: %d\n", data_fd);
+    printf("data_exit: %d\n", data_exit);
+    printf("do_data: %d\n", do_data);
+    
+    if ((do_data == 1) && (data_exit == 0)) {
+      if (write(data_fd, data, strlen(data)) <= 0) {
+	printf("Error writing back to client.\n");
+	do_data = 0;
+	pthread_mutex_unlock(&do_data_mutex);
+	return EXIT_FAILURE;
+      }
+      do_data = 0;
+    } else {
+      if (data_exit) {
+	printf("Exiting data thread.\n");
+	data_exit = 0;
+	pthread_mutex_unlock(&do_data_mutex);
+	break;
+      }
+    }
+    
     pthread_mutex_unlock(&do_data_mutex);
 
-    if (data_exit) {
-      break;
-    }
-
-    printf("***got signal in data thread.\n");
-
-    if (write(data_fd, data, strlen(data)) <= 0) {
-      printf("Error writing back to client.\n");
-      return EXIT_FAILURE;
-    }
   }
+  pthread_mutex_unlock(&do_data_mutex);
 
   return EXIT_SUCCESS;
 }

@@ -35,30 +35,39 @@ int main(int argc, char *argv[])
     }
   }
 
-  sleep(5);
+  //sleep(1);
 
   if ((status = mpxGet("NUMFRAMESTOACQUIRE", value)) != MPX_OK) {
     printf("ERROR. status: %d\n", status);
   }
   printf("NUMFRAMESTOACQUIRE: %s\n", value);
 
-  
+  //sleep(1);
 
   if ((status = mpxSet("NUMFRAMESTOACQUIRE", "2")) != MPX_OK) {
     printf("ERROR. status: %d\n", status);
   }
 
+  //sleep(1);
   
   if ((status = mpxGet("NUMFRAMESTOACQUIRE", value)) != MPX_OK) {
     printf("ERROR. status: %d\n", status);
   }
   printf("NUMFRAMESTOACQUIRE: %s\n", value);
 
-  sleep(5);
+  //sleep(1);
 
+  printf("Sending STARTACQUISITION...\n");
+  if ((status = mpxCmd("STARTACQUISITION")) != MPX_OK) {
+    printf("ERROR. status: %d\n", status);
+  }
+
+  printf("Getting data...\n");
   if ((status = mpxData(data)) != MPX_OK) {
     printf("ERROR reading data. status: %d\n", status);
   }
+
+  //sleep(1);
 
   if ((status = mpxDisconnect()) != MPX_OK) {
     printf("ERROR Disconnecting . status: %d\n", status);
@@ -70,7 +79,7 @@ int main(int argc, char *argv[])
     printf("ERROR Message: %s\n", errMsg);
   }
   
-  sleep(2);
+  sleep(1);
 
   //if ((status = mpxConnect("172.23.244.34", 14000, 14001)) != MPX_OK) {
   //  printf("ERROR Connecting. status: %d\n", status);
