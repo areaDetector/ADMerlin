@@ -20,6 +20,7 @@
 static int mpxWriteRead(const char *buff, char *response);
 static int mpxRead(char *input);
 static int mpxWrite(const char *buff);
+static int mpxSocketConnect(const char *host, int port, int *sock); 
 
 static int connected = 0;
 static int fd = 0;
@@ -151,66 +152,57 @@ int mpxCmd(const char *command)
  */
 int mpxConnect(const char *host, int commandPort, int dataPort)
 {
-  struct sockaddr_in server_addr, server_addr_data;
-  struct timeval tv;
-
-  char *function = "mpxConnect";
+  //struct sockaddr_in server_addr, server_addr_data;
+  //struct timeval tv;
 
   printf("mpxConnect. host: %s, command port: %d, data port: %d\n", host, commandPort, dataPort);
 
   if (!connected) {
-    /*Create a TCP socket*/
-    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-      perror(function);
-      return MPX_CONN;
-    }
-    
-    /*Create and initialise a socket address structure*/
-    memset(&server_addr, 0, sizeof(struct sockaddr_in));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr(host);
-    server_addr.sin_port = htons(commandPort);
-    
-    /*Connect to the server.*/
-    if ((connect(fd, (struct sockaddr*) &server_addr, sizeof(server_addr))) < 0) {
-      perror(function);
+
+    if (mpxSocketConnect(host, commandPort, &fd) != MPX_OK) {
       return MPX_CONN;
     }
 
-    /*Create a TCP socket*/
-    if ((fd_data = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-      perror(function);
-      close(fd);
-      return MPX_CONN;
-    }
-    
-    /*Create and initialise a socket address structure*/
-    memset(&server_addr_data, 0, sizeof(struct sockaddr_in));
-    server_addr_data.sin_family = AF_INET;
-    server_addr_data.sin_addr.s_addr = inet_addr(host);
-    server_addr_data.sin_port = htons(dataPort);
-    
-    /*Connect to the server.*/
-    if ((connect(fd_data, (struct sockaddr*) &server_addr_data, sizeof(server_addr))) < 0) {
-      perror(function);
+    if (mpxSocketConnect(host, dataPort, &fd_data) != MPX_OK) {
       return MPX_CONN;
     }
 
-
-    /* Set a 5s timeout on read functions.*/
-    tv.tv_sec = 5;  
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
-    /* Set a 30s timeout on data read functions.*/
-    //tv.tv_sec = 30;  
-    setsockopt(fd_data, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
-    
     connected = 1;
-
-
   }
   
   return MPX_OK;
 }
+
+static int mpxSocketConnect(const char *host, int port, int *sock) 
+{
+  struct sockaddr_in server_addr;
+  struct timeval tv;
+
+  char *function = "mpxSocketConnect";
+
+  /*Create a TCP socket*/
+  if ((*sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    perror(function);
+    return MPX_CONN;
+  }
+  
+  /*Create and initialise a socket address structure*/
+  memset(&server_addr, 0, sizeof(struct sockaddr_in));
+  server_addr.sin_family = AF_INET;
+  server_addr.sin_addr.s_addr = inet_addr(host);
+  server_addr.sin_port = htons(port);
+  
+  /*Connect to the server.*/
+  if ((connect(*sock, (struct sockaddr*) &server_addr, sizeof(server_addr))) < 0) {
+    perror(function);
+    return MPX_CONN;
+  }
+
+  /* Set a 5s timeout on read functions.*/
+  tv.tv_sec = 5;  
+  setsockopt(*sock, SOL_SOCKET, SO_RCVTIMEO,(struct timeval *)&tv,sizeof(struct timeval));
+}
+
 
 /**
  * Test the connection status.
