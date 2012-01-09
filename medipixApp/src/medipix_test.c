@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 
   printf("Test program for medipix_low interface library.\n");
 
-  if ((status = mpxConnect("172.23.244.34", 14000, 14001)) != MPX_OK) {
+  if ((status = mpxConnect("127.0.0.1", 14000, 14001)) != MPX_OK) {
     printf("ERROR. status: %d, message: %s\n", status, mpxError(status, errMsg));
   }
   
