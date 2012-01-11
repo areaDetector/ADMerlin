@@ -1,0 +1,20 @@
+# medipix.template
+# Medipix Area Detector extensions
+#
+# Parameters:
+#% macro, P,  EPICS name prefix
+#% macro, R,  EPICS name suffix
+#% macro, PORT,  Asyn port
+#% macro, TIMEOUT,  Timeout
+
+# DUMMY RECORD - replace with actual extensions for this device
+record(bo, "$(P)$(R):LABVIEW_PORT")
+{
+    field(SCAN, "Passive")
+    field(DTYP, "asynInt32")
+    field(VAL,  "0")
+    field(OUT,  "@asyn($(PORT),$(AXIS),$(TIMEOUT))CALIBRATE_SENSOR")
+    field(PINI, "1")
+    field(ZNAM, "Idle")
+    field(ONAM, "Calibrate")
+}

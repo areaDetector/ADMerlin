@@ -24,7 +24,7 @@ install: $(IOC_DIRS)
 
 # General rule for building a Standard IOC from an XML file
 $(TOP)/iocs/%: %.xml
-	$(XMLBUILDER) $(DEBUG) $<
+	$(XMLBUILDER) -e $(DEBUG) $<
 
 # General rule for building a Simulation IOC from an XML file
 $(TOP)/iocs/%_sim: %.xml

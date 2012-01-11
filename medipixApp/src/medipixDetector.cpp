@@ -1,4 +1,4 @@
-/* pilatusDetector.cpp
+/* medipixDetector.cpp
  *
  * This is a driver for a Medipix 3 detector chip.
  *
@@ -8,6 +8,9 @@
  *         Diamond Light Source Ltd.
  *
  * Created:  Jan 06 2011
+ *
+
+ * Original Source from pilatusDetector by Mark Rivers
  *
  */
  
@@ -40,13 +43,13 @@
 
 #include "ADDriver.h"
 
-/** Messages to/from camserver */
+/** Messages to/from Labview command channel */
 #define MAX_MESSAGE_SIZE 256 
 #define MAX_FILENAME_LEN 256
 #define MAX_BAD_PIXELS 100
-/** Time to poll when reading from camserver */
+/** Time to poll when reading from Labview */
 #define ASYN_POLL_TIME .01 
-#define CAMSERVER_DEFAULT_TIMEOUT 1.0 
+#define Labview_DEFAULT_TIMEOUT 1.0
 /** Time between checking to see if image file is complete */
 #define FILE_READ_DELAY .01
 
@@ -57,9 +60,9 @@ typedef enum {
     TMExternalTrigger,
     TMMultipleExternalTrigger,
     TMAlignment
-} PilatusTriggerMode;
+} medipixTriggerMode;
 
-/** Bad pixel structure for Pilatus detector */
+/** Bad pixel structure for medipix detector */
 typedef struct {
     int badIndex;
     int replaceIndex;
@@ -68,52 +71,52 @@ typedef struct {
 
 static const char *gainStrings[] = {"lowG", "midG", "highG", "uhighG"};
 
-static const char *driverName = "pilatusDetector";
+static const char *driverName = "medipixDetector";
 
-#define PilatusDelayTimeString      "DELAY_TIME"
-#define PilatusThresholdString      "THRESHOLD"
-#define PilatusThresholdApplyString "THRESHOLD_APPLY"
-#define PilatusThresholdAutoApplyString "THRESHOLD_AUTO_APPLY"
-#define PilatusArmedString          "ARMED"
-#define PilatusImageFileTmotString  "IMAGE_FILE_TMOT"
-#define PilatusBadPixelFileString   "BAD_PIXEL_FILE"
-#define PilatusNumBadPixelsString   "NUM_BAD_PIXELS"
-#define PilatusFlatFieldFileString  "FLAT_FIELD_FILE"
-#define PilatusMinFlatFieldString   "MIN_FLAT_FIELD"
-#define PilatusFlatFieldValidString "FLAT_FIELD_VALID"
-#define PilatusGapFillString        "GAP_FILL"
-#define PilatusWavelengthString     "WAVELENGTH"
-#define PilatusEnergyLowString      "ENERGY_LOW"
-#define PilatusEnergyHighString     "ENERGY_HIGH"
-#define PilatusDetDistString        "DET_DIST"
-#define PilatusDetVOffsetString     "DET_VOFFSET"
-#define PilatusBeamXString          "BEAM_X"
-#define PilatusBeamYString          "BEAM_Y"
-#define PilatusFluxString           "FLUX"
-#define PilatusFilterTransmString   "FILTER_TRANSM"
-#define PilatusStartAngleString     "START_ANGLE"
-#define PilatusAngleIncrString      "ANGLE_INCR"
-#define PilatusDet2thetaString      "DET_2THETA"
-#define PilatusPolarizationString   "POLARIZATION"
-#define PilatusAlphaString          "ALPHA"
-#define PilatusKappaString          "KAPPA"
-#define PilatusPhiString            "PHI"
-#define PilatusChiString            "CHI"
-#define PilatusOscillAxisString     "OSCILL_AXIS"
-#define PilatusNumOscillString      "NUM_OSCILL"
-#define PilatusPixelCutOffString    "PIXEL_CUTOFF"
-#define PilatusThTemp0String        "TH_TEMP_0"
-#define PilatusThTemp1String        "TH_TEMP_1"
-#define PilatusThTemp2String        "TH_TEMP_2"
-#define PilatusThHumid0String       "TH_HUMID_0"
-#define PilatusThHumid1String       "TH_HUMID_1"
-#define PilatusThHumid2String       "TH_HUMID_2"
-#define PilatusTvxVersionString       "TVXVERSION"
+#define medipixDelayTimeString      "DELAY_TIME"
+#define medipixThresholdString      "THRESHOLD"
+#define medipixThresholdApplyString "THRESHOLD_APPLY"
+#define medipixThresholdAutoApplyString "THRESHOLD_AUTO_APPLY"
+#define medipixArmedString          "ARMED"
+#define medipixImageFileTmotString  "IMAGE_FILE_TMOT"
+#define medipixBadPixelFileString   "BAD_PIXEL_FILE"
+#define medipixNumBadPixelsString   "NUM_BAD_PIXELS"
+#define medipixFlatFieldFileString  "FLAT_FIELD_FILE"
+#define medipixMinFlatFieldString   "MIN_FLAT_FIELD"
+#define medipixFlatFieldValidString "FLAT_FIELD_VALID"
+#define medipixGapFillString        "GAP_FILL"
+#define medipixWavelengthString     "WAVELENGTH"
+#define medipixEnergyLowString      "ENERGY_LOW"
+#define medipixEnergyHighString     "ENERGY_HIGH"
+#define medipixDetDistString        "DET_DIST"
+#define medipixDetVOffsetString     "DET_VOFFSET"
+#define medipixBeamXString          "BEAM_X"
+#define medipixBeamYString          "BEAM_Y"
+#define medipixFluxString           "FLUX"
+#define medipixFilterTransmString   "FILTER_TRANSM"
+#define medipixStartAngleString     "START_ANGLE"
+#define medipixAngleIncrString      "ANGLE_INCR"
+#define medipixDet2thetaString      "DET_2THETA"
+#define medipixPolarizationString   "POLARIZATION"
+#define medipixAlphaString          "ALPHA"
+#define medipixKappaString          "KAPPA"
+#define medipixPhiString            "PHI"
+#define medipixChiString            "CHI"
+#define medipixOscillAxisString     "OSCILL_AXIS"
+#define medipixNumOscillString      "NUM_OSCILL"
+#define medipixPixelCutOffString    "PIXEL_CUTOFF"
+#define medipixThTemp0String        "TH_TEMP_0"
+#define medipixThTemp1String        "TH_TEMP_1"
+#define medipixThTemp2String        "TH_TEMP_2"
+#define medipixThHumid0String       "TH_HUMID_0"
+#define medipixThHumid1String       "TH_HUMID_1"
+#define medipixThHumid2String       "TH_HUMID_2"
+#define medipixTvxVersionString       "TVXVERSION"
 
-/** Driver for Dectris Pilatus pixel array detectors using their camserver server over TCP/IP socket */
-class pilatusDetector : public ADDriver {
+/** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
+class medipixDetector : public ADDriver {
 public:
-    pilatusDetector(const char *portName, const char *camserverPort,
+    medipixDetector(const char *portName, const char *LabviewPort,
                     int maxSizeX, int maxSizeY,
                     int maxBuffers, size_t maxMemory,
                     int priority, int stackSize);
@@ -124,51 +127,51 @@ public:
     virtual asynStatus writeOctet(asynUser *pasynUser, const char *value, 
                                     size_t nChars, size_t *nActual);
     void report(FILE *fp, int details);
-    void pilatusTask(); /* This should be private but is called from C so must be public */
-    void pilatusStatus(); /* This should be private but is called from C so must be public */
+    void medipixTask(); /* This should be private but is called from C so must be public */
+    void medipixStatus(); /* This should be private but is called from C so must be public */
  
  protected:
-    int PilatusDelayTime;
-    #define FIRST_PILATUS_PARAM PilatusDelayTime
-    int PilatusThreshold;
-    int PilatusThresholdApply;
-    int PilatusThresholdAutoApply;
-    int PilatusArmed;
-    int PilatusImageFileTmot;
-    int PilatusBadPixelFile;
-    int PilatusNumBadPixels;
-    int PilatusFlatFieldFile;
-    int PilatusMinFlatField;
-    int PilatusFlatFieldValid;
-    int PilatusGapFill;
-    int PilatusWavelength;
-    int PilatusEnergyLow;
-    int PilatusEnergyHigh;
-    int PilatusDetDist;
-    int PilatusDetVOffset;
-    int PilatusBeamX;
-    int PilatusBeamY;
-    int PilatusFlux;
-    int PilatusFilterTransm;
-    int PilatusStartAngle;
-    int PilatusAngleIncr;
-    int PilatusDet2theta;
-    int PilatusPolarization;
-    int PilatusAlpha;
-    int PilatusKappa;
-    int PilatusPhi;
-    int PilatusChi;
-    int PilatusOscillAxis;
-    int PilatusNumOscill;
-    int PilatusPixelCutOff;  
-    int PilatusThTemp0;
-    int PilatusThTemp1;
-    int PilatusThTemp2;
-    int PilatusThHumid0;
-    int PilatusThHumid1;
-    int PilatusThHumid2;
-    int PilatusTvxVersion;
-    #define LAST_PILATUS_PARAM PilatusTvxVersion
+    int medipixDelayTime;
+    #define FIRST_medipix_PARAM medipixDelayTime
+    int medipixThreshold;
+    int medipixThresholdApply;
+    int medipixThresholdAutoApply;
+    int medipixArmed;
+    int medipixImageFileTmot;
+    int medipixBadPixelFile;
+    int medipixNumBadPixels;
+    int medipixFlatFieldFile;
+    int medipixMinFlatField;
+    int medipixFlatFieldValid;
+    int medipixGapFill;
+    int medipixWavelength;
+    int medipixEnergyLow;
+    int medipixEnergyHigh;
+    int medipixDetDist;
+    int medipixDetVOffset;
+    int medipixBeamX;
+    int medipixBeamY;
+    int medipixFlux;
+    int medipixFilterTransm;
+    int medipixStartAngle;
+    int medipixAngleIncr;
+    int medipixDet2theta;
+    int medipixPolarization;
+    int medipixAlpha;
+    int medipixKappa;
+    int medipixPhi;
+    int medipixChi;
+    int medipixOscillAxis;
+    int medipixNumOscill;
+    int medipixPixelCutOff;
+    int medipixThTemp0;
+    int medipixThTemp1;
+    int medipixThTemp2;
+    int medipixThHumid0;
+    int medipixThHumid1;
+    int medipixThHumid2;
+    int medipixTvxVersion;
+    #define LAST_medipix_PARAM medipixTvxVersion
 
  private:                                       
     /* These are the methods that are new to this class */
@@ -180,9 +183,9 @@ public:
     asynStatus readImageFile(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage);
     asynStatus readCbf(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage);
     asynStatus readTiff(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage);
-    asynStatus writeCamserver(double timeout);
-    asynStatus readCamserver(double timeout);
-    asynStatus writeReadCamserver(double timeout);
+    asynStatus writeLabview(double timeout);
+    asynStatus readLabview(double timeout);
+    asynStatus writeReadLabview(double timeout);
     asynStatus setAcquireParams();
     asynStatus setThreshold();
     void readBadPixelFile(const char *badPixelFile);
@@ -192,19 +195,19 @@ public:
     int imagesRemaining;
     epicsEventId startEventId;
     epicsEventId stopEventId;
-    char toCamserver[MAX_MESSAGE_SIZE];
-    char fromCamserver[MAX_MESSAGE_SIZE];
+    char toLabview[MAX_MESSAGE_SIZE];
+    char fromLabview[MAX_MESSAGE_SIZE];
     NDArray *pFlatField;
     char multipleFileFormat[MAX_FILENAME_LEN];
     int multipleFileNumber;
-    asynUser *pasynUserCamserver;
+    asynUser *pasynUserLabview;
     badPixel badPixelMap[MAX_BAD_PIXELS];
     double averageFlatField;
 };
 
-#define NUM_PILATUS_PARAMS (&LAST_PILATUS_PARAM - &FIRST_PILATUS_PARAM + 1)
+#define NUM_medipix_PARAMS (&LAST_medipix_PARAM - &FIRST_medipix_PARAM + 1)
 
-void pilatusDetector::readBadPixelFile(const char *badPixelFile)
+void medipixDetector::readBadPixelFile(const char *badPixelFile)
 {
     int i; 
     int xbad, ybad, xgood, ygood;
@@ -216,7 +219,7 @@ void pilatusDetector::readBadPixelFile(const char *badPixelFile)
 
     getIntegerParam(NDArraySizeX, &nx);
     getIntegerParam(NDArraySizeY, &ny);
-    setIntegerParam(PilatusNumBadPixels, numBadPixels);
+    setIntegerParam(medipixNumBadPixels, numBadPixels);
     if (strlen(badPixelFile) == 0) return;
     file = fopen(badPixelFile, "r");
     if (file == NULL) {
@@ -239,11 +242,11 @@ void pilatusDetector::readBadPixelFile(const char *badPixelFile)
         this->badPixelMap[i].replaceIndex = ygood*ny + xgood;
         numBadPixels++;
     }
-    setIntegerParam(PilatusNumBadPixels, numBadPixels);
+    setIntegerParam(medipixNumBadPixels, numBadPixels);
 }
 
 
-void pilatusDetector::readFlatFieldFile(const char *flatFieldFile)
+void medipixDetector::readFlatFieldFile(const char *flatFieldFile)
 {
     int i;
     int status;
@@ -253,9 +256,9 @@ void pilatusDetector::readFlatFieldFile(const char *flatFieldFile)
     const char *functionName = "readFlatFieldFile";
     NDArrayInfo arrayInfo;
     
-    setIntegerParam(PilatusFlatFieldValid, 0);
+    setIntegerParam(medipixFlatFieldValid, 0);
     this->pFlatField->getInfo(&arrayInfo);
-    getIntegerParam(PilatusMinFlatField, &minFlatField);
+    getIntegerParam(medipixMinFlatField, &minFlatField);
     if (strlen(flatFieldFile) == 0) return;
     status = readImageFile(flatFieldFile, NULL, 0., this->pFlatField);
     if (status) {
@@ -288,13 +291,13 @@ void pilatusDetector::readFlatFieldFile(const char *flatFieldFile)
     this->unlock();
     doCallbacksGenericPointer(this->pFlatField, NDArrayData, 0);
     this->lock();
-    setIntegerParam(PilatusFlatFieldValid, 1);
+    setIntegerParam(medipixFlatFieldValid, 1);
 }
 
 
-void pilatusDetector::makeMultipleFileFormat(const char *baseFileName)
+void medipixDetector::makeMultipleFileFormat(const char *baseFileName)
 {
-    /* This function uses the code from camserver */
+    /* This function uses the code from Labview */
     char *p, *q;
     int fmt;
     char mfTempFormat[MAX_FILENAME_LEN];
@@ -347,7 +350,7 @@ void pilatusDetector::makeMultipleFileFormat(const char *baseFileName)
  * the creation time of the file is after a start time passed to it, to force it to wait
  * for a new file to be created.
  */
-asynStatus pilatusDetector::waitForFileToExist(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
+asynStatus medipixDetector::waitForFileToExist(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
 {
     int fd=-1;
     int fileExists=0;
@@ -409,19 +412,19 @@ asynStatus pilatusDetector::waitForFileToExist(const char *fileName, epicsTimeSt
 /** This function replaces bad pixels in the specified image with their replacements
  * according to the bad pixel map.
  */
-void pilatusDetector::correctBadPixels(NDArray *pImage)
+void medipixDetector::correctBadPixels(NDArray *pImage)
 {
     int i;
     int numBadPixels;
 
-    getIntegerParam(PilatusNumBadPixels, &numBadPixels);
+    getIntegerParam(medipixNumBadPixels, &numBadPixels);
     for (i=0; i<numBadPixels; i++) {
         ((epicsInt32 *)pImage->pData)[this->badPixelMap[i].badIndex] = 
         ((epicsInt32 *)pImage->pData)[this->badPixelMap[i].replaceIndex];
     }    
 }
 
-int pilatusDetector::stringEndsWith(const char *aString, const char *aSubstring, int shouldIgnoreCase)
+int medipixDetector::stringEndsWith(const char *aString, const char *aSubstring, int shouldIgnoreCase)
 {
     int i, j;
 
@@ -439,11 +442,11 @@ int pilatusDetector::stringEndsWith(const char *aString, const char *aSubstring,
 }
 
 /** This function reads TIFF or CBF image files.  It is not intended to be general, it
- * is intended to read the TIFF or CBF files that camserver creates.  It checks to make
+ * is intended to read the TIFF or CBF files that Labview creates.  It checks to make
  * sure that the creation time of the file is after a start time passed to it, to force
  * it to wait for a new file to be created.
  */
-asynStatus pilatusDetector::readImageFile(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
+asynStatus medipixDetector::readImageFile(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
 {
     const char *functionName = "readImageFile";
 
@@ -461,11 +464,11 @@ asynStatus pilatusDetector::readImageFile(const char *fileName, epicsTimeStamp *
 }
 
 /** This function reads CBF files using CBFlib.  It is not intended to be general, it is
- * intended to read the CBF files that camserver creates.  It checks to make sure that
+ * intended to read the CBF files that Labview creates.  It checks to make sure that
  * the creation time of the file is after a start time passed to it, to force it to wait
  * for a new file to be created.
  */
-asynStatus pilatusDetector::readCbf(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
+asynStatus medipixDetector::readCbf(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
 {
     epicsTimeStamp tStart, tCheck;
     double deltaTime;
@@ -611,11 +614,11 @@ asynStatus pilatusDetector::readCbf(const char *fileName, epicsTimeStamp *pStart
 }
 
 /** This function reads TIFF files using libTiff.  It is not intended to be general,
- * it is intended to read the TIFF files that camserver creates.  It checks to make sure
+ * it is intended to read the TIFF files that Labview creates.  It checks to make sure
  * that the creation time of the file is after a start time passed to it, to force it to
  * wait for a new file to be created.
  */
-asynStatus pilatusDetector::readTiff(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
+asynStatus medipixDetector::readTiff(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
 {
     epicsTimeStamp tStart, tCheck;
     double deltaTime;
@@ -721,7 +724,7 @@ asynStatus pilatusDetector::readTiff(const char *fileName, epicsTimeStamp *pStar
     return(asynSuccess);
 }   
 
-asynStatus pilatusDetector::setAcquireParams()
+asynStatus medipixDetector::setAcquireParams()
 {
     int ival;
     double dval;
@@ -748,61 +751,61 @@ asynStatus pilatusDetector::setAcquireParams()
         ival = 1;
         setIntegerParam(ADNumImages, ival);
     }
-    epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "nimages %d", ival);
-    writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT); 
+    epicsSnprintf(this->toLabview, sizeof(this->toLabview), "nimages %d", ival);
+    writeReadLabview(Labview_DEFAULT_TIMEOUT);
 
     status = getIntegerParam(ADNumExposures, &ival);
     if ((status != asynSuccess) || (ival < 1)) {
         ival = 1;
         setIntegerParam(ADNumExposures, ival);
     }
-    epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "nexpframe %d", ival);
-    writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT); 
+    epicsSnprintf(this->toLabview, sizeof(this->toLabview), "nexpframe %d", ival);
+    writeReadLabview(Labview_DEFAULT_TIMEOUT);
 
     status = getDoubleParam(ADAcquireTime, &dval);
     if ((status != asynSuccess) || (dval < 0.)) {
         dval = 1.;
         setDoubleParam(ADAcquireTime, dval);
     }
-    epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "exptime %f", dval);
-    writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
+    epicsSnprintf(this->toLabview, sizeof(this->toLabview), "exptime %f", dval);
+    writeReadLabview(Labview_DEFAULT_TIMEOUT);
 
     status = getDoubleParam(ADAcquirePeriod, &dval);
     if ((status != asynSuccess) || (dval < 0.)) {
         dval = 2.;
         setDoubleParam(ADAcquirePeriod, dval);
     }
-    epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "expperiod %f", dval);
-    writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
+    epicsSnprintf(this->toLabview, sizeof(this->toLabview), "expperiod %f", dval);
+    writeReadLabview(Labview_DEFAULT_TIMEOUT);
 
-    status = getDoubleParam(PilatusDelayTime, &dval);
+    status = getDoubleParam(medipixDelayTime, &dval);
     if ((status != asynSuccess) || (dval < 0.)) {
         dval = 0.;
-        setDoubleParam(PilatusDelayTime, dval);
+        setDoubleParam(medipixDelayTime, dval);
     }
-    epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "delay %f", dval);
-    writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
+    epicsSnprintf(this->toLabview, sizeof(this->toLabview), "delay %f", dval);
+    writeReadLabview(Labview_DEFAULT_TIMEOUT);
 
-    status = getIntegerParam(PilatusGapFill, &ival);
+    status = getIntegerParam(medipixGapFill, &ival);
     if ((status != asynSuccess) || (ival < -2) || (ival > 0)) {
         ival = -2;
-        setIntegerParam(PilatusGapFill, ival);
+        setIntegerParam(medipixGapFill, ival);
     }
     /* -2 is used to indicate that GapFill is not supported because it is a single element detector */
     if (ival != -2) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "gapfill %d", ival);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT); 
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "gapfill %d", ival);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
     }
 
     /*Read back the pixel count rate cut off value.*/
-    epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "Tau");
-    status=writeReadCamserver(5.0); 
+    epicsSnprintf(this->toLabview, sizeof(this->toLabview), "Tau");
+    status=writeReadLabview(5.0);
 
     /*Response contains the string "cutoff = 1221026 counts"*/
     if (!status) {
-      if ((substr = strstr(this->fromCamserver, "cutoff")) != NULL) {
+      if ((substr = strstr(this->fromLabview, "cutoff")) != NULL) {
 	sscanf(substr, "cutoff = %d counts", &pixelCutOff);
-	setIntegerParam(PilatusPixelCutOff, pixelCutOff);
+	setIntegerParam(medipixPixelCutOff, pixelCutOff);
       }
     }
    
@@ -810,7 +813,7 @@ asynStatus pilatusDetector::setAcquireParams()
 
 }
 
-asynStatus pilatusDetector::setThreshold()
+asynStatus medipixDetector::setThreshold()
 {
     int igain, status;
     double threshold, dgain;
@@ -821,30 +824,30 @@ asynStatus pilatusDetector::setThreshold()
     igain = (int)(dgain + 0.5);
     if (igain < 0) igain = 0;
     if (igain > 3) igain = 3;
-    getDoubleParam(PilatusThreshold, &threshold);
-    epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "SetThreshold %s %f", 
+    getDoubleParam(medipixThreshold, &threshold);
+    epicsSnprintf(this->toLabview, sizeof(this->toLabview), "SetThreshold %s %f",
                     gainStrings[igain], threshold*1000.);
     /* Set the status to waiting so we can be notified when it has finished */
     setIntegerParam(ADStatus, ADStatusWaiting);
     setStringParam(ADStatusMessage, "Setting threshold");
     callParamCallbacks();
     
-    status=writeReadCamserver(90.0);  /* This command can take 78 seconds on a 6M */
+    status=writeReadLabview(90.0);  /* This command can take 78 seconds on a 6M */
     if (status)
         setIntegerParam(ADStatus, ADStatusError);
     else
         setIntegerParam(ADStatus, ADStatusIdle);
-    setIntegerParam(PilatusThresholdApply, 0);
+    setIntegerParam(medipixThresholdApply, 0);
 
     /* Read back the actual setting, in case we are out of bounds.*/
-    epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "SetThreshold");
-    status=writeReadCamserver(5.0); 
+    epicsSnprintf(this->toLabview, sizeof(this->toLabview), "SetThreshold");
+    status=writeReadLabview(5.0);
 
     /* Response should contain "threshold: 9000 eV; vcmp:"*/
     if (!status) {
-      if ((substr = strstr(this->fromCamserver, "threshold: ")) != NULL) {
+      if ((substr = strstr(this->fromLabview, "threshold: ")) != NULL) {
 	sscanf(strtok(substr, ";"), "threshold: %d eV", &threshold_readback);
-	setDoubleParam(PilatusThreshold, (double)threshold_readback/1000.0);
+	setDoubleParam(medipixThreshold, (double)threshold_readback/1000.0);
       }
     }
     
@@ -858,39 +861,39 @@ asynStatus pilatusDetector::setThreshold()
     return(asynSuccess);
 }
 
-asynStatus pilatusDetector::writeCamserver(double timeout)
+asynStatus medipixDetector::writeLabview(double timeout)
 {
     size_t nwrite;
     asynStatus status;
-    const char *functionName="writeCamserver";
+    const char *functionName="writeLabview";
 
     /* Flush any stale input, since the next operation is likely to be a read */
-    status = pasynOctetSyncIO->flush(this->pasynUserCamserver);
-    status = pasynOctetSyncIO->write(this->pasynUserCamserver, this->toCamserver,
-                                     strlen(this->toCamserver), timeout,
+    status = pasynOctetSyncIO->flush(this->pasynUserLabview);
+    status = pasynOctetSyncIO->write(this->pasynUserLabview, this->toLabview,
+                                     strlen(this->toLabview), timeout,
                                      &nwrite);
                                         
     if (status) asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
                     "%s:%s, status=%d, sent\n%s\n",
-                    driverName, functionName, status, this->toCamserver);
+                    driverName, functionName, status, this->toLabview);
 
     /* Set output string so it can get back to EPICS */
-    setStringParam(ADStringToServer, this->toCamserver);
+    setStringParam(ADStringToServer, this->toLabview);
     
     return(status);
 }
 
 
-asynStatus pilatusDetector::readCamserver(double timeout)
+asynStatus medipixDetector::readLabview(double timeout)
 {
     size_t nread;
     asynStatus status=asynSuccess;
     int eventStatus;
-    asynUser *pasynUser = this->pasynUserCamserver;
+    asynUser *pasynUser = this->pasynUserLabview;
     int eomReason;
     epicsTimeStamp tStart, tCheck;
     double deltaTime;
-    const char *functionName="readCamserver";
+    const char *functionName="readLabview";
 
     /* We implement the timeout with a loop so that the port does not
      * block during the entire read.  If we don't do this then it is not possible
@@ -898,8 +901,8 @@ asynStatus pilatusDetector::readCamserver(double timeout)
     deltaTime = 0;
     epicsTimeGetCurrent(&tStart);
     while (deltaTime <= timeout) {
-        status = pasynOctetSyncIO->read(pasynUser, this->fromCamserver,
-                                        sizeof(this->fromCamserver), ASYN_POLL_TIME,
+        status = pasynOctetSyncIO->read(pasynUser, this->fromLabview,
+                                        sizeof(this->fromLabview), ASYN_POLL_TIME,
                                         &nread, &eomReason);
         if (status != asynTimeout) break;
         /* Sleep, but check for stop event, which can be used to abort a long acquisition */
@@ -917,45 +920,45 @@ asynStatus pilatusDetector::readCamserver(double timeout)
    if (status != asynSuccess)
         asynPrint(pasynUser, ASYN_TRACE_ERROR,
                     "%s:%s, timeout=%f, status=%d received %d bytes\n%s\n",
-                    driverName, functionName, timeout, status, nread, this->fromCamserver);
+                    driverName, functionName, timeout, status, nread, this->fromLabview);
     else {
         /* Look for the string OK in the response */
-        if (!strstr(this->fromCamserver, "OK")) {
+        if (!strstr(this->fromLabview, "OK")) {
             asynPrint(pasynUser, ASYN_TRACE_ERROR,
-                      "%s:%s unexpected response from camserver, no OK, response=%s\n",
-                      driverName, functionName, this->fromCamserver);
-            setStringParam(ADStatusMessage, "Error from camserver");
+                      "%s:%s unexpected response from Labview, no OK, response=%s\n",
+                      driverName, functionName, this->fromLabview);
+            setStringParam(ADStatusMessage, "Error from Labview");
             status = asynError;
         } else
-            setStringParam(ADStatusMessage, "Camserver returned OK");
+            setStringParam(ADStatusMessage, "Labview returned OK");
     }
 
     /* Set output string so it can get back to EPICS */
-    setStringParam(ADStringFromServer, this->fromCamserver);
+    setStringParam(ADStringFromServer, this->fromLabview);
 
     return(status);
 }
 
-asynStatus pilatusDetector::writeReadCamserver(double timeout)
+asynStatus medipixDetector::writeReadLabview(double timeout)
 {
     asynStatus status;
     
-    status = writeCamserver(timeout);
+    status = writeLabview(timeout);
     if (status) return status;
-    status = readCamserver(timeout);
+    status = readLabview(timeout);
     return status;
 }
 
-static void pilatusTaskC(void *drvPvt)
+static void medipixTaskC(void *drvPvt)
 {
-    pilatusDetector *pPvt = (pilatusDetector *)drvPvt;
+    medipixDetector *pPvt = (medipixDetector *)drvPvt;
     
-    pPvt->pilatusTask();
+    pPvt->medipixTask();
 }
 
 /** This thread controls acquisition, reads image files to get the image data, and
   * does the callbacks to send it to higher layers */
-void pilatusDetector::pilatusTask()
+void medipixDetector::medipixTask()
 {
     int status = asynSuccess;
     int imageCounter;
@@ -969,7 +972,7 @@ void pilatusDetector::pilatusTask()
     double readImageFileTimeout, timeout;
     int triggerMode;
     epicsTimeStamp startTime;
-    const char *functionName = "pilatusTask";
+    const char *functionName = "medipixTask";
     char fullFileName[MAX_FILENAME_LEN];
     char filePath[MAX_FILENAME_LEN];
     char statusMessage[MAX_MESSAGE_SIZE];
@@ -1007,7 +1010,7 @@ void pilatusDetector::pilatusTask()
         /* Get the exposure parameters */
         getDoubleParam(ADAcquireTime, &acquireTime);
         getDoubleParam(ADAcquirePeriod, &acquirePeriod);
-        getDoubleParam(PilatusImageFileTmot, &readImageFileTimeout);
+        getDoubleParam(medipixImageFileTmot, &readImageFileTimeout);
         
         /* Get the acquisition parameters */
         getIntegerParam(ADTriggerMode, &triggerMode);
@@ -1017,44 +1020,44 @@ void pilatusDetector::pilatusTask()
         setIntegerParam(ADStatus, acquiring);
 
         /* Reset the MX settings start angle */
-        getDoubleParam(PilatusStartAngle, &startAngle);
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Start_angle %f", startAngle);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
+        getDoubleParam(medipixStartAngle, &startAngle);
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Start_angle %f", startAngle);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
 
         /* Create the full filename */
         createFileName(sizeof(fullFileName), fullFileName);
         
         switch (triggerMode) {
             case TMInternal:
-                epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), 
+                epicsSnprintf(this->toLabview, sizeof(this->toLabview),
                     "Exposure %s", fullFileName);
                 break;
             case TMExternalEnable:
-                epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), 
+                epicsSnprintf(this->toLabview, sizeof(this->toLabview),
                     "ExtEnable %s", fullFileName);
                 break;
             case TMExternalTrigger:
-                epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), 
+                epicsSnprintf(this->toLabview, sizeof(this->toLabview),
                     "ExtTrigger %s", fullFileName);
                 break;
             case TMMultipleExternalTrigger:
-                epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), 
+                epicsSnprintf(this->toLabview, sizeof(this->toLabview),
                     "ExtMTrigger %s", fullFileName);
                 break;
             case TMAlignment:
                 getStringParam(NDFilePath, sizeof(filePath), filePath);
                 epicsSnprintf(fullFileName, sizeof(fullFileName), "%salignment.tif", 
                               filePath);
-                epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), 
+                epicsSnprintf(this->toLabview, sizeof(this->toLabview),
                     "Exposure %s", fullFileName);
                 break;
         }
         setStringParam(ADStatusMessage, "Starting exposure");
-        /* Send the acquire command to camserver and wait for the 15OK response */
-        writeReadCamserver(2.0);
+        /* Send the acquire command to Labview and wait for the 15OK response */
+        writeReadLabview(2.0);
 	
 	/* Do another read in case there is an ERR string at the end of the input buffer */
-	status=readCamserver(0.0);
+	status=readLabview(0.0);
 		
 	/* If the status wasn't asynSuccess or asynTimeout, report the error */
 	if (status>1) {
@@ -1066,7 +1069,7 @@ void pilatusDetector::pilatusTask()
             /* Open the shutter */
             setShutter(1);
             /* Set the armed flag */
-            setIntegerParam(PilatusArmed, 1);
+            setIntegerParam(medipixArmed, 1);
             /* Create the format string for constructing file names for multi-image collection */
             makeMultipleFileFormat(fullFileName);
             multipleFileNextImage = 0;
@@ -1085,7 +1088,7 @@ void pilatusDetector::pilatusTask()
             /* Open the shutter */
             setShutter(1);
             /* Set the armed flag */
-            setIntegerParam(PilatusArmed, 1);
+            setIntegerParam(medipixArmed, 1);
             /* Create the format string for constructing file names for multi-image collection */
             makeMultipleFileFormat(fullFileName);
             multipleFileNextImage = 0;
@@ -1096,7 +1099,7 @@ void pilatusDetector::pilatusTask()
 
         while (acquire) {
             if (numImages == 1) {
-                /* For single frame or alignment mode need to wait for 7OK response from camserver
+                /* For single frame or alignment mode need to wait for 7OK response from Labview
                  * saying acquisition is complete before trying to read file, else we get a
                  * recent but stale file. */
                 setStringParam(ADStatusMessage, "Waiting for 7OK response");
@@ -1104,13 +1107,13 @@ void pilatusDetector::pilatusTask()
                 /* We release the mutex when waiting for 7OK because this takes a long time and
                  * we need to allow abort operations to get through */
                 this->unlock();
-                status = readCamserver(acquireTime + readImageFileTimeout);
+                status = readLabview(acquireTime + readImageFileTimeout);
                 this->lock();
                 /* If there was an error jump to bottom of loop */
                 if (status) {
                     acquire = 0;
                     if(status==asynTimeout)
-                      setStringParam(ADStatusMessage, "Timeout waiting for camserver response");
+                      setStringParam(ADStatusMessage, "Timeout waiting for Labview response");
                     continue;
                 }
              } else {
@@ -1147,7 +1150,7 @@ void pilatusDetector::pilatusTask()
                     continue;
                 }
 
-                getIntegerParam(PilatusFlatFieldValid, &flatFieldValid);
+                getIntegerParam(medipixFlatFieldValid, &flatFieldValid);
                 if (flatFieldValid) {
                     epicsInt32 *pData, *pFlat, i;
                     for (i=0, pData = (epicsInt32 *)pImage->pData, pFlat = (epicsInt32 *)this->pFlatField->pData;
@@ -1176,10 +1179,10 @@ void pilatusDetector::pilatusTask()
             }
             if (numImages == 1) {
                 if (triggerMode == TMAlignment) {
-                   epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), 
+                   epicsSnprintf(this->toLabview, sizeof(this->toLabview),
                         "Exposure %s", fullFileName);
-                    /* Send the acquire command to camserver and wait for the 15OK response */
-                    writeReadCamserver(2.0);
+                    /* Send the acquire command to Labview and wait for the 15OK response */
+                    writeReadLabview(2.0);
                 } else {
                     acquire = 0;
                 }
@@ -1191,7 +1194,7 @@ void pilatusDetector::pilatusTask()
             
         }
         /* We are done acquiring */
-        /* Wait for the 7OK response from camserver in the case of multiple images */
+        /* Wait for the 7OK response from Labview in the case of multiple images */
         if ((numImages > 1) && (status == asynSuccess)) {
             /* If arrayCallbacks is 0 we will have gone through the above loop without waiting
              * for each image file to be written.  Thus, we may need to wait a long time for
@@ -1206,12 +1209,12 @@ void pilatusDetector::pilatusTask()
             /* We release the mutex because we may wait a long time and need to allow abort
              * operations to get through */
             this->unlock();
-            readCamserver(timeout);
+            readLabview(timeout);
             this->lock();
         }
         setShutter(0);
         setIntegerParam(ADAcquire, 0);
-        setIntegerParam(PilatusArmed, 0);
+        setIntegerParam(medipixArmed, 0);
 
         /* If everything was ok, set the status back to idle */
         if (!status) 
@@ -1224,16 +1227,16 @@ void pilatusDetector::pilatusTask()
     }
 }
 
-static void pilatusStatusC(void *drvPvt)
+static void medipixStatusC(void *drvPvt)
 {
-    pilatusDetector *pPvt = (pilatusDetector *)drvPvt;
+    medipixDetector *pPvt = (medipixDetector *)drvPvt;
     
-    pPvt->pilatusStatus();
+    pPvt->medipixStatus();
 }
 
 /** This thread periodically read the detector status (temperature, humidity, etc.)
-    It does not run if we are acquiring data, to avoid polling camserver when taking data.*/
-void pilatusDetector::pilatusStatus()
+    It does not run if we are acquiring data, to avoid polling Labview when taking data.*/
+void medipixDetector::medipixStatus()
 {
   int status = asynSuccess;
   int acquire = 0;
@@ -1247,8 +1250,8 @@ void pilatusDetector::pilatusStatus()
     getIntegerParam(ADAcquire, &acquire);
     if (!acquire) {
       /*Keep lock and read temp and humidity.*/
-      epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "Th");
-      status=writeReadCamserver(1.0); 
+      epicsSnprintf(this->toLabview, sizeof(this->toLabview), "Th");
+      status=writeReadLabview(1.0);
       
       /* Response should contain: 
 	 Channel 0: Temperature = 31.4C, Rel. Humidity = 22.1%;\n
@@ -1256,21 +1259,21 @@ void pilatusDetector::pilatusStatus()
 	 Channel 2: Temperature = 28.6C, Rel. Humidity = 2.0%
 	 However, not every detector has all 3 channels.*/
       if (!status) {
-	if ((substr = strstr(this->fromCamserver, "Channel 0: ")) != NULL) {
+	if ((substr = strstr(this->fromLabview, "Channel 0: ")) != NULL) {
 	  sscanf(strtok(substr, "%"), "Channel 0: Temperature = %fC, Rel. Humidity = %f", &temp, &humid);
-	  setDoubleParam(PilatusThTemp0, temp);
-	  setDoubleParam(PilatusThHumid0, humid);
+	  setDoubleParam(medipixThTemp0, temp);
+	  setDoubleParam(medipixThHumid0, humid);
 	  setDoubleParam(ADTemperature, temp);
 	}
-	if ((substr = strstr(this->fromCamserver, "Channel 1: ")) != NULL) {
+	if ((substr = strstr(this->fromLabview, "Channel 1: ")) != NULL) {
 	  sscanf(strtok(substr, "%"), "Channel 1: Temperature = %fC, Rel. Humidity = %f", &temp, &humid);
-	  setDoubleParam(PilatusThTemp1, temp);
-	  setDoubleParam(PilatusThHumid1, humid);
+	  setDoubleParam(medipixThTemp1, temp);
+	  setDoubleParam(medipixThHumid1, humid);
 	}
-	if ((substr = strstr(this->fromCamserver, "Channel 2: ")) != NULL) {
+	if ((substr = strstr(this->fromLabview, "Channel 2: ")) != NULL) {
 	  sscanf(strtok(substr, "%"), "Channel 2: Temperature = %fC, Rel. Humidity = %f", &temp, &humid);
-	  setDoubleParam(PilatusThTemp2, temp);
-	  setDoubleParam(PilatusThHumid2, humid);
+	  setDoubleParam(medipixThTemp2, temp);
+	  setDoubleParam(medipixThHumid2, humid);
 	}
       }
       
@@ -1295,7 +1298,7 @@ void pilatusDetector::pilatusStatus()
   * For all parameters it sets the value in the parameter library and calls any registered callbacks..
   * \param[in] pasynUser pasynUser structure that encodes the reason and address.
   * \param[in] value Value to write. */
-asynStatus pilatusDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
+asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 {
     int function = pasynUser->reason;
     int adstatus;
@@ -1307,30 +1310,30 @@ asynStatus pilatusDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
     if (function == ADAcquire) {
         getIntegerParam(ADStatus, &adstatus);
         if (value && (adstatus == ADStatusIdle || adstatus == ADStatusError)) {
-            /* Send an event to wake up the Pilatus task.  */
+            /* Send an event to wake up the medipix task.  */
             epicsEventSignal(this->startEventId);
         } 
         if (!value && (adstatus == ADStatusAcquire)) {
             /* This was a command to stop acquisition */
-            epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "Stop");
-            writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-            epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "K");
-            writeCamserver(CAMSERVER_DEFAULT_TIMEOUT);
+            epicsSnprintf(this->toLabview, sizeof(this->toLabview), "Stop");
+            writeReadLabview(Labview_DEFAULT_TIMEOUT);
+            epicsSnprintf(this->toLabview, sizeof(this->toLabview), "K");
+            writeLabview(Labview_DEFAULT_TIMEOUT);
             epicsEventSignal(this->stopEventId);
         }
     } else if ((function == ADTriggerMode) ||
                (function == ADNumImages) ||
                (function == ADNumExposures) ||
-               (function == PilatusGapFill)) {
+               (function == medipixGapFill)) {
         setAcquireParams();
-    } else if (function == PilatusThresholdApply) {
+    } else if (function == medipixThresholdApply) {
         setThreshold();
-    } else if (function == PilatusNumOscill) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings N_oscillations %d", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
+    } else if (function == medipixNumOscill) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings N_oscillations %d", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
     } else { 
         /* If this parameter belongs to a base class call its method */
-        if (function < FIRST_PILATUS_PARAM) status = ADDriver::writeInt32(pasynUser, value);
+        if (function < FIRST_medipix_PARAM) status = ADDriver::writeInt32(pasynUser, value);
     }
             
     /* Do callbacks so higher layers see any changes */
@@ -1353,7 +1356,7 @@ asynStatus pilatusDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
   * For all parameters it sets the value in the parameter library and calls any registered callbacks..
   * \param[in] pasynUser pasynUser structure that encodes the reason and address.
   * \param[in] value Value to write. */
-asynStatus pilatusDetector::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
+asynStatus medipixDetector::writeFloat64(asynUser *pasynUser, epicsFloat64 value)
 {
     int function = pasynUser->reason;
     asynStatus status = asynSuccess;
@@ -1371,68 +1374,68 @@ asynStatus pilatusDetector::writeFloat64(asynUser *pasynUser, epicsFloat64 value
 
     /* Changing any of the following parameters requires recomputing the base image */
     if ((function == ADGain) ||
-        (function == PilatusThreshold)) {
-        getIntegerParam(PilatusThresholdAutoApply, &thresholdAutoApply);
+        (function == medipixThreshold)) {
+        getIntegerParam(medipixThresholdAutoApply, &thresholdAutoApply);
         if (thresholdAutoApply) 
             setThreshold();
     } else if ((function == ADAcquireTime) ||
                (function == ADAcquirePeriod) ||
-               (function == PilatusDelayTime)) {
+               (function == medipixDelayTime)) {
         setAcquireParams();
-    } else if (function == PilatusWavelength) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Wavelength %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if ((function == PilatusEnergyLow) ||
-               (function == PilatusEnergyHigh)) {
-        getDoubleParam(PilatusEnergyLow, &energyLow);
-        getDoubleParam(PilatusEnergyHigh, &energyHigh);
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Energy_range %f,%f", energyLow, energyHigh);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusDetDist) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Detector_distance %f", value / 1000.0);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusDetVOffset) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Detector_Voffset %f", value / 1000.0);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if ((function == PilatusBeamX) ||
-               (function == PilatusBeamY)) {
-        getDoubleParam(PilatusBeamX, &beamX);
-        getDoubleParam(PilatusBeamY, &beamY);
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Beam_xy %f,%f", beamX, beamY);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusFlux) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Flux %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusFilterTransm) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Filter_transmission %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusStartAngle) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Start_angle %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusAngleIncr) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Angle_increment %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusDet2theta) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Detector_2theta %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusPolarization) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Polarization %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusAlpha) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Alpha %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusKappa) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Kappa %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusPhi) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Phi %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
-    } else if (function == PilatusChi) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Chi %f", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
+    } else if (function == medipixWavelength) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Wavelength %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if ((function == medipixEnergyLow) ||
+               (function == medipixEnergyHigh)) {
+        getDoubleParam(medipixEnergyLow, &energyLow);
+        getDoubleParam(medipixEnergyHigh, &energyHigh);
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Energy_range %f,%f", energyLow, energyHigh);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixDetDist) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Detector_distance %f", value / 1000.0);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixDetVOffset) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Detector_Voffset %f", value / 1000.0);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if ((function == medipixBeamX) ||
+               (function == medipixBeamY)) {
+        getDoubleParam(medipixBeamX, &beamX);
+        getDoubleParam(medipixBeamY, &beamY);
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Beam_xy %f,%f", beamX, beamY);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixFlux) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Flux %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixFilterTransm) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Filter_transmission %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixStartAngle) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Start_angle %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixAngleIncr) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Angle_increment %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixDet2theta) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Detector_2theta %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixPolarization) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Polarization %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixAlpha) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Alpha %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixKappa) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Kappa %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixPhi) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Phi %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
+    } else if (function == medipixChi) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Chi %f", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
     } else {
         /* If this parameter belongs to a base class call its method */
-        if (function < FIRST_PILATUS_PARAM) status = ADDriver::writeFloat64(pasynUser, value);
+        if (function < FIRST_medipix_PARAM) status = ADDriver::writeFloat64(pasynUser, value);
     }
 
     if (status) {
@@ -1453,13 +1456,13 @@ asynStatus pilatusDetector::writeFloat64(asynUser *pasynUser, epicsFloat64 value
 }
 
 /** Called when asyn clients call pasynOctet->write().
-  * This function performs actions for some parameters, including PilatusBadPixelFile, ADFilePath, etc.
+  * This function performs actions for some parameters, including medipixBadPixelFile, ADFilePath, etc.
   * For all parameters it sets the value in the parameter library and calls any registered callbacks..
   * \param[in] pasynUser pasynUser structure that encodes the reason and address.
   * \param[in] value Address of the string to write.
   * \param[in] nChars Number of characters to write.
   * \param[out] nActual Number of characters actually written. */
-asynStatus pilatusDetector::writeOctet(asynUser *pasynUser, const char *value, 
+asynStatus medipixDetector::writeOctet(asynUser *pasynUser, const char *value,
                                     size_t nChars, size_t *nActual)
 {
     int function = pasynUser->reason;
@@ -1469,21 +1472,21 @@ asynStatus pilatusDetector::writeOctet(asynUser *pasynUser, const char *value,
     /* Set the parameter in the parameter library. */
     status = (asynStatus)setStringParam(function, (char *)value);
 
-    if (function == PilatusBadPixelFile) {
+    if (function == medipixBadPixelFile) {
         this->readBadPixelFile(value);
-    } else if (function == PilatusFlatFieldFile) {
+    } else if (function == medipixFlatFieldFile) {
         this->readFlatFieldFile(value);
     } else if (function == NDFilePath) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "imgpath %s", value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "imgpath %s", value);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
         this->checkPath();
-    } else if (function == PilatusOscillAxis) {
-        epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "mxsettings Oscillation_axis %s",
+    } else if (function == medipixOscillAxis) {
+        epicsSnprintf(this->toLabview, sizeof(this->toLabview), "mxsettings Oscillation_axis %s",
             strlen(value) == 0 ? "(nil)" : value);
-        writeReadCamserver(CAMSERVER_DEFAULT_TIMEOUT);
+        writeReadLabview(Labview_DEFAULT_TIMEOUT);
     } else {
         /* If this parameter belongs to a base class call its method */
-        if (function < FIRST_PILATUS_PARAM) status = ADDriver::writeOctet(pasynUser, value, nChars, nActual);
+        if (function < FIRST_medipix_PARAM) status = ADDriver::writeOctet(pasynUser, value, nChars, nActual);
     }
     
      /* Do callbacks so higher layers see any changes */
@@ -1509,10 +1512,10 @@ asynStatus pilatusDetector::writeOctet(asynUser *pasynUser, const char *value,
   * \param[in] fp File pointed passed by caller where the output is written to.
   * \param[in] details If >0 then driver details are printed.
   */
-void pilatusDetector::report(FILE *fp, int details)
+void medipixDetector::report(FILE *fp, int details)
 {
 
-    fprintf(fp, "Pilatus detector %s\n", this->portName);
+    fprintf(fp, "medipix detector %s\n", this->portName);
     if (details > 0) {
         int nx, ny, dataType;
         getIntegerParam(ADSizeX, &nx);
@@ -1525,24 +1528,24 @@ void pilatusDetector::report(FILE *fp, int details)
     ADDriver::report(fp, details);
 }
 
-extern "C" int pilatusDetectorConfig(const char *portName, const char *camserverPort, 
+extern "C" int medipixDetectorConfig(const char *portName, const char *LabviewPort,
                                     int maxSizeX, int maxSizeY,
                                     int maxBuffers, size_t maxMemory,
                                     int priority, int stackSize)
 {
-    new pilatusDetector(portName, camserverPort, maxSizeX, maxSizeY, maxBuffers, maxMemory,
+    new medipixDetector(portName, LabviewPort, maxSizeX, maxSizeY, maxBuffers, maxMemory,
                         priority, stackSize);
     return(asynSuccess);
 }
 
-/** Constructor for Pilatus driver; most parameters are simply passed to ADDriver::ADDriver.
+/** Constructor for medipix driver; most parameters are simply passed to ADDriver::ADDriver.
   * After calling the base class constructor this method creates a thread to collect the detector data, 
   * and sets reasonable default values for the parameters defined in this class, asynNDArrayDriver, and ADDriver.
   * \param[in] portName The name of the asyn port driver to be created.
-  * \param[in] camserverPort The name of the asyn port previously created with drvAsynIPPortConfigure to
-  *            communicate with camserver.
-  * \param[in] maxSizeX The size of the Pilatus detector in the X direction.
-  * \param[in] maxSizeY The size of the Pilatus detector in the Y direction.
+  * \param[in] LabviewPort The name of the asyn port previously created with drvAsynIPPortConfigure to
+  *            communicate with Labview.
+  * \param[in] maxSizeX The size of the medipix detector in the X direction.
+  * \param[in] maxSizeY The size of the medipix detector in the Y direction.
   * \param[in] portName The name of the asyn port driver to be created.
   * \param[in] maxBuffers The maximum number of NDArray buffers that the NDArrayPool for this driver is 
   *            allowed to allocate. Set this to -1 to allow an unlimited number of buffers.
@@ -1551,12 +1554,12 @@ extern "C" int pilatusDetectorConfig(const char *portName, const char *camserver
   * \param[in] priority The thread priority for the asyn port driver thread if ASYN_CANBLOCK is set in asynFlags.
   * \param[in] stackSize The stack size for the asyn port driver thread if ASYN_CANBLOCK is set in asynFlags.
   */
-pilatusDetector::pilatusDetector(const char *portName, const char *camserverPort,
+medipixDetector::medipixDetector(const char *portName, const char *LabviewPort,
                                 int maxSizeX, int maxSizeY,
                                 int maxBuffers, size_t maxMemory,
                                 int priority, int stackSize)
 
-    : ADDriver(portName, 1, NUM_PILATUS_PARAMS, maxBuffers, maxMemory,
+    : ADDriver(portName, 1, NUM_medipix_PARAMS, maxBuffers, maxMemory,
                0, 0,             /* No interfaces beyond those set in ADDriver.cpp */
                ASYN_CANBLOCK, 1, /* ASYN_CANBLOCK=1, ASYN_MULTIDEVICE=0, autoConnect=1 */
                priority, stackSize),
@@ -1564,11 +1567,11 @@ pilatusDetector::pilatusDetector(const char *portName, const char *camserverPort
 
 {
     int status = asynSuccess;
-    const char *functionName = "pilatusDetector";
+    const char *functionName = "medipixDetector";
     int dims[2];
     char *substr = NULL;
 
-    /* Create the epicsEvents for signaling to the pilatus task when acquisition starts and stops */
+    /* Create the epicsEvents for signaling to the medipix task when acquisition starts and stops */
     this->startEventId = epicsEventCreate(epicsEventEmpty);
     if (!this->startEventId) {
         printf("%s:%s epicsEventCreate failure for start event\n", 
@@ -1588,52 +1591,52 @@ pilatusDetector::pilatusDetector(const char *portName, const char *camserverPort
     /* Allocate the raw buffer we use for flat fields. */
     this->pFlatField = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
     
-    /* Connect to camserver */
-    status = pasynOctetSyncIO->connect(camserverPort, 0, &this->pasynUserCamserver, NULL);
+    /* Connect to Labview */
+    status = pasynOctetSyncIO->connect(LabviewPort, 0, &this->pasynUserLabview, NULL);
 
-    createParam(PilatusDelayTimeString,      asynParamFloat64, &PilatusDelayTime);
-    createParam(PilatusThresholdString,      asynParamFloat64, &PilatusThreshold);
-    createParam(PilatusThresholdApplyString, asynParamInt32,   &PilatusThresholdApply);
-    createParam(PilatusThresholdAutoApplyString, asynParamInt32,   &PilatusThresholdAutoApply);
-    createParam(PilatusArmedString,          asynParamInt32,   &PilatusArmed);
-    createParam(PilatusImageFileTmotString,  asynParamFloat64, &PilatusImageFileTmot);
-    createParam(PilatusBadPixelFileString,   asynParamOctet,   &PilatusBadPixelFile);
-    createParam(PilatusNumBadPixelsString,   asynParamInt32,   &PilatusNumBadPixels);
-    createParam(PilatusFlatFieldFileString,  asynParamOctet,   &PilatusFlatFieldFile);
-    createParam(PilatusMinFlatFieldString,   asynParamInt32,   &PilatusMinFlatField);
-    createParam(PilatusFlatFieldValidString, asynParamInt32,   &PilatusFlatFieldValid);
-    createParam(PilatusGapFillString,        asynParamInt32,   &PilatusGapFill);
-    createParam(PilatusWavelengthString,     asynParamFloat64, &PilatusWavelength);
-    createParam(PilatusEnergyLowString,      asynParamFloat64, &PilatusEnergyLow);
-    createParam(PilatusEnergyHighString,     asynParamFloat64, &PilatusEnergyHigh);
-    createParam(PilatusDetDistString,        asynParamFloat64, &PilatusDetDist);
-    createParam(PilatusDetVOffsetString,     asynParamFloat64, &PilatusDetVOffset);
-    createParam(PilatusBeamXString,          asynParamFloat64, &PilatusBeamX);
-    createParam(PilatusBeamYString,          asynParamFloat64, &PilatusBeamY);
-    createParam(PilatusFluxString,           asynParamFloat64, &PilatusFlux);
-    createParam(PilatusFilterTransmString,   asynParamFloat64, &PilatusFilterTransm);
-    createParam(PilatusStartAngleString,     asynParamFloat64, &PilatusStartAngle);
-    createParam(PilatusAngleIncrString,      asynParamFloat64, &PilatusAngleIncr);
-    createParam(PilatusDet2thetaString,      asynParamFloat64, &PilatusDet2theta);
-    createParam(PilatusPolarizationString,   asynParamFloat64, &PilatusPolarization);
-    createParam(PilatusAlphaString,          asynParamFloat64, &PilatusAlpha);
-    createParam(PilatusKappaString,          asynParamFloat64, &PilatusKappa);
-    createParam(PilatusPhiString,            asynParamFloat64, &PilatusPhi);
-    createParam(PilatusChiString,            asynParamFloat64, &PilatusChi);
-    createParam(PilatusOscillAxisString,     asynParamOctet,   &PilatusOscillAxis);
-    createParam(PilatusNumOscillString,      asynParamInt32,   &PilatusNumOscill);
-    createParam(PilatusPixelCutOffString,    asynParamInt32,   &PilatusPixelCutOff);
-    createParam(PilatusThTemp0String,        asynParamFloat64, &PilatusThTemp0);
-    createParam(PilatusThTemp1String,        asynParamFloat64, &PilatusThTemp1);
-    createParam(PilatusThTemp2String,        asynParamFloat64, &PilatusThTemp2);
-    createParam(PilatusThHumid0String,       asynParamFloat64, &PilatusThHumid0);
-    createParam(PilatusThHumid1String,       asynParamFloat64, &PilatusThHumid1);
-    createParam(PilatusThHumid2String,       asynParamFloat64, &PilatusThHumid2);
-    createParam(PilatusTvxVersionString,     asynParamOctet,   &PilatusTvxVersion);
+    createParam(medipixDelayTimeString,      asynParamFloat64, &medipixDelayTime);
+    createParam(medipixThresholdString,      asynParamFloat64, &medipixThreshold);
+    createParam(medipixThresholdApplyString, asynParamInt32,   &medipixThresholdApply);
+    createParam(medipixThresholdAutoApplyString, asynParamInt32,   &medipixThresholdAutoApply);
+    createParam(medipixArmedString,          asynParamInt32,   &medipixArmed);
+    createParam(medipixImageFileTmotString,  asynParamFloat64, &medipixImageFileTmot);
+    createParam(medipixBadPixelFileString,   asynParamOctet,   &medipixBadPixelFile);
+    createParam(medipixNumBadPixelsString,   asynParamInt32,   &medipixNumBadPixels);
+    createParam(medipixFlatFieldFileString,  asynParamOctet,   &medipixFlatFieldFile);
+    createParam(medipixMinFlatFieldString,   asynParamInt32,   &medipixMinFlatField);
+    createParam(medipixFlatFieldValidString, asynParamInt32,   &medipixFlatFieldValid);
+    createParam(medipixGapFillString,        asynParamInt32,   &medipixGapFill);
+    createParam(medipixWavelengthString,     asynParamFloat64, &medipixWavelength);
+    createParam(medipixEnergyLowString,      asynParamFloat64, &medipixEnergyLow);
+    createParam(medipixEnergyHighString,     asynParamFloat64, &medipixEnergyHigh);
+    createParam(medipixDetDistString,        asynParamFloat64, &medipixDetDist);
+    createParam(medipixDetVOffsetString,     asynParamFloat64, &medipixDetVOffset);
+    createParam(medipixBeamXString,          asynParamFloat64, &medipixBeamX);
+    createParam(medipixBeamYString,          asynParamFloat64, &medipixBeamY);
+    createParam(medipixFluxString,           asynParamFloat64, &medipixFlux);
+    createParam(medipixFilterTransmString,   asynParamFloat64, &medipixFilterTransm);
+    createParam(medipixStartAngleString,     asynParamFloat64, &medipixStartAngle);
+    createParam(medipixAngleIncrString,      asynParamFloat64, &medipixAngleIncr);
+    createParam(medipixDet2thetaString,      asynParamFloat64, &medipixDet2theta);
+    createParam(medipixPolarizationString,   asynParamFloat64, &medipixPolarization);
+    createParam(medipixAlphaString,          asynParamFloat64, &medipixAlpha);
+    createParam(medipixKappaString,          asynParamFloat64, &medipixKappa);
+    createParam(medipixPhiString,            asynParamFloat64, &medipixPhi);
+    createParam(medipixChiString,            asynParamFloat64, &medipixChi);
+    createParam(medipixOscillAxisString,     asynParamOctet,   &medipixOscillAxis);
+    createParam(medipixNumOscillString,      asynParamInt32,   &medipixNumOscill);
+    createParam(medipixPixelCutOffString,    asynParamInt32,   &medipixPixelCutOff);
+    createParam(medipixThTemp0String,        asynParamFloat64, &medipixThTemp0);
+    createParam(medipixThTemp1String,        asynParamFloat64, &medipixThTemp1);
+    createParam(medipixThTemp2String,        asynParamFloat64, &medipixThTemp2);
+    createParam(medipixThHumid0String,       asynParamFloat64, &medipixThHumid0);
+    createParam(medipixThHumid1String,       asynParamFloat64, &medipixThHumid1);
+    createParam(medipixThHumid2String,       asynParamFloat64, &medipixThHumid2);
+    createParam(medipixTvxVersionString,     asynParamOctet,   &medipixTvxVersion);
 
     /* Set some default values for parameters */
     status =  setStringParam (ADManufacturer, "Dectris");
-    status |= setStringParam (ADModel, "Pilatus");
+    status |= setStringParam (ADModel, "medipix");
     status |= setIntegerParam(ADMaxSizeX, maxSizeX);
     status |= setIntegerParam(ADMaxSizeY, maxSizeY);
     status |= setIntegerParam(ADSizeX, maxSizeX);
@@ -1646,18 +1649,18 @@ pilatusDetector::pilatusDetector(const char *portName, const char *camserverPort
     status |= setIntegerParam(ADImageMode, ADImageContinuous);
     status |= setIntegerParam(ADTriggerMode, TMInternal);
 
-    status |= setIntegerParam(PilatusArmed, 0);
-    status |= setStringParam (PilatusBadPixelFile, "");
-    status |= setIntegerParam(PilatusNumBadPixels, 0);
-    status |= setStringParam (PilatusFlatFieldFile, "");
-    status |= setIntegerParam(PilatusFlatFieldValid, 0);
+    status |= setIntegerParam(medipixArmed, 0);
+    status |= setStringParam (medipixBadPixelFile, "");
+    status |= setIntegerParam(medipixNumBadPixels, 0);
+    status |= setStringParam (medipixFlatFieldFile, "");
+    status |= setIntegerParam(medipixFlatFieldValid, 0);
 
-    setDoubleParam(PilatusThTemp0, 0);
-    setDoubleParam(PilatusThTemp1, 0);
-    setDoubleParam(PilatusThTemp2, 0);
-    setDoubleParam(PilatusThHumid0, 0);
-    setDoubleParam(PilatusThHumid1, 0);
-    setDoubleParam(PilatusThHumid2, 0);
+    setDoubleParam(medipixThTemp0, 0);
+    setDoubleParam(medipixThTemp1, 0);
+    setDoubleParam(medipixThTemp2, 0);
+    setDoubleParam(medipixThHumid0, 0);
+    setDoubleParam(medipixThHumid1, 0);
+    setDoubleParam(medipixThHumid2, 0);
 
     if (status) {
         printf("%s: unable to set camera parameters\n", functionName);
@@ -1665,19 +1668,19 @@ pilatusDetector::pilatusDetector(const char *portName, const char *camserverPort
     }
 
     /*Read the TVX Version at startup.*/
-    epicsSnprintf(this->toCamserver, sizeof(this->toCamserver), "version");
-    status=writeReadCamserver(1.0);
+    epicsSnprintf(this->toLabview, sizeof(this->toLabview), "version");
+    status=writeReadLabview(1.0);
     if (!status) {
-      if ((substr = strstr(this->fromCamserver, "tvx")) != NULL) {
-	setStringParam(PilatusTvxVersion, substr);
+      if ((substr = strstr(this->fromLabview, "tvx")) != NULL) {
+	setStringParam(medipixTvxVersion, substr);
       }
     }
     
     /* Create the thread that updates the images */
-    status = (epicsThreadCreate("PilatusDetTask",
+    status = (epicsThreadCreate("medipixDetTask",
                                 epicsThreadPriorityMedium,
                                 epicsThreadGetStackSize(epicsThreadStackMedium),
-                                (EPICSTHREADFUNC)pilatusTaskC,
+                                (EPICSTHREADFUNC)medipixTaskC,
                                 this) == NULL);
     if (status) {
         printf("%s:%s epicsThreadCreate failure for image task\n", 
@@ -1686,10 +1689,10 @@ pilatusDetector::pilatusDetector(const char *portName, const char *camserverPort
     }
 
     /* Create the thread that monitors detector status (temperature, humidity, etc). */
-    status = (epicsThreadCreate("PilatusStatusTask",
+    status = (epicsThreadCreate("medipixStatusTask",
                                 epicsThreadPriorityMedium,
                                 epicsThreadGetStackSize(epicsThreadStackMedium),
-                                (EPICSTHREADFUNC)pilatusStatusC,
+                                (EPICSTHREADFUNC)medipixStatusC,
                                 this) == NULL);
     if (status) {
         printf("%s:%s epicsThreadCreate failure for status task\n", 
@@ -1701,37 +1704,37 @@ pilatusDetector::pilatusDetector(const char *portName, const char *camserverPort
 }
 
 /* Code for iocsh registration */
-static const iocshArg pilatusDetectorConfigArg0 = {"Port name", iocshArgString};
-static const iocshArg pilatusDetectorConfigArg1 = {"camserver port name", iocshArgString};
-static const iocshArg pilatusDetectorConfigArg2 = {"maxSizeX", iocshArgInt};
-static const iocshArg pilatusDetectorConfigArg3 = {"maxSizeY", iocshArgInt};
-static const iocshArg pilatusDetectorConfigArg4 = {"maxBuffers", iocshArgInt};
-static const iocshArg pilatusDetectorConfigArg5 = {"maxMemory", iocshArgInt};
-static const iocshArg pilatusDetectorConfigArg6 = {"priority", iocshArgInt};
-static const iocshArg pilatusDetectorConfigArg7 = {"stackSize", iocshArgInt};
-static const iocshArg * const pilatusDetectorConfigArgs[] =  {&pilatusDetectorConfigArg0,
-                                                              &pilatusDetectorConfigArg1,
-                                                              &pilatusDetectorConfigArg2,
-                                                              &pilatusDetectorConfigArg3,
-                                                              &pilatusDetectorConfigArg4,
-                                                              &pilatusDetectorConfigArg5,
-                                                              &pilatusDetectorConfigArg6,
-                                                              &pilatusDetectorConfigArg7};
-static const iocshFuncDef configPilatusDetector = {"pilatusDetectorConfig", 8, pilatusDetectorConfigArgs};
-static void configPilatusDetectorCallFunc(const iocshArgBuf *args)
+static const iocshArg medipixDetectorConfigArg0 = {"Port name", iocshArgString};
+static const iocshArg medipixDetectorConfigArg1 = {"Labview port name", iocshArgString};
+static const iocshArg medipixDetectorConfigArg2 = {"maxSizeX", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg3 = {"maxSizeY", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg4 = {"maxBuffers", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg5 = {"maxMemory", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg6 = {"priority", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg7 = {"stackSize", iocshArgInt};
+static const iocshArg * const medipixDetectorConfigArgs[] =  {&medipixDetectorConfigArg0,
+                                                              &medipixDetectorConfigArg1,
+                                                              &medipixDetectorConfigArg2,
+                                                              &medipixDetectorConfigArg3,
+                                                              &medipixDetectorConfigArg4,
+                                                              &medipixDetectorConfigArg5,
+                                                              &medipixDetectorConfigArg6,
+                                                              &medipixDetectorConfigArg7};
+static const iocshFuncDef configmedipixDetector = {"medipixDetectorConfig", 8, medipixDetectorConfigArgs};
+static void configmedipixDetectorCallFunc(const iocshArgBuf *args)
 {
-    pilatusDetectorConfig(args[0].sval, args[1].sval, args[2].ival,  args[3].ival,  
+    medipixDetectorConfig(args[0].sval, args[1].sval, args[2].ival,  args[3].ival,
                           args[4].ival, args[5].ival, args[6].ival,  args[7].ival);
 }
 
 
-static void pilatusDetectorRegister(void)
+static void medipixDetectorRegister(void)
 {
 
-    iocshRegister(&configPilatusDetector, configPilatusDetectorCallFunc);
+    iocshRegister(&configmedipixDetector, configmedipixDetectorCallFunc);
 }
 
 extern "C" {
-epicsExportRegistrar(pilatusDetectorRegister);
+epicsExportRegistrar(medipixDetectorRegister);
 }
 
