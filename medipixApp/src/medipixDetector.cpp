@@ -43,6 +43,8 @@
 
 #include "ADDriver.h"
 
+#include "medipix_low.h"
+
 /** Messages to/from Labview command channel */
 #define MAX_MESSAGE_SIZE 256 
 #define MAX_FILENAME_LEN 256
@@ -111,12 +113,13 @@ static const char *driverName = "medipixDetector";
 #define medipixThHumid0String       "TH_HUMID_0"
 #define medipixThHumid1String       "TH_HUMID_1"
 #define medipixThHumid2String       "TH_HUMID_2"
-#define medipixTvxVersionString       "TVXVERSION"
+#define medipixTvxVersionString      "TVXVERSION"
 
 /** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
 class medipixDetector : public ADDriver {
 public:
-    medipixDetector(const char *portName, const char *LabviewPort,
+    medipixDetector(const char *portName, const char *LabviewCmdPort,
+    				const char *LabviewDataPort,
                     int maxSizeX, int maxSizeY,
                     int maxBuffers, size_t maxMemory,
                     int priority, int stackSize);
@@ -176,21 +179,14 @@ public:
  private:                                       
     /* These are the methods that are new to this class */
     void abortAcquisition();
-    void makeMultipleFileFormat(const char *baseFileName);
-    asynStatus waitForFileToExist(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage);
-    void correctBadPixels(NDArray *pImage);
     int stringEndsWith(const char *aString, const char *aSubstring, int shouldIgnoreCase);
-    asynStatus readImageFile(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage);
-    asynStatus readCbf(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage);
-    asynStatus readTiff(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage);
     asynStatus writeLabview(double timeout);
     asynStatus readLabview(double timeout);
     asynStatus writeReadLabview(double timeout);
     asynStatus setAcquireParams();
     asynStatus setThreshold();
-    void readBadPixelFile(const char *badPixelFile);
-    void readFlatFieldFile(const char *flatFieldFile);
-   
+    void makeMultipleFileFormat(const char *baseFileName);
+
     /* Our data */
     int imagesRemaining;
     epicsEventId startEventId;
@@ -200,100 +196,12 @@ public:
     NDArray *pFlatField;
     char multipleFileFormat[MAX_FILENAME_LEN];
     int multipleFileNumber;
-    asynUser *pasynUserLabview;
-    badPixel badPixelMap[MAX_BAD_PIXELS];
+    asynUser *pasynLabViewCmd;
+    asynUser *pasynLabViewData;
     double averageFlatField;
 };
 
 #define NUM_medipix_PARAMS (&LAST_medipix_PARAM - &FIRST_medipix_PARAM + 1)
-
-void medipixDetector::readBadPixelFile(const char *badPixelFile)
-{
-    int i; 
-    int xbad, ybad, xgood, ygood;
-    int n;
-    FILE *file;
-    int nx, ny;
-    const char *functionName = "readBadPixelFile";
-    int numBadPixels=0;
-
-    getIntegerParam(NDArraySizeX, &nx);
-    getIntegerParam(NDArraySizeY, &ny);
-    setIntegerParam(medipixNumBadPixels, numBadPixels);
-    if (strlen(badPixelFile) == 0) return;
-    file = fopen(badPixelFile, "r");
-    if (file == NULL) {
-        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-            "%s::%s, cannot open file %s\n",
-            driverName, functionName, badPixelFile);
-        return;
-    }
-    for (i=0; i<MAX_BAD_PIXELS; i++) {
-        n = fscanf(file, " %d,%d %d,%d",
-                  &xbad, &ybad, &xgood, &ygood);
-        if (n == EOF) break;
-        if (n != 4) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, too few items =%d, should be 4\n",
-                driverName, functionName, n);
-            return;
-        }
-        this->badPixelMap[i].badIndex = ybad*nx + xbad;
-        this->badPixelMap[i].replaceIndex = ygood*ny + xgood;
-        numBadPixels++;
-    }
-    setIntegerParam(medipixNumBadPixels, numBadPixels);
-}
-
-
-void medipixDetector::readFlatFieldFile(const char *flatFieldFile)
-{
-    int i;
-    int status;
-    int ngood;
-    int minFlatField;
-    epicsInt32 *pData;
-    const char *functionName = "readFlatFieldFile";
-    NDArrayInfo arrayInfo;
-    
-    setIntegerParam(medipixFlatFieldValid, 0);
-    this->pFlatField->getInfo(&arrayInfo);
-    getIntegerParam(medipixMinFlatField, &minFlatField);
-    if (strlen(flatFieldFile) == 0) return;
-    status = readImageFile(flatFieldFile, NULL, 0., this->pFlatField);
-    if (status) {
-        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-            "%s::%s, error reading flat field file %s\n",
-            driverName, functionName, flatFieldFile);
-        return;
-    }
-    /* Compute the average counts in the flat field */
-    this->averageFlatField = 0.;
-    ngood = 0;
-    
-    for (i=0, pData = (epicsInt32 *)this->pFlatField->pData; 
-         i<arrayInfo.nElements; 
-         i++, pData++) {
-        if (*pData < minFlatField) continue;
-        ngood++;
-        averageFlatField += *pData;
-    }
-    averageFlatField = averageFlatField/ngood;
-    
-    for (i=0, pData = (epicsInt32 *)this->pFlatField->pData; 
-         i<arrayInfo.nElements; 
-         i++, pData++) {
-        if (*pData < minFlatField) *pData = (epicsInt32)averageFlatField;
-    }
-    /* Call the NDArray callback */
-    /* Must release the lock here, or we can get into a deadlock, because we can
-     * block on the plugin lock, and the plugin can be calling us */
-    this->unlock();
-    doCallbacksGenericPointer(this->pFlatField, NDArrayData, 0);
-    this->lock();
-    setIntegerParam(medipixFlatFieldValid, 1);
-}
-
 
 void medipixDetector::makeMultipleFileFormat(const char *baseFileName)
 {
@@ -303,7 +211,7 @@ void medipixDetector::makeMultipleFileFormat(const char *baseFileName)
     char mfTempFormat[MAX_FILENAME_LEN];
     char mfExtension[10];
     int numImages;
-    
+
     /* baseFilename has been built by the caller.
      * Copy to temp */
     strncpy(mfTempFormat, baseFileName, sizeof(mfTempFormat));
@@ -331,8 +239,8 @@ void medipixDetector::makeMultipleFileFormat(const char *baseFileName)
                 q++;
             }
             *p='\0';
-            if (((fmt<3)  || ((fmt==3) && (numImages>999))) || 
-                ((fmt==4) && (numImages>9999))) { 
+            if (((fmt<3)  || ((fmt==3) && (numImages>999))) ||
+                ((fmt==4) && (numImages>9999))) {
                 fmt=5;
             }
         } else if (*q) {
@@ -344,84 +252,6 @@ void medipixDetector::makeMultipleFileFormat(const char *baseFileName)
     /* Build the final format string */
     epicsSnprintf(this->multipleFileFormat, sizeof(this->multipleFileFormat), "%s%%.%dd%s",
                   mfTempFormat, fmt, mfExtension);
-}
-
-/** This function waits for the specified file to exist.  It checks to make sure that
- * the creation time of the file is after a start time passed to it, to force it to wait
- * for a new file to be created.
- */
-asynStatus medipixDetector::waitForFileToExist(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
-{
-    int fd=-1;
-    int fileExists=0;
-    struct stat statBuff;
-    epicsTimeStamp tStart, tCheck;
-    time_t acqStartTime;
-    double deltaTime=0.;
-    int status=-1;
-    const char *functionName = "waitForFileToExist";
-
-    if (pStartTime) epicsTimeToTime_t(&acqStartTime, pStartTime);
-    epicsTimeGetCurrent(&tStart);
-
-    while (deltaTime <= timeout) {
-	fd = open(fileName, O_RDONLY, 0);
-        if ((fd >= 0) && (timeout != 0.)) {
-            fileExists = 1;
-            /* The file exists.  Make sure it is a new file, not an old one.
-             * We don't do this check if timeout==0, which is used for reading flat field files */
-            status = fstat(fd, &statBuff);
-            if (status){
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                    "%s::%s error calling fstat, errno=%d %s\n",
-                    driverName, functionName, errno, fileName);
-                close(fd);
-                return(asynError);
-            }
-            /* We allow up to 10 second clock skew between time on machine running this IOC
-             * and the machine with the file system returning modification time */
-            if (difftime(statBuff.st_mtime, acqStartTime) > -10) break;
-            close(fd);
-            fd = -1;
-        }
-        /* Sleep, but check for stop event, which can be used to abort a long acquisition */
-        status = epicsEventWaitWithTimeout(this->stopEventId, FILE_READ_DELAY);
-        if (status == epicsEventWaitOK) {
-            setStringParam(ADStatusMessage, "Acquisition aborted");
-            return(asynError);
-        }
-        epicsTimeGetCurrent(&tCheck);
-        deltaTime = epicsTimeDiffInSeconds(&tCheck, &tStart);
-    }
-    if (fd < 0) {
-        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-            "%s::%s timeout waiting for file to be created %s\n",
-            driverName, functionName, fileName);
-        if (fileExists) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "  file exists but is more than 10 seconds old, possible clock synchronization problem\n");
-            setStringParam(ADStatusMessage, "Image file is more than 10 seconds old");
-        } else
-            setStringParam(ADStatusMessage, "Timeout waiting for file to be created");
-        return(asynError);
-    }
-    close(fd);
-    return(asynSuccess);
-}
-
-/** This function replaces bad pixels in the specified image with their replacements
- * according to the bad pixel map.
- */
-void medipixDetector::correctBadPixels(NDArray *pImage)
-{
-    int i;
-    int numBadPixels;
-
-    getIntegerParam(medipixNumBadPixels, &numBadPixels);
-    for (i=0; i<numBadPixels; i++) {
-        ((epicsInt32 *)pImage->pData)[this->badPixelMap[i].badIndex] = 
-        ((epicsInt32 *)pImage->pData)[this->badPixelMap[i].replaceIndex];
-    }    
 }
 
 int medipixDetector::stringEndsWith(const char *aString, const char *aSubstring, int shouldIgnoreCase)
@@ -441,288 +271,6 @@ int medipixDetector::stringEndsWith(const char *aString, const char *aSubstring,
     return j < 0;
 }
 
-/** This function reads TIFF or CBF image files.  It is not intended to be general, it
- * is intended to read the TIFF or CBF files that Labview creates.  It checks to make
- * sure that the creation time of the file is after a start time passed to it, to force
- * it to wait for a new file to be created.
- */
-asynStatus medipixDetector::readImageFile(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
-{
-    const char *functionName = "readImageFile";
-
-    if (stringEndsWith(fileName, ".tif", 1) || stringEndsWith(fileName, ".tiff", 1)) {
-        return readTiff(fileName, pStartTime, timeout, pImage);
-    } else if (stringEndsWith(fileName, ".cbf", 1)) {
-        return readCbf(fileName, pStartTime, timeout, pImage);
-    } else {
-        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-            "%s::%s, unsupported image file name extension, expected .tif or .cbf, fileName=%s\n",
-            driverName, functionName, fileName);
-        setStringParam(ADStatusMessage, "Unsupported file extension, expected .tif or .cbf");
-        return(asynError);
-    }
-}
-
-/** This function reads CBF files using CBFlib.  It is not intended to be general, it is
- * intended to read the CBF files that Labview creates.  It checks to make sure that
- * the creation time of the file is after a start time passed to it, to force it to wait
- * for a new file to be created.
- */
-asynStatus medipixDetector::readCbf(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
-{
-    epicsTimeStamp tStart, tCheck;
-    double deltaTime;
-    int status=-1;
-    const char *functionName = "readCbf";
-    cbf_handle cbf;
-    FILE *file=NULL;
-    unsigned int cbfCompression;
-    int cbfBinaryId;
-    size_t cbfElSize;
-    int cbfElSigned;
-    int cbfElUnsigned;
-    size_t cbfElements;
-    int cbfMinElement;
-    int cbfMaxElement;
-    const char *cbfByteOrder;
-    size_t cbfDimFast;
-    size_t cbfDimMid;
-    size_t cbfDimSlow;
-    size_t cbfPadding;
-    size_t cbfElementsRead;
-    int deleteFlag=0;
-
-    deltaTime = 0.;
-    epicsTimeGetCurrent(&tStart);
-
-    status = waitForFileToExist(fileName, pStartTime, timeout, pImage);
-    if (status != asynSuccess) {
-        return((asynStatus)status);
-    }
-
-    cbf_set_warning_messages_enabled(0);
-    cbf_set_error_messages_enabled(0);
-
-    while (deltaTime <= timeout) {
-        /* At this point we know the file exists, but it may not be completely
-         * written yet.  If we get errors then try again. */
-
-        status = cbf_make_handle(&cbf);
-        if (status != 0) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, failed to make CBF handle, error code %#x\n",
-                driverName, functionName, status);
-            return(asynError);
-        }
-
-        status = cbf_set_cbf_logfile(cbf, NULL);
-        if (status != 0) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, failed to disable CBF logging, error code %#x\n",
-                driverName, functionName, status);
-            return(asynError);
-        }
-
-        file = fopen(fileName, "rb");
-        if (file == NULL) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, failed to open CBF file \"%s\" for reading: %s\n",
-                driverName, functionName, fileName, strerror(errno));
-            cbf_free_handle(cbf);
-            return(asynError);
-        }
-
-        status = cbf_read_widefile(cbf, file, MSG_DIGESTNOW);
-        if (status != 0) goto retry;
-
-        status = cbf_find_tag(cbf, "_array_data.data");
-        if (status != 0) goto retry;
-
-        /* Do some basic checking that the image size is what we expect */
-
-        status = cbf_get_integerarrayparameters_wdims_fs(cbf, &cbfCompression,
-            &cbfBinaryId, &cbfElSize, &cbfElSigned, &cbfElUnsigned,
-            &cbfElements, &cbfMinElement, &cbfMaxElement, &cbfByteOrder,
-            &cbfDimFast, &cbfDimMid, &cbfDimSlow, &cbfPadding);
-        if (status != 0) goto retry;
-
-        if (cbfDimFast != (size_t)pImage->dims[0].size) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, image width incorrect =%zd, should be %d\n",
-                driverName, functionName, cbfDimFast, pImage->dims[0].size);
-            cbf_free_handle(cbf);
-            return(asynError);
-        }
-        if (cbfDimMid != (size_t)pImage->dims[1].size) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, image height incorrect =%zd, should be %d\n",
-                driverName, functionName, cbfDimMid, pImage->dims[1].size);
-            cbf_free_handle(cbf);
-            return(asynError);
-        }
-
-        /* Read the image */
-
-        status = cbf_get_integerarray(cbf, &cbfBinaryId, pImage->pData,
-            sizeof(epicsInt32), 1, cbfElements, &cbfElementsRead);
-        if (status != 0) goto retry;
-        if (cbfElements != cbfElementsRead) goto retry;
-
-        /* Sucesss! */
-        status = cbf_free_handle(cbf);
-        if (status != 0) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, failed to free CBF handle, error code %#x\n",
-                driverName, functionName, status);
-            return(asynError);
-        }
-        break;
-
-        retry:
-        status = cbf_free_handle(cbf);
-        if (status != 0) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, failed to free CBF handle, error code %#x\n",
-                driverName, functionName, status);
-            return(asynError);
-        }
-        /* Sleep, but check for stop event, which can be used to abort a long
-         * acquisition */
-        status = epicsEventWaitWithTimeout(this->stopEventId, FILE_READ_DELAY);
-        if (status == epicsEventWaitOK) {
-            return(asynError);
-        }
-        epicsTimeGetCurrent(&tCheck);
-        deltaTime = epicsTimeDiffInSeconds(&tCheck, &tStart);
-    }
-
-
-    correctBadPixels(pImage);
-
-    /* Delete the file if necessary */
-    getIntegerParam(ADDeleteAfterReading, &deleteFlag);
-    if (deleteFlag) {
-        status = remove(fileName);
-        if (status != 0) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-            "%s::%s, failed to delete CBF file after reading: %s\n",
-            driverName, functionName, fileName);
-            return(asynError);
-        }
-    }
-    return(asynSuccess);
-}
-
-/** This function reads TIFF files using libTiff.  It is not intended to be general,
- * it is intended to read the TIFF files that Labview creates.  It checks to make sure
- * that the creation time of the file is after a start time passed to it, to force it to
- * wait for a new file to be created.
- */
-asynStatus medipixDetector::readTiff(const char *fileName, epicsTimeStamp *pStartTime, double timeout, NDArray *pImage)
-{
-    epicsTimeStamp tStart, tCheck;
-    double deltaTime;
-    int status=-1;
-    const char *functionName = "readTiff";
-    int size, totalSize;
-    int numStrips, strip;
-    char *buffer;
-    TIFF *tiff=NULL;
-    epicsUInt32 uval;
-    int deleteFlag=0;
-
-    deltaTime = 0.;
-    epicsTimeGetCurrent(&tStart);
-
-    /* Suppress error messages from the TIFF library */
-    TIFFSetErrorHandler(NULL);
-    TIFFSetWarningHandler(NULL);
-
-    status = waitForFileToExist(fileName, pStartTime, timeout, pImage);
-    if (status != asynSuccess) {
-        return((asynStatus)status);
-    }
-
-    while (deltaTime <= timeout) {
-        /* At this point we know the file exists, but it may not be completely written yet.
-         * If we get errors then try again */
-        tiff = TIFFOpen(fileName, "rc");
-        if (tiff == NULL) {
-            status = asynError;
-            goto retry;
-        }
-        
-        /* Do some basic checking that the image size is what we expect */
-        status = TIFFGetField(tiff, TIFFTAG_IMAGEWIDTH, &uval);
-        if (uval != (epicsUInt32)pImage->dims[0].size) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, image width incorrect =%u, should be %d\n",
-                driverName, functionName, uval, pImage->dims[0].size);
-            goto retry;
-        }
-        status = TIFFGetField(tiff, TIFFTAG_IMAGELENGTH, &uval);
-        if (uval != (epicsUInt32)pImage->dims[1].size) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, image length incorrect =%u, should be %d\n",
-                driverName, functionName, uval, pImage->dims[1].size);
-            goto retry;
-        }
-        numStrips= TIFFNumberOfStrips(tiff);
-        buffer = (char *)pImage->pData;
-        totalSize = 0;
-        for (strip=0; (strip < numStrips) && (totalSize < pImage->dataSize); strip++) {
-            size = TIFFReadEncodedStrip(tiff, 0, buffer, pImage->dataSize-totalSize);
-            if (size == -1) {
-                /* There was an error reading the file.  Most commonly this is because the file
-                 * was not yet completely written.  Try again. */
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
-                    "%s::%s, error reading TIFF file %s\n",
-                    driverName, functionName, fileName);
-                goto retry;
-            }
-            buffer += size;
-            totalSize += size;
-        }
-        if (totalSize != pImage->dataSize) {
-            status = asynError;
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s::%s, file size incorrect =%d, should be %d\n",
-                driverName, functionName, totalSize, pImage->dataSize);
-            goto retry;
-        }
-        /* Sucesss! */
-        break;
-        
-        retry:
-        if (tiff != NULL) TIFFClose(tiff);
-        tiff = NULL;
-        /* Sleep, but check for stop event, which can be used to abort a long acquisition */
-        status = epicsEventWaitWithTimeout(this->stopEventId, FILE_READ_DELAY);
-        if (status == epicsEventWaitOK) {
-            return(asynError);
-        }
-        epicsTimeGetCurrent(&tCheck);
-        deltaTime = epicsTimeDiffInSeconds(&tCheck, &tStart);
-    }
-
-    if (tiff != NULL) TIFFClose(tiff);
-
-    correctBadPixels(pImage);
-
-    /* Delete the file if necessary */
-    getIntegerParam(ADDeleteAfterReading, &deleteFlag);
-    if (deleteFlag) {
-        status = remove(fileName);
-        if (status != 0) {
-            asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-            "%s::%s, failed to delete TIFF file after reading: %s\n",
-            driverName, functionName, fileName);
-            return(asynError);
-        }
-    }
-    
-    return(asynSuccess);
-}   
 
 asynStatus medipixDetector::setAcquireParams()
 {
@@ -733,6 +281,10 @@ asynStatus medipixDetector::setAcquireParams()
     char *substr = NULL;
     int pixelCutOff = 0;
     
+
+	// TODOTODO - temp disabled
+    return(asynSuccess);
+
     status = getIntegerParam(ADTriggerMode, &triggerMode);
     if (status != asynSuccess) triggerMode = TMInternal;
     
@@ -815,6 +367,9 @@ asynStatus medipixDetector::setAcquireParams()
 
 asynStatus medipixDetector::setThreshold()
 {
+	// TODOTODO - temp disabled
+    return(asynSuccess);
+
     int igain, status;
     double threshold, dgain;
     char *substr = NULL;
@@ -868,8 +423,8 @@ asynStatus medipixDetector::writeLabview(double timeout)
     const char *functionName="writeLabview";
 
     /* Flush any stale input, since the next operation is likely to be a read */
-    status = pasynOctetSyncIO->flush(this->pasynUserLabview);
-    status = pasynOctetSyncIO->write(this->pasynUserLabview, this->toLabview,
+    status = pasynOctetSyncIO->flush(this->pasynLabViewCmd);
+    status = pasynOctetSyncIO->write(this->pasynLabViewCmd, this->toLabview,
                                      strlen(this->toLabview), timeout,
                                      &nwrite);
                                         
@@ -889,7 +444,7 @@ asynStatus medipixDetector::readLabview(double timeout)
     size_t nread;
     asynStatus status=asynSuccess;
     int eventStatus;
-    asynUser *pasynUser = this->pasynUserLabview;
+    asynUser *pasynUser = this->pasynLabViewCmd;
     int eomReason;
     epicsTimeStamp tStart, tCheck;
     double deltaTime;
@@ -979,7 +534,7 @@ void medipixDetector::medipixTask()
     int dims[2];
     int arrayCallbacks;
     int flatFieldValid;
-    int abortStatus;
+    //int abortStatus;
 
     this->lock();
 
@@ -1070,8 +625,6 @@ void medipixDetector::medipixTask()
             setShutter(1);
             /* Set the armed flag */
             setIntegerParam(medipixArmed, 1);
-            /* Create the format string for constructing file names for multi-image collection */
-            makeMultipleFileFormat(fullFileName);
             multipleFileNextImage = 0;
             /* Call the callbacks to update any changes */
             setStringParam(NDFullFileName, fullFileName);
@@ -1141,7 +694,7 @@ void medipixDetector::medipixTask()
                 /* We release the mutex when calling readImageFile, because this takes a long time and
                  * we need to allow abort operations to get through */
                 this->unlock();
-                status = readImageFile(fullFileName, &startTime, acquireTime + readImageFileTimeout, pImage); 
+                  // status = readImageFile(fullFileName, &startTime, acquireTime + readImageFileTimeout, pImage);
                 this->lock();
                 /* If there was an error jump to bottom of loop */
                 if (status) {
@@ -1238,57 +791,52 @@ static void medipixStatusC(void *drvPvt)
     It does not run if we are acquiring data, to avoid polling Labview when taking data.*/
 void medipixDetector::medipixStatus()
 {
-  int status = asynSuccess;
-  int acquire = 0;
-  float temp = 0.0;
-  float humid = 0.0;
-  char *substr = NULL;
+	int status = asynSuccess;
+	int acquire = 0;
 
-  while(1) {
-    lock();
-    /* Is acquisition active? */
-    getIntegerParam(ADAcquire, &acquire);
-    if (!acquire) {
-      /*Keep lock and read temp and humidity.*/
-      epicsSnprintf(this->toLabview, sizeof(this->toLabview), "Th");
-      status=writeReadLabview(1.0);
-      
-      /* Response should contain: 
-	 Channel 0: Temperature = 31.4C, Rel. Humidity = 22.1%;\n
-	 Channel 1: Temperature = 25.8C, Rel. Humidity = 33.5%;\n
-	 Channel 2: Temperature = 28.6C, Rel. Humidity = 2.0%
-	 However, not every detector has all 3 channels.*/
-      if (!status) {
-	if ((substr = strstr(this->fromLabview, "Channel 0: ")) != NULL) {
-	  sscanf(strtok(substr, "%"), "Channel 0: Temperature = %fC, Rel. Humidity = %f", &temp, &humid);
-	  setDoubleParam(medipixThTemp0, temp);
-	  setDoubleParam(medipixThHumid0, humid);
-	  setDoubleParam(ADTemperature, temp);
+	while (1)
+	{
+		lock();
+		/* Is acquisition active? */
+		getIntegerParam(ADAcquire, &acquire);
+
+		epicsSnprintf(this->toLabview, sizeof(this->toLabview), "DETECTORSTATUS");
+		status = writeReadLabview(1.0);
+
+		/* Response should contain: 1 = busy, 0 = idle */
+		// TODO - this status poll should NOT set Status message - this is for
+		// early experimentation only - it will overwrite useful messages set elsewhere
+		//
+		if (status == 0)
+		{
+			if (strcmp(this->fromLabview, "0") == 0)
+			{
+				setStringParam(ADStatusMessage, "Labview idle");
+			}
+			else if (strcmp(this->fromLabview, "1") == 0)
+			{
+				setStringParam(ADStatusMessage, "Labview busy");
+			}
+			else
+			{
+				setStringParam(ADStatusMessage, "Labview status error");
+			}
+
+			callParamCallbacks();
+			unlock();
+		}
+		else
+		{
+			setStringParam(ADStatusMessage, "Labview communication error");
+			/*Unlock right away and try again next time*/
+			unlock();
+		}
+
+		/*This thread does not need to run often.*/
+		epicsThreadSleep(60);
+
 	}
-	if ((substr = strstr(this->fromLabview, "Channel 1: ")) != NULL) {
-	  sscanf(strtok(substr, "%"), "Channel 1: Temperature = %fC, Rel. Humidity = %f", &temp, &humid);
-	  setDoubleParam(medipixThTemp1, temp);
-	  setDoubleParam(medipixThHumid1, humid);
-	}
-	if ((substr = strstr(this->fromLabview, "Channel 2: ")) != NULL) {
-	  sscanf(strtok(substr, "%"), "Channel 2: Temperature = %fC, Rel. Humidity = %f", &temp, &humid);
-	  setDoubleParam(medipixThTemp2, temp);
-	  setDoubleParam(medipixThHumid2, humid);
-	}
-      }
-      
-      callParamCallbacks();
-      unlock();
-    } else {
-      /*Unlock right away and try again next time*/
-      unlock();
-    }
-    
-    /*This thread does not need to run often.*/
-    epicsThreadSleep(60);
-    
-  }
-  
+
 }
 
 
@@ -1472,11 +1020,7 @@ asynStatus medipixDetector::writeOctet(asynUser *pasynUser, const char *value,
     /* Set the parameter in the parameter library. */
     status = (asynStatus)setStringParam(function, (char *)value);
 
-    if (function == medipixBadPixelFile) {
-        this->readBadPixelFile(value);
-    } else if (function == medipixFlatFieldFile) {
-        this->readFlatFieldFile(value);
-    } else if (function == NDFilePath) {
+    if (function == NDFilePath) {
         epicsSnprintf(this->toLabview, sizeof(this->toLabview), "imgpath %s", value);
         writeReadLabview(Labview_DEFAULT_TIMEOUT);
         this->checkPath();
@@ -1528,12 +1072,15 @@ void medipixDetector::report(FILE *fp, int details)
     ADDriver::report(fp, details);
 }
 
-extern "C" int medipixDetectorConfig(const char *portName, const char *LabviewPort,
+extern "C" int medipixDetectorConfig(const char *portName,
+									const char *LabviewCommandPort,
+									const char *LabviewDataPort,
                                     int maxSizeX, int maxSizeY,
                                     int maxBuffers, size_t maxMemory,
                                     int priority, int stackSize)
 {
-    new medipixDetector(portName, LabviewPort, maxSizeX, maxSizeY, maxBuffers, maxMemory,
+    new medipixDetector(portName, LabviewCommandPort, LabviewDataPort,
+    					maxSizeX, maxSizeY, maxBuffers, maxMemory,
                         priority, stackSize);
     return(asynSuccess);
 }
@@ -1554,7 +1101,9 @@ extern "C" int medipixDetectorConfig(const char *portName, const char *LabviewPo
   * \param[in] priority The thread priority for the asyn port driver thread if ASYN_CANBLOCK is set in asynFlags.
   * \param[in] stackSize The stack size for the asyn port driver thread if ASYN_CANBLOCK is set in asynFlags.
   */
-medipixDetector::medipixDetector(const char *portName, const char *LabviewPort,
+medipixDetector::medipixDetector(const char *portName,
+								const char *LabviewDataPort,
+								const char *LabviewCommandPort,
                                 int maxSizeX, int maxSizeY,
                                 int maxBuffers, size_t maxMemory,
                                 int priority, int stackSize)
@@ -1592,7 +1141,8 @@ medipixDetector::medipixDetector(const char *portName, const char *LabviewPort,
     this->pFlatField = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
     
     /* Connect to Labview */
-    status = pasynOctetSyncIO->connect(LabviewPort, 0, &this->pasynUserLabview, NULL);
+    status = pasynOctetSyncIO->connect(LabviewCommandPort, 0, &this->pasynLabViewCmd, NULL);
+    status = pasynOctetSyncIO->connect(LabviewCommandPort, 0, &this->pasynLabViewData, NULL);
 
     createParam(medipixDelayTimeString,      asynParamFloat64, &medipixDelayTime);
     createParam(medipixThresholdString,      asynParamFloat64, &medipixThreshold);
@@ -1705,13 +1255,14 @@ medipixDetector::medipixDetector(const char *portName, const char *LabviewPort,
 
 /* Code for iocsh registration */
 static const iocshArg medipixDetectorConfigArg0 = {"Port name", iocshArgString};
-static const iocshArg medipixDetectorConfigArg1 = {"Labview port name", iocshArgString};
-static const iocshArg medipixDetectorConfigArg2 = {"maxSizeX", iocshArgInt};
-static const iocshArg medipixDetectorConfigArg3 = {"maxSizeY", iocshArgInt};
-static const iocshArg medipixDetectorConfigArg4 = {"maxBuffers", iocshArgInt};
-static const iocshArg medipixDetectorConfigArg5 = {"maxMemory", iocshArgInt};
-static const iocshArg medipixDetectorConfigArg6 = {"priority", iocshArgInt};
-static const iocshArg medipixDetectorConfigArg7 = {"stackSize", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg1 = {"Labview cmd port", iocshArgString};
+static const iocshArg medipixDetectorConfigArg2 = {"Labview data port", iocshArgString};
+static const iocshArg medipixDetectorConfigArg3 = {"maxSizeX", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg4 = {"maxSizeY", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg5 = {"maxBuffers", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg6 = {"maxMemory", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg7 = {"priority", iocshArgInt};
+static const iocshArg medipixDetectorConfigArg8 = {"stackSize", iocshArgInt};
 static const iocshArg * const medipixDetectorConfigArgs[] =  {&medipixDetectorConfigArg0,
                                                               &medipixDetectorConfigArg1,
                                                               &medipixDetectorConfigArg2,
@@ -1719,12 +1270,13 @@ static const iocshArg * const medipixDetectorConfigArgs[] =  {&medipixDetectorCo
                                                               &medipixDetectorConfigArg4,
                                                               &medipixDetectorConfigArg5,
                                                               &medipixDetectorConfigArg6,
-                                                              &medipixDetectorConfigArg7};
+                                                              &medipixDetectorConfigArg7,
+                                                              &medipixDetectorConfigArg8};
 static const iocshFuncDef configmedipixDetector = {"medipixDetectorConfig", 8, medipixDetectorConfigArgs};
 static void configmedipixDetectorCallFunc(const iocshArgBuf *args)
 {
-    medipixDetectorConfig(args[0].sval, args[1].sval, args[2].ival,  args[3].ival,
-                          args[4].ival, args[5].ival, args[6].ival,  args[7].ival);
+    medipixDetectorConfig(args[0].sval, args[1].sval, args[2].sval,  args[4].ival, args[5].ival,
+                          args[6].ival, args[7].ival, args[8].ival,  args[9].ival);
 }
 
 

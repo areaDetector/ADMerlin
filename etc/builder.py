@@ -12,20 +12,24 @@ class _medipix(AutoSubstitution):
 class medipix(_ADBase):
     """Creates a medipix areaDetector driver"""
     _SpecificTemplate = _medipix
-    def __init__(self, LABVIEW = "localhost:41234", XSIZE = 1024, YSIZE = 768,
+    def __init__(self, LABVIEW_CMD = "localhost:14000", LABVIEW_DATA = "localhost:14001", XSIZE = 256, YSIZE = 256,
             BUFFERS = 50, MEMORY = -1, **args):
-        # Make an asyn IP port to talk to medipixdtb on
-        self.LABVIEW_PORT = args["PORT"] + "ip"
-        self.ip = AsynIP(LABVIEW, name = self.LABVIEW_PORT,
-            input_eos = "\030", output_eos = "\n")
         # Init the superclass
-        self.__super.__init__(**args)
+        self.__super.__init__(**args)        
+        
+        # Make an asyn IP ports to talk to lab view
+        self.LABVIEW_CMD_PORT = args["PORT"] + "cmd"
+        self.LABVIEW_DATA_PORT = args["PORT"] + "data"
+        self.cmd = AsynIP(LABVIEW_CMD, name = self.LABVIEW_CMD_PORT)
+        self.data = AsynIP(LABVIEW_DATA, name = self.LABVIEW_DATA_PORT)
+
         # Init the file writing class
         self.file = _NDFile(**filter_dict(args, _NDFile.ArgInfo.Names()))
         # Store the args
         self.__dict__.update(self.file.args)
 #        self.__dict__.update(locals())
-        self.LABVIEW = LABVIEW
+        self.LABVIEW_CMD = LABVIEW_CMD
+        self.LABVIEW_DATA = LABVIEW_DATA
         self.XSIZE = XSIZE
         self.YSIZE = YSIZE
         self.BUFFERS = BUFFERS
@@ -35,7 +39,8 @@ class medipix(_ADBase):
     ArgInfo = _ADBase.ArgInfo + _NDFile.ArgInfo + \
             _SpecificTemplate.ArgInfo.filtered(without = ["LABVIEW_PORT"]) + \
             makeArgInfo(__init__,
-        LABVIEW = Simple('Machine:port that medipix LABVIEW is running on'),
+        LABVIEW_CMD = Simple('port for medipix Labview command channel'),
+        LABVIEW_DATA = Simple('port for medipix Labview data channel'),
         XSIZE = Simple('Maximum X dimension of the image', int),
         YSIZE = Simple('Maximum Y dimension of the image', int),
         BUFFERS = Simple('Maximum number of NDArray buffers to be created for '
@@ -49,9 +54,9 @@ class medipix(_ADBase):
     DbdFileList = ['medipix']
 
     def Initialise(self):
-        print '# medipixDetectorConfig(portName, serverPort, maxSizeX, ' \
+        print '# medipixDetectorConfig(portName, commandPort, dataPort, maxSizeX, ' \
             'maxSizeY, maxBuffers, maxMemory)'
-        print 'medipixDetectorConfig("%(PORT)s", "%(LABVIEW_PORT)s", ' \
+        print 'medipixDetectorConfig("%(PORT)s", "%(LABVIEW_CMD_PORT)s", "%(LABVIEW_DATA_PORT)s", ' \
             '%(XSIZE)d, %(YSIZE)d, %(BUFFERS)d, %(MEMORY)d)' % self.__dict__
 
 #def medipix_sim(**kwargs):

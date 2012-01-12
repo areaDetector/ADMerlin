@@ -7,6 +7,9 @@
 #% macro, PORT,  Asyn port
 #% macro, TIMEOUT,  Timeout
 
+# This associates the template with an edm screen
+# % gui, $(PORT), edmtab, medipixDetector.edl, P=$(P),R=$(R)
+
 # DUMMY RECORD - replace with actual extensions for this device
 record(bo, "$(P)$(R):LABVIEW_PORT")
 {
