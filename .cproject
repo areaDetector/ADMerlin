@@ -30,6 +30,9 @@
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/areaDetector/ADApp/cbfSrc"/>
 									<listOptionValue builtIn="false" value="/usr/include/c++/4.4.4/tr1"/>
 								</option>
+								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1373715657" name="Symbols" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="DEBUG=1"/>
+								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.849514019" languageId="org.eclipse.cdt.core.assembly" languageName="Assembly" sourceContentType="org.eclipse.cdt.core.asmSource" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
 							<tool id="org.eclipse.cdt.build.core.settings.holder.931903015" name="GNU C++" superClass="org.eclipse.cdt.build.core.settings.holder">
@@ -42,6 +45,9 @@
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/areaDetector/ADApp/cbfSrc"/>
 									<listOptionValue builtIn="false" value="/usr/include/c++/4.4.4/tr1"/>
 								</option>
+								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1816023181" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="DEBUG=1"/>
+								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.365794371" languageId="org.eclipse.cdt.core.g++" languageName="GNU C++" sourceContentType="org.eclipse.cdt.core.cxxSource,org.eclipse.cdt.core.cxxHeader" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
 							<tool id="org.eclipse.cdt.build.core.settings.holder.1714438905" name="GNU C" superClass="org.eclipse.cdt.build.core.settings.holder">
@@ -50,8 +56,11 @@
 									<listOptionValue builtIn="false" value="/usr/include/linux/"/>
 									<listOptionValue builtIn="false" value="/dls_sw/epics/R3.14.11/base/include"/>
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/asyn/include"/>
-									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/areaDetector/ADApp/cbfSrc"/>
 									<listOptionValue builtIn="false" value="/usr/include/c++/4.4.4/tr1"/>
+									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/areaDetector/ADApp/ADSrc"/>
+								</option>
+								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1840134381" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="DEBUG=1"/>
 								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.1810921758" languageId="org.eclipse.cdt.core.gcc" languageName="GNU C" sourceContentType="org.eclipse.cdt.core.cSource,org.eclipse.cdt.core.cHeader" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>

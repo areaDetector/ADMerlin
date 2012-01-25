@@ -12,6 +12,9 @@ LIBRARY += medipixDetector
 PROD += medipix_sim
 PROD += medipix_test
 
+#build cpp with debug
+USR_CFLAGS += -DDEBUG
+HOST_OPT=NO
 
 # The following are compiled and added to the support library
 medipix_low_SRCS += medipix_low.c

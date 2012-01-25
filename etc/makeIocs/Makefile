@@ -22,13 +22,14 @@ IOC_DIRS := $(patsubst %, $(TOP)/iocs/%, $(IOCS) $(SIMS))
 # Add the created iocs and sims to the install target
 install: $(IOC_DIRS)
 
+# TODO TODO - temp using -c for building debug version of ASYN - should remove this
 # General rule for building a Standard IOC from an XML file
 $(TOP)/iocs/%: %.xml
-	$(XMLBUILDER) -e $(DEBUG) $<
+	$(XMLBUILDER) -e -c $(DEBUG) $<
 
 # General rule for building a Simulation IOC from an XML file
 $(TOP)/iocs/%_sim: %.xml
-	$(XMLBUILDER) $(DEBUG) --sim=linux-x86 $<
+	$(XMLBUILDER) $(DEBUG) -c --sim=linux-x86 $<
 
 # Alternate rule for building a Standard IOC from a python file
 $(TOP)/iocs/%: %.py

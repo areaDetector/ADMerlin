@@ -255,30 +255,53 @@ int mpxDisconnect(void)
  */
 char * mpxError(int error, char *errMsg)
 {
-  if (error == MPX_OK) {
-    strncpy(errMsg, "OK", MPX_MAXLINE);
-  } else if (error == MPX_ERROR) {
-    strncpy(errMsg, "Unknown Error", MPX_MAXLINE);
-  } else if (error == MPX_CMD) {
-    strncpy(errMsg, "Unknown Command", MPX_MAXLINE);
-  } else if (error == MPX_PARAM) {
-    strncpy(errMsg, "Param Out Of Range", MPX_MAXLINE);
-  } else if (error == MPX_CONN) {
-    strncpy(errMsg, "Not Connected To Detector", MPX_MAXLINE);
-   } else if (error == MPX_WRITE) {
-    strncpy(errMsg, "Error Writing To Socket", MPX_MAXLINE);
-  } else if (error == MPX_READ) {
-    strncpy(errMsg, "Error Reading From Socket", MPX_MAXLINE);
-  } else if (error == MPX_DATA) {
-    strncpy(errMsg, "Data Format Error", MPX_MAXLINE);
-  } else if (error == MPX_LEN) {
-    strncpy(errMsg, "Length of command and value too long", MPX_MAXLINE);
-  } else {
-    strncpy(errMsg, "Unknown Error Code", MPX_MAXLINE);
-  }
-  errMsg[MPX_MAXLINE-1] = '\0'; 
+	if (error == MPX_OK)
+	{
+		strncpy(errMsg, "OK", MPX_MAXLINE);
+	}
+	else if (error == MPX_ERROR)
+	{
+		strncpy(errMsg, "Unknown Error", MPX_MAXLINE);
+	}
+	else if (error == MPX_CMD)
+	{
+		strncpy(errMsg, "Unknown Command", MPX_MAXLINE);
+	}
+	else if (error == MPX_PARAM)
+	{
+		strncpy(errMsg, "Param Out Of Range", MPX_MAXLINE);
+	}
+	else if (error == MPX_CONN)
+	{
+		strncpy(errMsg, "Not Connected To Detector", MPX_MAXLINE);
+	}
+	else if (error == MPX_WRITE)
+	{
+		strncpy(errMsg, "Error Writing To Socket", MPX_MAXLINE);
+	}
+	else if (error == MPX_READ)
+	{
+		strncpy(errMsg, "Error Reading From Socket", MPX_MAXLINE);
+	}
+	else if (error == MPX_DATA)
+	{
+		strncpy(errMsg, "Data Format Error", MPX_MAXLINE);
+	}
+	else if (error == MPX_LEN)
+	{
+		strncpy(errMsg, "Length of command and value too long", MPX_MAXLINE);
+	}
+	else if (error == MPX_UNEXPECTED)
+	{
+		strncpy(errMsg, "unexpected response from Labview", MPX_MAXLINE);
+	}
+	else
+	{
+		strncpy(errMsg, "Unknown Error Code", MPX_MAXLINE);
+	}
+	errMsg[MPX_MAXLINE - 1] = '\0';
 
-  return errMsg;
+	return errMsg;
 }
 
 

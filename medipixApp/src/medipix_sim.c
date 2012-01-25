@@ -6,6 +6,9 @@
  * 
  * Matthew Pearson
  * Oct 2011
+ *
+ * Giles Knap
+ * Jan 2012
  */
 
 #include <stdio.h>
@@ -22,6 +25,7 @@
 
 #define MAXLINE 256
 #define MAXDATA 128000
+#define HEADER_LEN 15
 
 /*Function prototypes.*/
 void sig_chld(int signo);
@@ -186,123 +190,143 @@ void sig_chld(int signo)
  * Read from socket and send back response. 
  * Read a maximum of MAXLINE, or until a newline, then echo the command back.
  */
-int echo_request(int socket_fd) 
+int echo_request(int socket_fd)
 {
-	int nleft = MAXLINE-1;
+	int nleft = HEADER_LEN;
 	int nread = 0;
-	char buffer[MAXLINE] = {'\0'};
-	char tempbuf[MAXLINE];
-	char response[MAXLINE] = {'\0'};
+	char buffer[MAXLINE+1] = { '\0' };
+	char response[MAXLINE] = { '\0' };
 	char *bptr = NULL;
-	int i = 0;
-	int command = 0;
+	int inheader = 1;
 	char *tok = NULL;
+	char *cmdType, *cmdName;
+	int bodylen = 0;
 
 	bptr = buffer;
 
-	if (socket_fd == 0) {
+	if (socket_fd == 0)
+	{
 		printf("NULL socket fd in echo_request.\n");
 		return EXIT_FAILURE;
 	}
 
+	// keep reading and responding until an error occurs
+	while (1)
+	{
+		// clear response
+		response[0] = (char)NULL;
+		// first time around following loop we read header_len bytes
+		nleft = HEADER_LEN;
+		// first pass of the while loop is reading header
+		inheader = 1;
 
-	///Read until nothing left.
-	while (nleft > 0) {
-		if ((nread = read(socket_fd, bptr, nleft)) < 0) {
-			if (errno == EINTR) {
-				nread = 0;
-				printf("EINTR");
-			} else {
-				printf("Unknown read error.");
-				return EXIT_FAILURE;
+		/// Read until end of current block (header or body)
+		while (nleft > 0)
+		{
+			printf("reading socket...\n");
+			if ((nread = read(socket_fd, bptr, nleft)) < 0)
+			{
+				if (errno == EINTR)
+				{
+					nread = 0;
+					printf("EINTR");
+				}
+				else
+				{
+					printf("Unknown read error.\n");
+					return EXIT_FAILURE;
+				}
 			}
-		} else if (nread == 0) {
-			printf("Read nothing. Socket closed.\n");
-			return EXIT_FAILURE; //Done. Client has probably disconnected.
+			else if (nread == 0)
+			{
+				printf("Read nothing. Socket closed.\n");
+				return EXIT_FAILURE; //Done. Client has probably disconnected.
+			}
+
+			nleft = nleft - nread;
+			if (inheader)
+			{
+				if (nleft == 0)
+				{
+					inheader = 0;
+					bptr[HEADER_LEN] = (char)NULL;
+
+					printf("received command header: %s\n",buffer);
+
+					nleft = MAXLINE - HEADER_LEN;
+					tok = strtok(bptr, ",");
+					tok = strtok(NULL, ",");
+					if(tok == NULL)
+					{
+						printf("MPX Command header is missing length field.\n");
+						continue;
+					}
+					else
+					{
+						nleft = bodylen = atoi(tok);
+					}
+				}
+			}
+			else
+			{
+			}
+
 		}
 
-		nleft = nleft - nread;
-
-		//printf("nread: %d\n", nread);
-		//printf("We got: %s\n", bptr);
-
-		//Read until '\r\n', then print the string. Then reset the buffer pointer.
-		for (i=0; i<nread; i++) {
-			if ((*bptr=='\r')&&(*(bptr+1)=='\n')) {
-				//printf("From client: %s\n", buffer);
-				bptr = buffer;
-				command = 1;
-			}
-			bptr++;
-		}
-
-		/*Default response is an error (for a SET command)*/
-		strncpy(response, "MPX,1\r\n", MAXLINE);
-
+		bptr[bodylen] = (char)NULL;
+		printf("received command body: %s\n",buffer);
 
 		//Handle command
-		if (command == 1) {
-			bptr = buffer;
-			strncpy(tempbuf, buffer, MAXLINE);
+		bptr = buffer;
 
-			/*Remove the terminator.*/
-			tok = strtok(tempbuf, "\r\n");
-			//printf("tok: %s\n", tok);
-			tok = strtok(tok, ",");
-			//printf("tok: %s\n", tok);
-			if (!strncmp(tok,"MPX",3)) {
-				tok = strtok(NULL, ",");
-				//printf("tok: %s\n", tok);
-				if (!strncmp(tok,"SET",3)) {
-					//printf("tok: %s\n", tok);
-					tok = strtok(NULL, ",");
-					strncpy(response,"MPX,0\r\n",MAXLINE);
-				}
-				else if (!strncmp(tok,"GET",3)) {
-					//printf("tok: %s\n", tok);
-					tok = strtok(NULL, ",");
-					//printf("tok: %s\n", tok);
-					if (tok != NULL) {
-						sprintf(response, "MPX,0,%s,5\r\n", tok);
-					} else {
-						if (write(socket_fd, "MPX,1\r\n", 8) <= 0) {
-							printf("Error writing back to client.\n");
-							return EXIT_FAILURE;
-						}
-					}
-				} else if (!strncmp(tok,"CMD",3)) {
-					tok = strtok(NULL, ",");
-					if (!strncmp(tok,"STARTACQUISITION",16)) {
-						strncpy(response,"MPX,0\r\n",MAXLINE);
-						/*signal data thread to send some data back.*/
-						printf("***signalling data thread.\n");
-						pthread_mutex_lock(&do_data_mutex);
-						do_data = 1;
-						pthread_cond_signal(&do_data_cond);
-						pthread_mutex_unlock(&do_data_mutex);
-					}
-				}
-
-				if (write(socket_fd, response, MAXLINE-nleft+1) <= 0) {
-					printf("Error writing back to client.\n");
-					return EXIT_FAILURE;
-				}
-
-			} else {
-				if (write(socket_fd, "MPX,1\r\n", 8) <= 0) {
-					printf("Error writing back to client.\n");
-					return EXIT_FAILURE;
-				}
-			}
-
-			nleft = MAXLINE;
-
-			//Clear buffer for next command.
-			memset(&buffer[0], '\0', sizeof(buffer));
-			memset(&tempbuf[0], '\0', sizeof(tempbuf));
-
+		cmdType = strtok(bptr, ",");
+		cmdName = strtok(NULL, ",");
+		if(cmdType == NULL || cmdName == NULL)
+		{
+			printf("badly formed MPX command\n");
+			sprintf(response, "MPX,0000000008,ERROR,1");
+			continue;
 		}
 
+		if (!strncmp(cmdType, "SET", 3))
+		{
+			bodylen = strlen(cmdName)+7;
+			sprintf(response,"MPX,%010u,SET,%s,0", bodylen, cmdName );
+		}
+		else if (!strncmp(tok, "GET", 3))
+		{
+			bodylen = strlen(cmdName)+8;
+			// always return 5
+			sprintf(response, "MPX,%010u,GET,%s,9,0", bodylen, cmdName );
+		}
+		else if (!strncmp(tok, "CMD", 3))
+		{
+			if (!strncmp(cmdName, "STARTACQUISITION", 16))
+			{
+				strncpy(response, "MPX,0\r\n", MAXLINE);
+				/*signal data thread to send some data back.*/
+				printf("***signalling data thread.\n");
+				pthread_mutex_lock(&do_data_mutex);
+				do_data = 1;
+				pthread_cond_signal(&do_data_cond);
+				pthread_mutex_unlock(&do_data_mutex);
+			}
+		}
+		else
+		{
+			printf("Unknown MPX command: '%s'\n",cmdName);
+			sprintf(response, "MPX,0000000008,ERROR,1");
+		}
+
+		printf("sending response: %s \n", response);
+		if (write(socket_fd, response, strlen(response)) <= 0)
+		{
+			printf("Error writing back to client.\n");
+			return EXIT_FAILURE;
+		}
+
+		//Clear buffer for next command.
+		memset(&buffer[0], '\0', sizeof(buffer));
 	}
 
 	printf("Buffer full. From client: %s\n", buffer);
@@ -361,6 +385,7 @@ int produce_data(int data_fd)
 			if (data_exit) {
 				//printf("Exiting data thread.\n");
 				data_exit = 0;
+				do_data = 0;
 				pthread_mutex_unlock(&do_data_mutex);
 				break;
 			}

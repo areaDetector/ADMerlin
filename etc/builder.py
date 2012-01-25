@@ -14,15 +14,15 @@ class medipix(_ADBase):
     _SpecificTemplate = _medipix
     def __init__(self, LABVIEW_CMD = "localhost:14000", LABVIEW_DATA = "localhost:14001", XSIZE = 256, YSIZE = 256,
             BUFFERS = 50, MEMORY = -1, **args):
-        # Init the superclass
-        self.__super.__init__(**args)        
         
         # Make an asyn IP ports to talk to lab view
         self.LABVIEW_CMD_PORT = args["PORT"] + "cmd"
         self.LABVIEW_DATA_PORT = args["PORT"] + "data"
         self.cmd = AsynIP(LABVIEW_CMD, name = self.LABVIEW_CMD_PORT)
         self.data = AsynIP(LABVIEW_DATA, name = self.LABVIEW_DATA_PORT)
-
+        
+        # Init the superclass
+        self.__super.__init__(**args) 
         # Init the file writing class
         self.file = _NDFile(**filter_dict(args, _NDFile.ArgInfo.Names()))
         # Store the args
