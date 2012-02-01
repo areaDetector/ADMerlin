@@ -44,5 +44,7 @@ extern int mpxDisconnect(void);
 
 // variables and commands
 #define MPX_GETSOFTWAREVERSION "GETSOFTWAREVERSION"
+#define MPX_DETECTORSTATUS "DETECTORSTATUS"
+
 
 #endif /* MPX_LOW_H */

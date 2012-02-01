@@ -1,4 +1,3 @@
-
 /**
  * Simple TCP server to simulate a medipix Labview system.
  * Arguments:
@@ -25,7 +24,7 @@
 
 #define MAXLINE 256
 #define MAXDATA 128000
-#define HEADER_LEN 15
+#define HEADER_LEN 15 // this includes 2 commas + the header and length fields
 
 /*Function prototypes.*/
 void sig_chld(int signo);
@@ -44,13 +43,15 @@ int main(int argc, char *argv[])
 {
 	int fd, fd2, fd_data, fd2_data;
 	socklen_t client_size;
-	struct sockaddr_in server_addr, client_addr, server_addr_data, client_addr_data;
+	struct sockaddr_in server_addr, client_addr, server_addr_data,
+			client_addr_data;
 
 	pthread_t tid, tid_data;
 
 	printf("Started Medipix simulation server...\n");
 
-	if (argc != 3) {
+	if (argc != 3)
+	{
 		printf("  ERROR: Use: %s {command socket} {data socket}\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
@@ -72,7 +73,8 @@ int main(int argc, char *argv[])
 
 	/* Bind the socket address to the socket buffer.*/
 	bind(fd, (struct sockaddr *) &server_addr, sizeof(server_addr));
-	bind(fd_data, (struct sockaddr *) &server_addr_data, sizeof(server_addr_data));
+	bind(fd_data, (struct sockaddr *) &server_addr_data,
+			sizeof(server_addr_data));
 
 	/* Listen for incoming connections. */
 	listen(fd, 10);
@@ -80,51 +82,64 @@ int main(int argc, char *argv[])
 
 	/* Install signal handler to clean up children.*/
 	//  signal(SIGCHLD, sig_chld);
-
 	/*Loop forever.*/
-	while(1) {
+	while (1)
+	{
 
 		/*Command socket*/
 		printf("Waiting for command socket...\n");
 		client_size = sizeof(client_addr);
-		if ((fd2 = accept(fd, (struct sockaddr *) &client_addr, &client_size)) < 0) {
-			if (errno == EINTR) {
+		if ((fd2 = accept(fd, (struct sockaddr *) &client_addr, &client_size))
+				< 0)
+		{
+			if (errno == EINTR)
+			{
 				continue; /*Deal with interupted system call, since this blocks.*/
-			} else {
+			}
+			else
+			{
 				perror(argv[0]);
 				exit(EXIT_FAILURE);
 			}
 		}
 
-		if (fd2 > 0) {
+		if (fd2 > 0)
+		{
 
 			/*Data socket*/
 			printf("Waiting for data socket...\n");
 			client_size = sizeof(client_addr_data);
-			if ((fd2_data = accept(fd_data, (struct sockaddr *) &client_addr_data, &client_size)) < 0) {
-				if (errno == EINTR) {
+			if ((fd2_data = accept(fd_data,
+					(struct sockaddr *) &client_addr_data, &client_size)) < 0)
+			{
+				if (errno == EINTR)
+				{
 					continue; /*Deal with interupted system call, since this blocks.*/
-				} else {
+				}
+				else
+				{
 					perror(argv[0]);
 					exit(EXIT_FAILURE);
 				}
 			}
 
-			if (fd2_data > 0) {
+			if (fd2_data > 0)
+			{
 				pthread_create(&tid, NULL, &commandThread, (void *) fd2);
 				pthread_create(&tid_data, NULL, &dataThread, (void *) fd2_data);
 
 				/*Block here waiting for the threads to finish. This only allows a single client to
-          connect, to keep it simple.*/
+				 connect, to keep it simple.*/
 				pthread_join(tid, NULL);
 				printf("thread 1 finished.\n");
 				pthread_join(tid_data, NULL);
 				printf("thread 2 finished.\n");
-			} else {
+			}
+			else
+			{
 				close(fd2);
 			}
 		}
-
 
 	}
 
@@ -134,12 +149,12 @@ int main(int argc, char *argv[])
 
 }
 
-
 void * commandThread(void *command_fd)
 {
 	printf("Started commandThread.\n");
 
-	if (echo_request((int)command_fd) != EXIT_SUCCESS) {
+	if (echo_request((int) command_fd) != EXIT_SUCCESS)
+	{
 		printf("  Client failed to handle protocol, or connection closed.\n");
 		/*close connected socket*/
 		close((int) command_fd);
@@ -150,41 +165,40 @@ void * commandThread(void *command_fd)
 		data_exit = 1;
 		pthread_cond_signal(&do_data_cond);
 		pthread_mutex_unlock(&do_data_mutex);
-		return (void *)EXIT_FAILURE;
+		return (void *) EXIT_FAILURE;
 	}
-	return (void *)EXIT_SUCCESS;
+	return (void *) EXIT_SUCCESS;
 }
-
 
 void * dataThread(void *data_fd)
 {
 	printf("Started dataThread.\n");
 
-	if (produce_data((int)data_fd) != EXIT_SUCCESS) {
-		printf("  Data client failed to handle protocol, or connection closed.\n");
+	if (produce_data((int) data_fd) != EXIT_SUCCESS)
+	{
+		printf(
+				"  Data client failed to handle protocol, or connection closed.\n");
 		/*close connected socket*/
 		close((int) data_fd);
-		return (void *)EXIT_FAILURE;
+		return (void *) EXIT_FAILURE;
 	}
-	return (void *)EXIT_SUCCESS;
-}  
-
-
+	return (void *) EXIT_SUCCESS;
+}
 
 /**
  * Signal handler for SIGCHLD. NOT NEEDED NOW WE ARE USING PTHREADS.
  *
- */ 
+ */
 void sig_chld(int signo)
 {
 	pid_t pid = 0;
 	int status = 1;
 
-	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+	while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+	{
 		printf("Child %d has terminated. Status = %d\n", pid, status);
 	}
 }
-
 
 /**
  * Read from socket and send back response. 
@@ -194,8 +208,10 @@ int echo_request(int socket_fd)
 {
 	int nleft = HEADER_LEN;
 	int nread = 0;
-	char buffer[MAXLINE+1] = { '\0' };
-	char response[MAXLINE] = { '\0' };
+	char buffer[MAXLINE + 1] =
+	{	'\0'};char
+	response[MAXLINE] =
+	{ '\0' };
 	char *bptr = NULL;
 	int inheader = 1;
 	char *tok = NULL;
@@ -214,7 +230,7 @@ int echo_request(int socket_fd)
 	while (1)
 	{
 		// clear response
-		response[0] = (char)NULL;
+		response[0] = (char) NULL;
 		// first time around following loop we read header_len bytes
 		nleft = HEADER_LEN;
 		// first pass of the while loop is reading header
@@ -249,21 +265,22 @@ int echo_request(int socket_fd)
 				if (nleft == 0)
 				{
 					inheader = 0;
-					bptr[HEADER_LEN] = (char)NULL;
+					bptr[HEADER_LEN] = (char) NULL;
 
-					printf("received command header: %s\n",buffer);
+					printf("received command header: %s\n", buffer);
 
 					nleft = MAXLINE - HEADER_LEN;
 					tok = strtok(bptr, ",");
 					tok = strtok(NULL, ",");
-					if(tok == NULL)
+					if (tok == NULL)
 					{
 						printf("MPX Command header is missing length field.\n");
 						continue;
 					}
 					else
 					{
-						nleft = bodylen = atoi(tok);
+						// subtract 1 from bodylen since we already read the 1st comma
+						nleft = bodylen = atoi(tok) - 1;
 					}
 				}
 			}
@@ -273,15 +290,15 @@ int echo_request(int socket_fd)
 
 		}
 
-		bptr[bodylen] = (char)NULL;
-		printf("received command body: %s\n",buffer);
+		bptr[bodylen] = (char) NULL;
+		printf("received command body: %s\n", buffer);
 
 		//Handle command
 		bptr = buffer;
 
 		cmdType = strtok(bptr, ",");
 		cmdName = strtok(NULL, ",");
-		if(cmdType == NULL || cmdName == NULL)
+		if (cmdType == NULL || cmdName == NULL)
 		{
 			printf("badly formed MPX command\n");
 			sprintf(response, "MPX,0000000008,ERROR,1");
@@ -290,20 +307,33 @@ int echo_request(int socket_fd)
 
 		if (!strncmp(cmdType, "SET", 3))
 		{
-			bodylen = strlen(cmdName)+7;
-			sprintf(response,"MPX,%010u,SET,%s,0", bodylen, cmdName );
+			bodylen = strlen(cmdName) + 7;
+			sprintf(response, "MPX,%010u,SET,%s,0", bodylen, cmdName);
 		}
-		else if (!strncmp(tok, "GET", 3))
+		else if (!strncmp(cmdType, "GET", 3))
 		{
-			bodylen = strlen(cmdName)+8;
-			// always return 5
-			sprintf(response, "MPX,%010u,GET,%s,9,0", bodylen, cmdName );
+			if(!strncmp(cmdName,"DETECTORSTATUS",MAXLINE))
+			{
+				bodylen = strlen(cmdName) + 9;
+				sprintf(response, "MPX,%010u,GET,%s,0,0", bodylen, cmdName);
+			}
+			if(!strncmp(cmdName,"GETSOFTWAREVERSION",MAXLINE))
+			{
+				bodylen = strlen(cmdName) + 11;
+				sprintf(response, "MPX,%010u,GET,%s,0.1,0", bodylen, cmdName);
+			}
+			else
+			{
+				// default response
+				bodylen = strlen(cmdName) + 11;
+				sprintf(response, "MPX,%010u,GET,%s,9.0,0", bodylen, cmdName);
+			}
 		}
 		else if (!strncmp(tok, "CMD", 3))
 		{
 			if (!strncmp(cmdName, "STARTACQUISITION", 16))
 			{
-				strncpy(response, "MPX,0\r\n", MAXLINE);
+				strncpy(response, "MPX,0000000019,STARTACQUISITION,0", MAXLINE);
 				/*signal data thread to send some data back.*/
 				printf("***signalling data thread.\n");
 				pthread_mutex_lock(&do_data_mutex);
@@ -314,7 +344,7 @@ int echo_request(int socket_fd)
 		}
 		else
 		{
-			printf("Unknown MPX command: '%s'\n",cmdName);
+			printf("Unknown MPX command: '%s'\n", cmdName);
 			sprintf(response, "MPX,0000000008,ERROR,1");
 		}
 
@@ -334,33 +364,34 @@ int echo_request(int socket_fd)
 	return EXIT_SUCCESS;
 }
 
-
-
 /**
  * Produce simulation data when we start acquisition. 
  */
-int produce_data(int data_fd) 
+int produce_data(int data_fd)
 {
 	//char *data = "Here is some data.\r\n";
-
 	//unsigned int trailer = 0xDA; /* CR LF */
 
-	char data[MAXDATA] = {0};
+    char data[MAXDATA] = { 0 };
 	unsigned int i;
+	int dataLength = MAXDATA - 15;
 
-	for (i = 0; i<MAXDATA; i++) {
+	strncpy(data, "MPX,0000128000,", 15);
+
+	// create dummy data
+	for (i = 15; i < dataLength; i++)
+	{
 		data[i] = (i % 255) & 0xFF;
 		//printf("data[%d]: %x\n", i, data[i] & 0xFF);
 	}
-	data[MAXDATA-1] = 0xA;
-	data[MAXDATA-2] = 0xD;
 
-	while (1) {
-
+	while (1)
+	{
 		//printf("***taking mutex in data thread.\n");
 		/*Wait for signal to produce some data.*/
 		pthread_mutex_lock(&do_data_mutex);
-		while (do_data == 0) {
+		while (do_data == 0)
+		{
 			//printf("***waiting in data thread.\n");
 			pthread_cond_wait(&do_data_cond, &do_data_mutex);
 		}
@@ -373,16 +404,21 @@ int produce_data(int data_fd)
 
 		//printf("MAXDATA: %d\n", MAXDATA);
 
-		if ((do_data == 1) && (data_exit == 0)) {
-			if (write(data_fd, data, MAXDATA) <= 0) {
+		if ((do_data == 1) && (data_exit == 0))
+		{
+			if (write(data_fd, data, MAXDATA) <= 0)
+			{
 				//printf("Error writing back to client.\n");
 				do_data = 0;
 				pthread_mutex_unlock(&do_data_mutex);
 				return EXIT_FAILURE;
 			}
 			do_data = 0;
-		} else {
-			if (data_exit) {
+		}
+		else
+		{
+			if (data_exit)
+			{
 				//printf("Exiting data thread.\n");
 				data_exit = 0;
 				do_data = 0;

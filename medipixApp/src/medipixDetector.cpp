@@ -261,9 +261,9 @@ asynStatus medipixDetector::mpxGet(char* valueId, double timeout)
 	{
 		return asynError;
 	}
-	// the message length specifier contains the count of characters from the ',' after itself
-	// i.e. total length minus the header length (including 2 commas)
-	msg_len = buff_len - MPX_MSG_LEN_DIGITS - strlen(MPX_HEADER) - 2;
+	// the message length specifier contains the count of characters including the ',' after itself
+	// i.e. total length minus the header length (including 1 comma)
+	msg_len = buff_len - MPX_MSG_LEN_DIGITS - strlen(MPX_HEADER) - 1;
 
 	sprintf(toLabview, "%s,%010u,%s,%s", MPX_HEADER, msg_len, MPX_GET, valueId);
 
@@ -284,20 +284,18 @@ asynStatus medipixDetector::mpxGet(char* valueId, double timeout)
 
 	// 3rd Item is Value
 	tok = strtok(NULL, ",");
-	if (tok == NULL
-		)
+	if (tok == NULL)
 		return asynError;
 
 	strncpy(fromLabviewValue, tok, MPX_MAXLINE);
 
 	// 4th Item is Error Number
 	tok = strtok(NULL, ",");
-	if (tok == NULL
-		)
+	if (tok == NULL)
 		return asynError;
 	fromLabviewError = atoi(tok);
-	if (fromLabviewError != MPX_OK
-		)
+
+	if (fromLabviewError != MPX_OK)
 		return asynError;
 
 	return asynSuccess;
@@ -390,7 +388,8 @@ asynStatus medipixDetector::mpxRead(double timeout)
 		)
 		return asynError;
 
-	bodySize = atoi(tok);
+	// subtract one from bodysize since we already read the 1st comma
+	bodySize = atoi(tok) - 1;
 
 	if (bodySize == 0 || bodySize > (MPX_MAXLINE - headerSize))
 		return asynError;
@@ -1137,14 +1136,16 @@ void medipixDetector::medipixStatus()
 		/* Is acquisition active? */
 		getIntegerParam(ADAcquire, &acquire);
 
+		result = mpxGet(MPX_DETECTORSTATUS, Labview_DEFAULT_TIMEOUT);
+		statusCode = atoi(this->fromLabviewValue);
+
 		result = mpxGet(MPX_GETSOFTWAREVERSION, Labview_DEFAULT_TIMEOUT);
 		statusCode = atoi(this->fromLabviewValue);
 		/* Response should contain: 1 = busy, 0 = idle */
 
-		// TODO - this status poll should NOT set Status message - this is for
-		// early experimentation only - it will overwrite useful messages set elsewhere
-		//
-		if (result == asynSuccess)
+		// NOTE This  will overwrite useful messages set elsewhere
+		// so only do update if the error state is clear
+		if (result == asynSuccess && this->fromLabviewError == MPX_OK)
 		{
 			if (statusCode == 0)
 			{
@@ -1170,11 +1171,7 @@ void medipixDetector::medipixStatus()
 		}
 
 		/*This thread does not need to run often.*/
-#ifdef DEBUG
-		epicsThreadSleep(15);
-#else
 		epicsThreadSleep(60);
-#endif
 	}
 
 }
