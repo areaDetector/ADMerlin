@@ -23,7 +23,9 @@
 #include <pthread.h>
 
 #define MAXLINE 256
-#define MAXDATA 128000
+#define MAXDATA 256*256*16
+#define DATAHEADERLEN 256
+#define CMDLEN 4
 #define HEADER_LEN 15 // this includes 2 commas + the header and length fields
 
 /*Function prototypes.*/
@@ -75,6 +77,13 @@ int main(int argc, char *argv[])
 	bind(fd, (struct sockaddr *) &server_addr, sizeof(server_addr));
 	bind(fd_data, (struct sockaddr *) &server_addr_data,
 			sizeof(server_addr_data));
+
+	/* data socket timeout	 */
+	struct timeval timeout;
+	    timeout.tv_sec = 2;
+	    timeout.tv_usec = 0;
+
+	setsockopt (fd_data, SOL_SOCKET, SO_SNDTIMEO, (char *)&timeout, sizeof(timeout));
 
 	/* Listen for incoming connections. */
 	listen(fd, 10);
@@ -329,7 +338,7 @@ int echo_request(int socket_fd)
 				sprintf(response, "MPX,%010u,GET,%s,9.0,0", bodylen, cmdName);
 			}
 		}
-		else if (!strncmp(tok, "CMD", 3))
+		else if (!strncmp(cmdType, "CMD", 3))
 		{
 			if (!strncmp(cmdName, "STARTACQUISITION", 16))
 			{
@@ -340,6 +349,7 @@ int echo_request(int socket_fd)
 				do_data = 1;
 				pthread_cond_signal(&do_data_cond);
 				pthread_mutex_unlock(&do_data_mutex);
+				printf("***data thread singnalled.\n");
 			}
 		}
 		else
@@ -372,14 +382,16 @@ int produce_data(int data_fd)
 	//char *data = "Here is some data.\r\n";
 	//unsigned int trailer = 0xDA; /* CR LF */
 
-    char data[MAXDATA] = { 0 };
+    char data[HEADER_LEN + CMDLEN + DATAHEADERLEN + MAXDATA] = { 0 };
 	unsigned int i;
-	int dataLength = MAXDATA - 15;
+	int headersLength = HEADER_LEN + CMDLEN + DATAHEADERLEN;
 
-	strncpy(data, "MPX,0000128000,", 15);
+	strncpy(data, "MPX,0000128000,", HEADER_LEN);
+	sprintf((data + HEADER_LEN), "HDR,%-256s",
+			"1,1,2012-02-01 11:26:00.000,.05,6.0,8.0,0,0,0,0,0,0,0,0");
 
 	// create dummy data
-	for (i = 15; i < dataLength; i++)
+	for (i = headersLength; i < MAXDATA+headersLength; i++)
 	{
 		data[i] = (i % 255) & 0xFF;
 		//printf("data[%d]: %x\n", i, data[i] & 0xFF);
@@ -387,12 +399,12 @@ int produce_data(int data_fd)
 
 	while (1)
 	{
-		//printf("***taking mutex in data thread.\n");
+		printf("***taking mutex in data thread.\n");
 		/*Wait for signal to produce some data.*/
 		pthread_mutex_lock(&do_data_mutex);
 		while (do_data == 0)
 		{
-			//printf("***waiting in data thread.\n");
+			printf("***waiting in data thread.\n");
 			pthread_cond_wait(&do_data_cond, &do_data_mutex);
 		}
 
@@ -406,12 +418,22 @@ int produce_data(int data_fd)
 
 		if ((do_data == 1) && (data_exit == 0))
 		{
-			if (write(data_fd, data, MAXDATA) <= 0)
+
+			// send a silly acquisition header
+			if (write(data_fd, "MPX,0000000030,HDR,dummy acquisition header.", MAXDATA) <= 0)
 			{
-				//printf("Error writing back to client.\n");
+				printf("Error writing acquisition header to client.\n");
 				do_data = 0;
 				pthread_mutex_unlock(&do_data_mutex);
-				return EXIT_FAILURE;
+				//return EXIT_FAILURE;
+			}
+
+			if (write(data_fd, data, MAXDATA) <= 0)
+			{
+				printf("Error writing data frame to client.\n");
+				do_data = 0;
+				pthread_mutex_unlock(&do_data_mutex);
+				//return EXIT_FAILURE;
 			}
 			do_data = 0;
 		}
@@ -419,7 +441,7 @@ int produce_data(int data_fd)
 		{
 			if (data_exit)
 			{
-				//printf("Exiting data thread.\n");
+				printf("Exiting data thread.\n");
 				data_exit = 0;
 				do_data = 0;
 				pthread_mutex_unlock(&do_data_mutex);

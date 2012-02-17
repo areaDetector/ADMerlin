@@ -185,8 +185,6 @@ private:
 	void abortAcquisition();
 	int stringEndsWith(const char *aString, const char *aSubstring,
 			int shouldIgnoreCase);
-	asynStatus writeLabview(double timeout);
-	asynStatus readLabview(double timeout);
 	asynStatus writeReadLabview(double timeout);
 	asynStatus setAcquireParams();
 	asynStatus setThreshold();
@@ -197,8 +195,9 @@ private:
 	asynStatus mpxSet(char* valueId, char* value, double timeout);
 	asynStatus mpxCommand(char* commandId, double timeout);
 	asynStatus mpxWrite(double timeout);
-	asynStatus mpxRead(double timeout);
+	asynStatus mpxReadCmd(double timeout);
 	asynStatus mpxWriteRead(double timeout);
+	asynStatus mpxRead(asynUser* pasynUser, char* bodyBuf, int bufSize, int* bytesRead, double timeout);
 
 	/* Our data */
 	int imagesRemaining;
@@ -214,8 +213,10 @@ private:
 	/* input and output from the labView controller     */
 	char toLabview[MPX_MAXLINE];
 	char fromLabview[MPX_MAXLINE];
+	char fromLabviewHeader[MPX_MAXLINE];
 	char fromLabviewBody[MPX_MAXLINE];
 	char fromLabviewValue[MPX_MAXLINE];
+	char fromLabviewImgHdr[MPX_IMG_HDR_LEN+1];
 	int fromLabviewError;
 };
 
@@ -232,6 +233,57 @@ asynStatus medipixDetector::mpxSet(char* valueId, char* value, double timeout)
 
 asynStatus medipixDetector::mpxCommand(char* commandId, double timeout)
 {
+	int buff_len = 0;
+	int msg_len = 0;
+	asynStatus status;
+	char *tok = NULL;
+
+	// default to this error for any following parsing issues
+	fromLabviewError = MPX_ERR_UNEXPECTED;
+
+	if ((commandId == NULL))
+	{
+		return asynError;
+	}
+
+	// Build up command to be sent.
+	// length is header + length specifier (10 decimal digits) + "SET" + length of variable name + 3 commas
+	buff_len = strlen(MPX_HEADER) + MPX_MSG_LEN_DIGITS + strlen(MPX_CMD)
+			+ strlen(commandId) + 3;
+	if (buff_len > MPX_MAXLINE)
+	{
+		return asynError;
+	}
+
+	// the message length specifier contains the count of characters including the ',' after itself
+	// i.e. total length minus the header length (including 1 comma)
+	msg_len = buff_len - MPX_MSG_LEN_DIGITS - strlen(MPX_HEADER) - 1;
+
+	sprintf(toLabview, "%s,%010u,%s,%s", MPX_HEADER, msg_len, MPX_CMD, commandId);
+
+	if ((status = mpxWriteRead(timeout)) != asynSuccess)
+	{
+		return status;
+	}
+
+	// items in the response are comma delimited
+	tok = strtok(fromLabviewBody, ",");
+	if (tok == NULL || strncmp(MPX_CMD, tok, MPX_MAXLINE))
+		return asynError;
+
+	// 2nd item is Command Name which should be echoed back
+	tok = strtok(NULL, ",");
+	if (tok == NULL || strncmp(tok, commandId, MPX_MAXLINE))
+		return asynError;
+
+	// 3rd Item is Error Number
+	tok = strtok(NULL, ",");
+	if (tok == NULL)
+		return asynError;
+	fromLabviewError = atoi(tok);
+
+	if (fromLabviewError != MPX_OK)
+		return asynError;
 	return asynSuccess;
 }
 
@@ -246,7 +298,7 @@ asynStatus medipixDetector::mpxGet(char* valueId, double timeout)
 	char *tok = NULL;
 
 	// default to this error for any following parsing issues
-	fromLabviewError = MPX_UNEXPECTED;
+	fromLabviewError = MPX_ERR_UNEXPECTED;
 
 	if ((valueId == NULL))
 	{
@@ -274,12 +326,12 @@ asynStatus medipixDetector::mpxGet(char* valueId, double timeout)
 
 	// items in the response are comma delimited
 	tok = strtok(fromLabviewBody, ",");
-	if (strncmp(MPX_GET, tok, MPX_MAXLINE))
+	if (tok == NULL || strncmp(MPX_GET, tok, MPX_MAXLINE))
 		return asynError;
 
 	// 2nd item is Value Name which should be echoed back
 	tok = strtok(NULL, ",");
-	if (strncmp(tok, valueId, MPX_MAXLINE))
+	if (tok == NULL || strncmp(tok, valueId, MPX_MAXLINE))
 		return asynError;
 
 	// 3rd Item is Value
@@ -331,95 +383,126 @@ asynStatus medipixDetector::mpxWrite(double timeout)
 }
 
 /**
+ * Reads in a raw MPX frame from a pasynOctetSyncIO handle
+ *
+ * It aligns to the header
+ * MPX,0000000000,
+ * Where the numeric portion represents the no. of bytes in body of the
+ * frame in decimal (inclusive of the header terminating comma).
+ *
+ * Reads the body into the passed bodyBuf
+ */
+asynStatus medipixDetector::mpxRead(asynUser* pasynUser, char* bodyBuf, int bufSize, int* bytesRead, double timeout)
+{
+	size_t nread = 0;
+	asynStatus status = asynSuccess;
+	int eomReason;
+	const char *functionName = "mpxRead";
+	size_t headerSize = strlen(MPX_HEADER) + MPX_MSG_LEN_DIGITS + 2;
+	int bodySize;
+	int readCount = 0;
+
+	char* tok;
+	char header[MPX_MAXLINE];
+
+	// TODO TODO - need to throw away any leading data before "MPX,"
+	// in order to realign if we get out of sync with the server
+
+	// default to this error for any following parsing issues
+	fromLabviewError = MPX_ERR_UNEXPECTED;
+
+	// first read the header block and message length
+	status = pasynOctetSyncIO->read(pasynUser, header, headerSize,
+			timeout, &nread, &eomReason);
+
+	if (status != asynSuccess)
+	{
+		asynPrint(pasynUser, ASYN_TRACE_ERROR,
+				"%s:%s, timeout=%f, status=%d received %d bytes\n%s\n",
+				driverName, functionName, timeout, status, nread,
+				this->fromLabview);
+	}
+	else
+	{
+		// terminate the response for string handling
+		header[nread] = (char) NULL;
+		strncpy(fromLabviewHeader, header, MPX_MAXLINE);
+
+	#ifdef DEBUG
+		printf("mpxRead: Response Header: %s\n", header);
+	#endif
+
+		if (nread != headerSize)
+			return asynError;
+
+		// parse the header
+		tok = strtok(header, ",");
+		if (tok == NULL || strncmp(MPX_HEADER, tok, MPX_MAXLINE))
+			return asynError;
+
+		tok = strtok(NULL, ",");
+		if (tok == NULL)
+			return asynError;
+
+		// subtract one from bodySize since we already read the 1st comma
+		bodySize = atoi(tok) - 1;
+
+		if (bodySize == 0 || bodySize >= bufSize)
+			return asynError;
+
+		// now read the rest of the message (the body)
+		do
+		{
+			status = pasynOctetSyncIO->read(pasynUser, bodyBuf, bodySize - readCount,
+				timeout, &nread, &eomReason);
+			readCount += nread;
+		} while (nread != 0 && readCount < bodySize);
+
+		if(readCount < bodySize)
+		{
+			asynPrint(pasynUser, ASYN_TRACE_ERROR,
+					"%s:%s, timeout=%f, status=%d received %d bytes in MPX header, expected %d\n",
+					driverName, functionName, timeout, status, *bytesRead, bodySize);
+			fromLabviewError = MPX_ERR_LEN;
+			return status = asynSuccess ? asynError : status;
+		}
+
+		*bytesRead = readCount;
+	}
+
+	fromLabviewError = MPX_OK;
+	return status;
+}
+
+/**
  * Reads in the MPX command header and body from labview
  * verifies the header and places the body in this->fromLabviewBody
  * for parsing by the caller
  */
-asynStatus medipixDetector::mpxRead(double timeout)
+asynStatus medipixDetector::mpxReadCmd(double timeout)
 {
-	size_t nread = 0;
+	int nread = 0;
 	asynStatus status = asynSuccess;
-	asynUser *pasynUser = this->pasynLabViewCmd;
-	int eomReason;
-	const char *functionName = "readLabview";
-	size_t headerSize = strlen(MPX_HEADER) + MPX_MSG_LEN_DIGITS + 2;
-	size_t bodySize;
-	char* tok;
 	char buff[MPX_MAXLINE];
 
 	// default to this error for any following parsing issues
-	fromLabviewError = MPX_UNEXPECTED;
+	fromLabviewError = MPX_ERR_UNEXPECTED;
 
-	// first read the header block and message length
-	status = pasynOctetSyncIO->read(pasynUser, this->fromLabview, headerSize,
-			timeout, &nread, &eomReason);
-
-	// If we got asynTimeout, and timeout=0 then this is not an error, it is a poll checking for possible reply and we are done
-	if ((status == asynTimeout) && (timeout == 0))
-		return (asynSuccess);
-	if (status != asynSuccess)
-		asynPrint(pasynUser, ASYN_TRACE_ERROR,
-				"%s:%s, timeout=%f, status=%d received %d bytes\n%s\n",
-				driverName, functionName, timeout, status, nread,
-				this->fromLabview);
+	status = mpxRead(this->pasynLabViewCmd, buff, MPX_MAXLINE, &nread, timeout);
 
 	// terminate the response for string handling
-	this->fromLabview[nread] = (char) NULL;
-	strcpy(buff, fromLabview);
-
-	/* Set output string so it can get back to EPICS
-	 * (this will be overwritten if the body read succeeds */
-	setStringParam(ADStringFromServer, this->fromLabview);
-
-#ifdef DEBUG
-	printf("mpxRead: Response Header: %s\n", fromLabview);
-#endif
-
-	if (nread != headerSize)
-		return asynError;
-
-	// parse the header
-	tok = strtok(buff, ",");
-	if (strncmp(MPX_HEADER, tok, MPX_MAXLINE))
-		return asynError;
-
-	tok = strtok(NULL, ",");
-	if (tok == NULL
-		)
-		return asynError;
-
-	// subtract one from bodysize since we already read the 1st comma
-	bodySize = atoi(tok) - 1;
-
-	if (bodySize == 0 || bodySize > (MPX_MAXLINE - headerSize))
-		return asynError;
-
-	// now read the rest of the message
-	status = pasynOctetSyncIO->read(pasynUser, this->fromLabviewBody, bodySize,
-			timeout, &nread, &eomReason);
-
-	// If we got asynTimeout, and timeout=0 then this is not an error, it is a poll checking for possible reply and we are done
-	if ((status == asynTimeout) && (timeout == 0))
-		return (asynSuccess);
-	if (status != asynSuccess)
-		asynPrint(pasynUser, ASYN_TRACE_ERROR,
-				"%s:%s, timeout=%f, status=%d received %d bytes\n%s\n",
-				driverName, functionName, timeout, status, nread,
-				this->fromLabview);
-
-	// terminate the response for string handling
-	this->fromLabviewBody[nread] = (char) NULL;
-	// Set output string so it can get back to EPICS
+	buff[nread] = (char) NULL;
+	// update the member variables with relevant parts of the response
+	strncpy(fromLabview, fromLabviewHeader, MPX_MAXLINE);
+	strncpy(fromLabviewBody, buff, MPX_MAXLINE);
 	strncat(fromLabview, fromLabviewBody, MPX_MAXLINE);
+
+	// Set output string so it can get back to EPICS
 	setStringParam(ADStringFromServer, this->fromLabview);
 
 #ifdef DEBUG
 	printf("mpxRead: Full Response: %s\n", fromLabview);
 #endif
-
-	if (nread != bodySize)
-		return asynError;
-
 
 	fromLabviewError = MPX_OK;
 	return status;
@@ -434,7 +517,7 @@ asynStatus medipixDetector::mpxWriteRead(double timeout)
 		return status;
 	}
 
-	if ((status = mpxRead(timeout)) != asynSuccess)
+	if ((status = mpxReadCmd(timeout)) != asynSuccess)
 	{
 		return status;
 	}
@@ -696,109 +779,12 @@ asynStatus medipixDetector::setThreshold()
 	return (asynSuccess);
 }
 
-asynStatus medipixDetector::writeLabview(double timeout)
-{
-	size_t nwrite;
-	asynStatus status;
-	const char *functionName = "writeLabview";
-
-	// Todo this whole function to be removed
-	printf("call to writeLabview\n");
-	return asynSuccess;
-
-	/* Flush any stale input, since the next operation is likely to be a read */
-	status = pasynOctetSyncIO->flush(this->pasynLabViewCmd);
-	status = pasynOctetSyncIO->write(this->pasynLabViewCmd, this->toLabview,
-			strlen(this->toLabview), timeout, &nwrite);
-
-	if (status)
-		asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-				"%s:%s, status=%d, sent\n%s\n", driverName, functionName,
-				status, this->toLabview);
-
-	/* Set output string so it can get back to EPICS */
-	setStringParam(ADStringToServer, this->toLabview);
-
-	return (status);
-}
-
-asynStatus medipixDetector::readLabview(double timeout)
-{
-	size_t nread;
-	asynStatus status = asynSuccess;
-	int eventStatus;
-	asynUser *pasynUser = this->pasynLabViewCmd;
-	int eomReason;
-	epicsTimeStamp tStart, tCheck;
-	double deltaTime;
-	const char *functionName = "readLabview";
-
-	// Todo this whole function to be removed
-	printf("call to readLabview\n");
-	return asynSuccess;
-
-	/* We implement the timeout with a loop so that the port does not
-	 * block during the entire read.  If we don't do this then it is not possible
-	 * to abort a long exposure */
-	deltaTime = 0;
-	epicsTimeGetCurrent(&tStart);
-	while (deltaTime <= timeout)
-	{
-		status = pasynOctetSyncIO->read(pasynUser, this->fromLabview,
-				sizeof(this->fromLabview), ASYN_POLL_TIME, &nread, &eomReason);
-		if (status != asynTimeout)
-			break;
-		/* Sleep, but check for stop event, which can be used to abort a long acquisition */
-		eventStatus = epicsEventWaitWithTimeout(this->stopEventId,
-				ASYN_POLL_TIME);
-		if (eventStatus == epicsEventWaitOK)
-		{
-			setStringParam(ADStatusMessage, "Acquisition aborted");
-			return (asynError);
-		}
-		epicsTimeGetCurrent(&tCheck);
-		deltaTime = epicsTimeDiffInSeconds(&tCheck, &tStart);
-	}
-
-	// If we got asynTimeout, and timeout=0 then this is not an error, it is a poll checking for possible reply and we are done
-	if ((status == asynTimeout) && (timeout == 0))
-		return (asynSuccess);
-	if (status != asynSuccess)
-		asynPrint(pasynUser, ASYN_TRACE_ERROR,
-				"%s:%s, timeout=%f, status=%d received %d bytes\n%s\n",
-				driverName, functionName, timeout, status, nread,
-				this->fromLabview);
-	else
-	{
-		/* Look for the string OK in the response */
-		if (!strstr(this->fromLabview, "OK"))
-		{
-			asynPrint(
-					pasynUser,
-					ASYN_TRACE_ERROR,
-					"%s:%s unexpected response from Labview, no OK, response=%s\n",
-					driverName, functionName, this->fromLabview);
-			setStringParam(ADStatusMessage, "Error from Labview");
-			status = asynError;
-		}
-		else
-			setStringParam(ADStatusMessage, "Labview returned OK");
-	}
-
-	/* Set output string so it can get back to EPICS */
-	setStringParam(ADStringFromServer, this->fromLabview);
-
-	return (status);
-}
-
 asynStatus medipixDetector::writeReadLabview(double timeout)
 {
-	asynStatus status;
+	asynStatus status = asynSuccess;
 
-	status = writeLabview(timeout);
-	if (status)
-		return status;
-	status = readLabview(timeout);
+	// dummy function while refactoring pilatus -> medipix
+
 	return status;
 }
 
@@ -819,7 +805,7 @@ void medipixDetector::medipixTask()
 	int multipleFileNextImage = 0; /* This is the next image number, starting at 0 */
 	int acquire;
 	ADStatus_t acquiring;
-	double startAngle;
+	//double startAngle;
 	NDArray *pImage;
 	double acquireTime, acquirePeriod;
 	double readImageFileTimeout, timeout;
@@ -827,17 +813,18 @@ void medipixDetector::medipixTask()
 	epicsTimeStamp startTime;
 	const char *functionName = "medipixTask";
 	char fullFileName[MAX_FILENAME_LEN];
-	char filePath[MAX_FILENAME_LEN];
-	char statusMessage[MAX_MESSAGE_SIZE];
+	//char filePath[MAX_FILENAME_LEN];
 	int dims[2];
 	int arrayCallbacks;
-	int flatFieldValid;
 	//int abortStatus;
-
-	// Todo this function disabled temporarily
-	return;
+	int nread;
+	char *bigBuff;
 
 	this->lock();
+
+	// allocate a buffer for reading in images from labview over network
+	// bigBuff = (char*) calloc(MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES + 10, 1);
+	bigBuff = (char*) calloc(131329, 100);
 
 	/* Loop forever */
 	while (1)
@@ -879,14 +866,20 @@ void medipixDetector::medipixTask()
 		setIntegerParam(ADStatus, acquiring);
 
 		/* Reset the MX settings start angle */
+		/*
+		 * TODO - do we need this for medipix?
+		 *
 		getDoubleParam(medipixStartAngle, &startAngle);
 		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
 				"mxsettings Start_angle %f", startAngle);
 		writeReadLabview(Labview_DEFAULT_TIMEOUT);
+*/
 
 		/* Create the full filename */
 		createFileName(sizeof(fullFileName), fullFileName);
 
+		// TODO - need to set up aquire params here
+		/*
 		switch (triggerMode)
 		{
 		case TMInternal:
@@ -913,31 +906,11 @@ void medipixDetector::medipixTask()
 					"Exposure %s", fullFileName);
 			break;
 		}
+		*/
+
 		setStringParam(ADStatusMessage, "Starting exposure");
 		/* Send the acquire command to Labview and wait for the 15OK response */
-		writeReadLabview(2.0);
-
-		/* Do another read in case there is an ERR string at the end of the input buffer */
-		status = readLabview(0.0);
-
-		/* If the status wasn't asynSuccess or asynTimeout, report the error */
-		if (status > 1)
-		{
-			acquire = 0;
-		}
-		else
-		{
-			/* Set status back to asynSuccess as the timeout was expected */
-			status = asynSuccess;
-			/* Open the shutter */
-			setShutter(1);
-			/* Set the armed flag */
-			setIntegerParam(medipixArmed, 1);
-			multipleFileNextImage = 0;
-			/* Call the callbacks to update any changes */
-			setStringParam(NDFullFileName, fullFileName);
-			callParamCallbacks();
-		}
+		status = mpxCommand(MPX_STARTACQUISITION, Labview_DEFAULT_TIMEOUT);
 
 		/* If the status wasn't asynSuccess or asynTimeout, report the error */
 		if (status > 1)
@@ -960,6 +933,18 @@ void medipixDetector::medipixTask()
 			callParamCallbacks();
 		}
 
+/*
+ * current implementation is not sending a header
+ *
+ *
+		// Read the Acquisition header
+		// TODO temp test code
+		printf("reading acquisition header from data channel..\n");
+		status = mpxRead(this->pasynLabViewData, bigBuff, MPX_ACQ_HDR_LEN, &nread, 5);
+		bigBuff[nread] = 0;
+		printf("\n\nReceived Acquistion Header:\n%s\n\n", bigBuff);
+*/
+
 		while (acquire)
 		{
 			if (numImages == 1)
@@ -967,25 +952,45 @@ void medipixDetector::medipixTask()
 				/* For single frame or alignment mode need to wait for 7OK response from Labview
 				 * saying acquisition is complete before trying to read file, else we get a
 				 * recent but stale file. */
-				setStringParam(ADStatusMessage, "Waiting for 7OK response");
+				setStringParam(ADStatusMessage, "Waiting for single image response");
 				callParamCallbacks();
-				/* We release the mutex when waiting for 7OK because this takes a long time and
+				/* We release the mutex when waiting because this takes a long time and
 				 * we need to allow abort operations to get through */
 				this->unlock();
-				status = readLabview(acquireTime + readImageFileTimeout);
+
+				// Acquire an image from the data channel
+				// TODO temp test code - todo use the configurable timeout instead of 10
+				// todo replace printfs with asyn logging
+				printf("reading image from data channel..\n");
+				// TODO + 10 is because response is somtimes a little longer than expected (often see MPX,0000131329,)
+				// TODO Discuss above with detector team
+				status = mpxRead(this->pasynLabViewData, bigBuff, MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES + 10, &nread, 10);
+				strncpy(fromLabviewImgHdr, bigBuff, MPX_IMG_HDR_LEN);
+				fromLabviewImgHdr[MPX_IMG_HDR_LEN] = 0;
+
+				printf("\n\nReceived image frame of %d bytes\nHeader: %s\n", nread, fromLabviewImgHdr);
+
 				this->lock();
 				/* If there was an error jump to bottom of loop */
 				if (status)
 				{
+					printf("error %d reading image\n",status);
 					acquire = 0;
 					if (status == asynTimeout)
 						setStringParam(ADStatusMessage,
 								"Timeout waiting for Labview response");
+					else
+						setStringParam(ADStatusMessage,
+								"Error in Labview response");
 					continue;
 				}
 			}
 			else
 			{
+				// TODO GK - how do we handle multiple images?
+				// in theory do not need to write these, just treat them the same and let the array
+				// callbacks handle them
+
 				/* If this is a multi-file acquisition the file name is built differently */
 				epicsSnprintf(fullFileName, sizeof(fullFileName),
 						multipleFileFormat, multipleFileNumber);
@@ -1004,40 +1009,24 @@ void medipixDetector::medipixTask()
 				/* Get an image buffer from the pool */
 				getIntegerParam(ADMaxSizeX, &dims[0]);
 				getIntegerParam(ADMaxSizeY, &dims[1]);
-				pImage = this->pNDArrayPool->alloc(2, dims, NDInt32, 0, NULL);
-				epicsSnprintf(statusMessage, sizeof(statusMessage),
-						"Reading image file %s", fullFileName);
-				setStringParam(ADStatusMessage, statusMessage);
-				callParamCallbacks();
-				/* We release the mutex when calling readImageFile, because this takes a long time and
-				 * we need to allow abort operations to get through */
-				this->unlock();
-				// status = readImageFile(fullFileName, &startTime, acquireTime + readImageFileTimeout, pImage);
-				this->lock();
-				/* If there was an error jump to bottom of loop */
-				if (status)
+				pImage = this->pNDArrayPool->alloc(2, dims, NDInt16, 0, NULL);
+
+				epicsInt16 *pData, *pSrc;
+				int i;
+				for (	i = 0,
+						pData = (epicsInt16 *) pImage->pData,
+						pSrc = (epicsInt16 *) (bigBuff + MPX_IMG_HDR_LEN);
+						i < dims[0] * dims[1];
+						i++, pData++, pSrc++)
 				{
-					acquire = 0;
-					pImage->release();
-					continue;
+					*pData = *pSrc;
 				}
 
-				getIntegerParam(medipixFlatFieldValid, &flatFieldValid);
-				if (flatFieldValid)
-				{
-					epicsInt32 *pData, *pFlat, i;
-					for (i = 0, pData = (epicsInt32 *) pImage->pData, pFlat =
-							(epicsInt32 *) this->pFlatField->pData;
-							i < dims[0] * dims[1]; i++, pData++, pFlat++)
-							{
-						*pData = (epicsInt32) ((this->averageFlatField * *pData)
-								/ *pFlat);
-					}
-				}
 				/* Put the frame number and time stamp into the buffer */
 				pImage->uniqueId = imageCounter;
 				pImage->timeStamp = startTime.secPastEpoch
 						+ startTime.nsec / 1.e9;
+				pImage->pAttributeList->add("Data Frame Header","Image acquisition header", NDAttrString, fromLabviewImgHdr);
 
 				/* Get any attributes that have been defined for this driver */
 				this->getAttributes(pImage->pAttributeList);
@@ -1058,10 +1047,11 @@ void medipixDetector::medipixTask()
 			{
 				if (triggerMode == TMAlignment)
 				{
-					epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-							"Exposure %s", fullFileName);
+					// TODO GK do we have a equivalent?
+					//epicsSnprintf(this->toLabview, sizeof(this->toLabview),
+					//		"Exposure %s", fullFileName);
 					/* Send the acquire command to Labview and wait for the 15OK response */
-					writeReadLabview(2.0);
+					//writeReadLabview(2.0);
 				}
 				else
 				{
@@ -1094,7 +1084,7 @@ void medipixDetector::medipixTask()
 			/* We release the mutex because we may wait a long time and need to allow abort
 			 * operations to get through */
 			this->unlock();
-			readLabview(timeout);
+			// TODO GK readLabview(timeout);
 			this->lock();
 		}
 		setShutter(0);
@@ -1110,6 +1100,8 @@ void medipixDetector::medipixTask()
 		/* Call the callbacks to update any changes */
 		callParamCallbacks();
 	}
+	// release the image buffer
+	free(bigBuff);
 }
 
 static void medipixStatusC(void *drvPvt)
@@ -1147,19 +1139,6 @@ void medipixDetector::medipixStatus()
 		// so only do update if the error state is clear
 		if (result == asynSuccess && this->fromLabviewError == MPX_OK)
 		{
-			if (statusCode == 0)
-			{
-				setStringParam(ADStatusMessage, "Labview idle");
-			}
-			else if (statusCode == 1)
-			{
-				setStringParam(ADStatusMessage, "Labview busy");
-			}
-			else
-			{
-				setStringParam(ADStatusMessage, "Labview status error");
-			}
-
 			callParamCallbacks();
 			unlock();
 		}
@@ -1189,9 +1168,6 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	asynStatus status = asynSuccess;
 	const char *functionName = "writeInt32";
 
-	// Todo this function disabled temporarily
-	return asynSuccess;
-
 	status = setIntegerParam(function, value);
 
 	if (function == ADAcquire)
@@ -1205,11 +1181,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 		if (!value && (adstatus == ADStatusAcquire))
 		{
 			/* This was a command to stop acquisition */
-			epicsSnprintf(this->toLabview, sizeof(this->toLabview), "Stop");
-			writeReadLabview(Labview_DEFAULT_TIMEOUT);
-			epicsSnprintf(this->toLabview, sizeof(this->toLabview), "K");
-			writeLabview(Labview_DEFAULT_TIMEOUT);
-			epicsEventSignal(this->stopEventId);
+			// TODO
 		}
 	}
 	else if ((function == ADTriggerMode) || (function == ADNumImages)
@@ -1223,9 +1195,10 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	}
 	else if (function == medipixNumOscill)
 	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings N_oscillations %d", value);
-		writeReadLabview(Labview_DEFAULT_TIMEOUT);
+		// TODO - does medipix have equivalent to this?
+		// epicsSnprintf(this->toLabview, sizeof(this->toLabview),
+		//		"mxsettings N_oscillations %d", value);
+		// writeReadLabview(Labview_DEFAULT_TIMEOUT);
 	}
 	else
 	{
@@ -1603,7 +1576,7 @@ medipixDetector::medipixDetector(const char *portName,
 	createParam(medipixTvxVersionString, asynParamOctet, &medipixTvxVersion);
 
 	/* Set some default values for parameters */
-	status = setStringParam(ADManufacturer, "Dectris");
+	status = setStringParam(ADManufacturer, "Medipix Consortium");
 	status |= setStringParam(ADModel, "medipix");
 	status |= setIntegerParam(ADMaxSizeX, maxSizeX);
 	status |= setIntegerParam(ADMaxSizeY, maxSizeY);
@@ -1702,8 +1675,8 @@ static const iocshFuncDef configmedipixDetector =
 static void configmedipixDetectorCallFunc(const iocshArgBuf *args)
 {
 	medipixDetectorConfig(args[0].sval, args[1].sval, args[2].sval,
-			args[4].ival, args[5].ival, args[6].ival, args[7].ival,
-			args[8].ival, args[9].ival);
+			args[3].ival, args[4].ival, args[5].ival, args[6].ival,
+			args[7].ival, args[8].ival);
 }
 
 static void medipixDetectorRegister(void)

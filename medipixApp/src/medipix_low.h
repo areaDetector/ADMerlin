@@ -24,27 +24,34 @@ extern int mpxDisconnect(void);
 #define MPX_HEADER "MPX"
 #define MPX_SET "SET"
 #define MPX_GET "GET"
-#define MPX_COMMAND "CMD"
+#define MPX_CMD "CMD"
 #define MPX_MSG_LEN_DIGITS 10
+#define MPX_IMG_HDR_LEN 256
 
 #define MPX_MAXLINE 256
 #define MPX_DATAFRAME 128000
 
-// error definitions
-#define MPX_OK 0    /*Ok*/
-#define MPX_ERROR 1 /*Unknown Error*/
-#define MPX_CMD 2   /*Command not known.*/
-#define MPX_PARAM 3 /*Param out of range.*/
-#define MPX_CONN 100  /*Not connected to detector.*/
-#define MPX_WRITE 101 /*Error writing to socket.*/
-#define MPX_READ 102 /*Error reading from socket.*/
-#define MPX_LEN 103 /*Length of command and value too long, or NULL*/
-#define MPX_DATA 110 /*Data formatting error.*/
-#define MPX_UNEXPECTED 111 /* unexpected response from labview */
+#define MPX_X_SIZE 256
+#define MPX_Y_SIZE 256
+#define MPX_IMAGE_PIXELS 65536
+#define MPX_IMAGE_BYTES MPX_IMAGE_PIXELS * 2 // 16 bit pixels
 
-// variables and commands
+// error definitions
+#define MPX_OK 0    			/*Ok*/
+#define MPX_ERR 1               /*Unknown Error*/
+#define MPX_ERR_CMD 2   		/*Command not known.*/
+#define MPX_ERR_PARAM 3 		/*Param out of range.*/
+#define MPX_ERR_CONN 100  		/*Not connected to detector.*/
+#define MPX_ERR_WRITE 101 		/*Error writing to socket.*/
+#define MPX_ERR_READ 102 		/*Error reading from socket.*/
+#define MPX_ERR_LEN 103 		/*Length of command and value too long, or NULL*/
+#define MPX_ERR_DATA 110 		/*Data formatting error.*/
+#define MPX_ERR_UNEXPECTED 111 	/*unexpected response from labview */
+
+// variables
 #define MPX_GETSOFTWAREVERSION "GETSOFTWAREVERSION"
 #define MPX_DETECTORSTATUS "DETECTORSTATUS"
-
+// commands
+#define MPX_STARTACQUISITION "STARTACQUISITION"
 
 #endif /* MPX_LOW_H */

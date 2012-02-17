@@ -6,11 +6,11 @@ include $(TOP)/configure/CONFIG
 # Build an Diamond Support Module
 # -------------------------------
 
-LIBRARY += medipix_low
+#LIBRARY += medipix_low
 LIBRARY += medipixDetector
 
 PROD += medipix_sim
-PROD += medipix_test
+#PROD += medipix_test
 
 #build cpp with debug
 USR_CFLAGS += -DDEBUG
