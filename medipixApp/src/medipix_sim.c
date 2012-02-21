@@ -23,7 +23,7 @@
 #include <pthread.h>
 
 #define MAXLINE 256
-#define MAXDATA 256*256*16
+#define MAXDATA 256*256*2 // 256 X by 256 Y by 2 bytes per pixel
 #define DATAHEADERLEN 256
 #define CMDLEN 4
 #define HEADER_LEN 15 // this includes 2 commas + the header and length fields
@@ -342,7 +342,7 @@ int echo_request(int socket_fd)
 		{
 			if (!strncmp(cmdName, "STARTACQUISITION", 16))
 			{
-				strncpy(response, "MPX,0000000019,STARTACQUISITION,0", MAXLINE);
+				strncpy(response, "MPX,0000000023,CMD,STARTACQUISITION,0", MAXLINE);
 				/*signal data thread to send some data back.*/
 				printf("***signalling data thread.\n");
 				pthread_mutex_lock(&do_data_mutex);
@@ -357,6 +357,14 @@ int echo_request(int socket_fd)
 			printf("Unknown MPX command: '%s'\n", cmdName);
 			sprintf(response, "MPX,0000000008,ERROR,1");
 		}
+
+
+		// deliberately send junk to test re-synch capability
+		printf("sending garbage..\n");
+		if(write(socket_fd, "garbage garbage", 15) <=0)
+			printf("garbage 1 failed\n");
+		if(write(socket_fd, "MPX,0000000023,XXX,STARTACQUISITION,0",37 ) <=0)
+			printf("garbage 2 failed\n");
 
 		printf("sending response: %s \n", response);
 		if (write(socket_fd, response, strlen(response)) <= 0)
@@ -382,12 +390,13 @@ int produce_data(int data_fd)
 	//char *data = "Here is some data.\r\n";
 	//unsigned int trailer = 0xDA; /* CR LF */
 
-    char data[HEADER_LEN + CMDLEN + DATAHEADERLEN + MAXDATA] = { 0 };
+	int frameSize = HEADER_LEN + CMDLEN + DATAHEADERLEN + MAXDATA;
+    char data[frameSize];
 	unsigned int i;
 	int headersLength = HEADER_LEN + CMDLEN + DATAHEADERLEN;
 
-	strncpy(data, "MPX,0000128000,", HEADER_LEN);
-	sprintf((data + HEADER_LEN), "HDR,%-256s",
+	snprintf(data, HEADER_LEN,"MPX,%010u,", frameSize - HEADER_LEN + 1);
+	sprintf((data + HEADER_LEN), "12B,%-256s",
 			"1,1,2012-02-01 11:26:00.000,.05,6.0,8.0,0,0,0,0,0,0,0,0");
 
 	// create dummy data
@@ -420,22 +429,23 @@ int produce_data(int data_fd)
 		{
 
 			// send a silly acquisition header
-			if (write(data_fd, "MPX,0000000030,HDR,dummy acquisition header.", MAXDATA) <= 0)
+			if (write(data_fd, "MPX,0000000030,HDR,dummy acquisition header.", 30 + HEADER_LEN -1) <= 0)
 			{
-				printf("Error writing acquisition header to client.\n");
+				//printf("Error writing acquisition header to client.\n");
 				do_data = 0;
 				pthread_mutex_unlock(&do_data_mutex);
 				//return EXIT_FAILURE;
 			}
 
-			if (write(data_fd, data, MAXDATA) <= 0)
+			if (write(data_fd, data, frameSize) <= 0)
 			{
-				printf("Error writing data frame to client.\n");
+				//printf("Error writing data frame to client.\n");
 				do_data = 0;
 				pthread_mutex_unlock(&do_data_mutex);
 				//return EXIT_FAILURE;
 			}
 			do_data = 0;
+			//printf("*** wrote data - acquisition header\n");
 		}
 		else
 		{
