@@ -390,7 +390,9 @@ int produce_data(int data_fd)
 	//char *data = "Here is some data.\r\n";
 	//unsigned int trailer = 0xDA; /* CR LF */
 
-	int frameSize = HEADER_LEN + CMDLEN + DATAHEADERLEN + MAXDATA;
+	// frame = header (including comma) + data frame type (3 chars) +
+	//		comma + data frame header + image data
+	int frameSize = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA;
     char data[frameSize];
 	unsigned int i;
 	int headersLength = HEADER_LEN + CMDLEN + DATAHEADERLEN;
@@ -431,21 +433,34 @@ int produce_data(int data_fd)
 			// send a silly acquisition header
 			if (write(data_fd, "MPX,0000000030,HDR,dummy acquisition header.", 30 + HEADER_LEN -1) <= 0)
 			{
-				//printf("Error writing acquisition header to client.\n");
+				printf("Error writing acquisition header to client.\n");
 				do_data = 0;
 				pthread_mutex_unlock(&do_data_mutex);
 				//return EXIT_FAILURE;
 			}
+			printf("*** wrote data - acquisition header\n");
 
+			// write an image
 			if (write(data_fd, data, frameSize) <= 0)
 			{
-				//printf("Error writing data frame to client.\n");
+				printf("Error writing data frame 1 to client.\n");
 				do_data = 0;
 				pthread_mutex_unlock(&do_data_mutex);
 				//return EXIT_FAILURE;
 			}
+			printf("*** wrote data - image one \n");
+
+			// write a second image
+			if (write(data_fd, data, frameSize) <= 0)
+			{
+				printf("Error writing data frame 2 to client.\n");
+				do_data = 0;
+				pthread_mutex_unlock(&do_data_mutex);
+				//return EXIT_FAILURE;
+			}
+			printf("*** wrote data - image two\n");
+
 			do_data = 0;
-			//printf("*** wrote data - acquisition header\n");
 		}
 		else
 		{
