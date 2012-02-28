@@ -36,6 +36,8 @@ void *commandThread(void* command_fd);
 void *dataThread(void* data_fd);
 int produce_data(int data_fd);
 
+int frame_count = 0;
+
 int data_exit = 0;
 int do_data = 0;
 pthread_mutex_t do_data_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -224,7 +226,8 @@ int echo_request(int socket_fd)
 	char *bptr = NULL;
 	int inheader = 1;
 	char *tok = NULL;
-	char *cmdType, *cmdName;
+	char *cmdType, *cmdName, *cmdValue;
+	int cmdIntValue;
 	int bodylen = 0;
 
 	bptr = buffer;
@@ -316,8 +319,17 @@ int echo_request(int socket_fd)
 
 		if (!strncmp(cmdType, "SET", 3))
 		{
-			bodylen = strlen(cmdName) + 7;
-			sprintf(response, "MPX,%010u,SET,%s,0", bodylen, cmdName);
+		    cmdValue = strtok(bptr, ",");
+		    cmdIntValue = atoi(cmdValue);
+
+            if(!strncmp(cmdName,"NUMFRAMESTOACQUIRE",MAXLINE))
+            {
+                frame_count = cmdIntValue;
+            }
+
+            // default response
+            bodylen = strlen(cmdName) + 7;
+            sprintf(response, "MPX,%010u,SET,%s,0", bodylen, cmdName);
 		}
 		else if (!strncmp(cmdType, "GET", 3))
 		{
@@ -326,11 +338,11 @@ int echo_request(int socket_fd)
 				bodylen = strlen(cmdName) + 9;
 				sprintf(response, "MPX,%010u,GET,%s,0,0", bodylen, cmdName);
 			}
-			if(!strncmp(cmdName,"GETSOFTWAREVERSION",MAXLINE))
-			{
-				bodylen = strlen(cmdName) + 11;
-				sprintf(response, "MPX,%010u,GET,%s,0.1,0", bodylen, cmdName);
-			}
+            if(!strncmp(cmdName,"GETSOFTWAREVERSION",MAXLINE))
+            {
+                bodylen = strlen(cmdName) + 11;
+                sprintf(response, "MPX,%010u,GET,%s,0.1,0", bodylen, cmdName);
+            }
 			else
 			{
 				// default response
@@ -340,17 +352,23 @@ int echo_request(int socket_fd)
 		}
 		else if (!strncmp(cmdType, "CMD", 3))
 		{
-			if (!strncmp(cmdName, "STARTACQUISITION", 16))
-			{
-				strncpy(response, "MPX,0000000023,CMD,STARTACQUISITION,0", MAXLINE);
-				/*signal data thread to send some data back.*/
-				printf("***signalling data thread.\n");
-				pthread_mutex_lock(&do_data_mutex);
-				do_data = 1;
-				pthread_cond_signal(&do_data_cond);
-				pthread_mutex_unlock(&do_data_mutex);
-				printf("***data thread singnalled.\n");
-			}
+            if (!strncmp(cmdName, "STARTACQUISITION", 16))
+            {
+                strncpy(response, "MPX,0000000023,CMD,STARTACQUISITION,0", MAXLINE);
+                /*signal data thread to send some data back.*/
+                printf("***signalling data thread.\n");
+                pthread_mutex_lock(&do_data_mutex);
+                do_data = 1;
+                pthread_cond_signal(&do_data_cond);
+                pthread_mutex_unlock(&do_data_mutex);
+                printf("***data thread singnalled.\n");
+            }
+            else
+            {
+                bodylen = strlen(cmdName) + 7;
+                sprintf(response, "MPX,%010u,CMD,%s,0", bodylen, cmdName);
+                printf("***generic command response...\n");
+            }
 		}
 		else
 		{
@@ -361,16 +379,14 @@ int echo_request(int socket_fd)
 
 		// deliberately send junk to test re-synch capability
 		printf("sending garbage..\n");
-		if(write(socket_fd, "garbage garbage", 15) <=0)
+		if(write(socket_fd, "garbage MP garbage", 15) <=0)
 			printf("garbage 1 failed\n");
-		if(write(socket_fd, "MPX,0000000023,XXX,STARTACQUISITION,0",37 ) <=0)
-			printf("garbage 2 failed\n");
 
 		printf("sending response: %s \n", response);
 		if (write(socket_fd, response, strlen(response)) <= 0)
 		{
 			printf("Error writing back to client.\n");
-			return EXIT_FAILURE;
+			// return EXIT_FAILURE;
 		}
 
 		//Clear buffer for next command.
@@ -395,9 +411,9 @@ int produce_data(int data_fd)
 	int frameSize = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA;
     char data[frameSize];
 	unsigned int i;
-	int headersLength = HEADER_LEN + CMDLEN + DATAHEADERLEN;
+	int headersLength = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN;
 
-	snprintf(data, HEADER_LEN,"MPX,%010u,", frameSize - HEADER_LEN + 1);
+	snprintf(data, HEADER_LEN,"MPX,%010u,", frameSize - HEADER_LEN);
 	sprintf((data + HEADER_LEN), "12B,%-256s",
 			"1,1,2012-02-01 11:26:00.000,.05,6.0,8.0,0,0,0,0,0,0,0,0");
 
@@ -430,6 +446,7 @@ int produce_data(int data_fd)
 		if ((do_data == 1) && (data_exit == 0))
 		{
 
+/*
 			// send a silly acquisition header
 			if (write(data_fd, "MPX,0000000030,HDR,dummy acquisition header.", 30 + HEADER_LEN -1) <= 0)
 			{
@@ -439,26 +456,21 @@ int produce_data(int data_fd)
 				//return EXIT_FAILURE;
 			}
 			printf("*** wrote data - acquisition header\n");
+*/
 
-			// write an image
-			if (write(data_fd, data, frameSize) <= 0)
-			{
-				printf("Error writing data frame 1 to client.\n");
-				do_data = 0;
-				pthread_mutex_unlock(&do_data_mutex);
-				//return EXIT_FAILURE;
-			}
-			printf("*** wrote data - image one \n");
-
-			// write a second image
-			if (write(data_fd, data, frameSize) <= 0)
-			{
-				printf("Error writing data frame 2 to client.\n");
-				do_data = 0;
-				pthread_mutex_unlock(&do_data_mutex);
-				//return EXIT_FAILURE;
-			}
-			printf("*** wrote data - image two\n");
+		    int i;
+		    for(i = 0; i<frame_count; i++)
+		    {
+                // write an image
+                if (write(data_fd, data, frameSize) <= 0)
+                {
+                    printf("Error writing data frame 1 to client.\n");
+                    do_data = 0;
+                    pthread_mutex_unlock(&do_data_mutex);
+                    //return EXIT_FAILURE;
+                }
+                printf("*** wrote data - image %d \n", i);
+		    }
 
 			do_data = 0;
 		}

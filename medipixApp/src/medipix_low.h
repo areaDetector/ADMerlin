@@ -37,7 +37,8 @@ extern int mpxDisconnect(void);
 #define MPX_IMAGE_PIXELS 65536
 #define MPX_IMAGE_BYTES MPX_IMAGE_PIXELS * 2 // 16 bit pixels
 #define MPX_IMG_HDR_LEN 256
-#define MPX_IMG_FRAME_LEN MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES + MPX_MSG_DATATYPE_LEN + 2 // size of buffer for image frame body including leading comma
+// size of buffer for image frame body including leading comma
+#define MPX_IMG_FRAME_LEN MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES + MPX_MSG_DATATYPE_LEN + 2
 
 // error definitions
 #define MPX_OK 0    			/*Ok*/
@@ -67,8 +68,14 @@ extern int mpxDisconnect(void);
 #define MPXVAR_THSTART 					"THSTART"
 #define MPXVAR_THSTOP 					"THSTOP"
 #define MPXVAR_THSTEP	 				"THSTEP"
+#define MPXVAR_THRESHOLD0				"THRESHOLD0"
+#define MPXVAR_THRESHOLD1				"THRESHOLD1"
+#define MPXVAR_OPERATINGENERGY			"OPERATINGENERGY"
 
 // commands
-#define MPXCMD_STARTACQUISITION "STARTACQUISITION"
+#define MPXCMD_STARTACQUISITION         "STARTACQUISITION"
+#define MPXCMD_STOPACQUISITION          "STOPACQUISITION"
+#define MPXCMD_THSTART                  "STARTACQUISITION"
+#define MPXCMD_THSTOP                   "THSTOP"
 
 #endif /* MPX_LOW_H */

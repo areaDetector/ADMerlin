@@ -24,14 +24,15 @@
 							<tool id="org.eclipse.cdt.build.core.settings.holder.libs.732323948" name="holder for library settings" superClass="org.eclipse.cdt.build.core.settings.holder.libs"/>
 							<tool id="org.eclipse.cdt.build.core.settings.holder.1011125502" name="Assembly" superClass="org.eclipse.cdt.build.core.settings.holder">
 								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.1099984484" name="Include Paths" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
+									<listOptionValue builtIn="false" value="/usr/include"/>
 									<listOptionValue builtIn="false" value="/usr/include/linux/"/>
+									<listOptionValue builtIn="false" value="/usr/include/c++/4.4.4/tr1"/>
 									<listOptionValue builtIn="false" value="/dls_sw/epics/R3.14.11/base/include"/>
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/areaDetector/ADApp/ADSrc"/>
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/areaDetector/ADApp/cbfSrc"/>
-									<listOptionValue builtIn="false" value="/usr/include/c++/4.4.4/tr1"/>
 								</option>
 								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1373715657" name="Symbols" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
-									<listOptionValue builtIn="false" value="DEBUG=1"/>
+									<listOptionValue builtIn="false" value="size_t=int"/>
 								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.849514019" languageId="org.eclipse.cdt.core.assembly" languageName="Assembly" sourceContentType="org.eclipse.cdt.core.asmSource" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
@@ -39,14 +40,14 @@
 								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.2095961033" name="Include Paths" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/usr/include"/>
 									<listOptionValue builtIn="false" value="/usr/include/linux/"/>
+									<listOptionValue builtIn="false" value="/usr/include/c++/4.4.4/tr1"/>
 									<listOptionValue builtIn="false" value="/dls_sw/epics/R3.14.11/base/include"/>
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/asyn/include"/>
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/areaDetector/ADApp/ADSrc"/>
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/areaDetector/ADApp/cbfSrc"/>
-									<listOptionValue builtIn="false" value="/usr/include/c++/4.4.4/tr1"/>
 								</option>
-								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1816023181" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
-									<listOptionValue builtIn="false" value="DEBUG=1"/>
+								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1816023181" name="Symbols" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="size_t=int"/>
 								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.365794371" languageId="org.eclipse.cdt.core.g++" languageName="GNU C++" sourceContentType="org.eclipse.cdt.core.cxxSource,org.eclipse.cdt.core.cxxHeader" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
@@ -59,8 +60,8 @@
 									<listOptionValue builtIn="false" value="/usr/include/c++/4.4.4/tr1"/>
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.11/support/areaDetector/ADApp/ADSrc"/>
 								</option>
-								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1840134381" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
-									<listOptionValue builtIn="false" value="DEBUG=1"/>
+								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1840134381" name="Symbols" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
+									<listOptionValue builtIn="false" value="size_t=int"/>
 								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.1810921758" languageId="org.eclipse.cdt.core.gcc" languageName="GNU C" sourceContentType="org.eclipse.cdt.core.cSource,org.eclipse.cdt.core.cHeader" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
@@ -89,7 +90,7 @@
 	<storageModule moduleId="refreshScope"/>
 	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets">
 		<buildTargets>
-			<target name="Medipix src" path="medipixApp/src" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+			<target name="Medipix ALl" path="medipixApp" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
 				<buildArguments/>
 				<buildTarget/>
@@ -97,9 +98,14 @@
 				<useDefaultCommand>true</useDefaultCommand>
 				<runAllBuilders>true</runAllBuilders>
 			</target>
+			<target name="Medipix src" path="medipixApp/src" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
+				<buildCommand>make</buildCommand>
+				<stopOnError>true</stopOnError>
+				<useDefaultCommand>true</useDefaultCommand>
+				<runAllBuilders>true</runAllBuilders>
+			</target>
 			<target name="Medipix clean src" path="medipixApp/src" targetID="org.eclipse.cdt.build.MakeTargetBuilder">
 				<buildCommand>make</buildCommand>
-				<buildArguments/>
 				<buildTarget>clean</buildTarget>
 				<stopOnError>true</stopOnError>
 				<useDefaultCommand>true</useDefaultCommand>

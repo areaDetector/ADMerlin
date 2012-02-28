@@ -17,19 +17,10 @@
 // TODO remove for production
 #define DEBUG 1
 
-#include <stddef.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include <math.h>
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-#include <ctype.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <cbf_ad.h>
-#include <tiffio.h>
 
 #include <epicsTime.h>
 #include <epicsThread.h>
@@ -61,12 +52,19 @@
 /** Trigger modes */
 typedef enum
 {
-	TMInternal,
-	TMExternalEnable,
-	TMExternalTrigger,
-	TMMultipleExternalTrigger,
-	TMAlignment
-} medipixTriggerMode;
+    TMInternal,
+    TMExternalEnable,
+    TMExternalTrigger,
+    TMMultipleExternalTrigger,
+    TMAlignment
+} medipixTriggerMode;/** Trigger modes */
+
+typedef enum
+{
+    NoAcquisition,
+    AcquireImage,
+    ThresholdScan
+} medipixAcquisitionMode;
 
 /** Bad pixel structure for medipix detector */
 typedef struct
@@ -81,7 +79,9 @@ static const char *gainStrings[] =
 static const char *driverName = "medipixDetector";
 
 #define medipixDelayTimeString      "DELAY_TIME"
-#define medipixThresholdString      "THRESHOLD"
+#define medipixThreshold0String     "THRESHOLD0"
+#define medipixThreshold1String     "THRESHOLD1"
+#define medipixOperatingEnergyString "OPERATINGENERGY"
 #define medipixThresholdApplyString "THRESHOLD_APPLY"
 #define medipixThresholdAutoApplyString "THRESHOLD_AUTO_APPLY"
 #define medipixArmedString          "ARMED"
@@ -119,6 +119,10 @@ static const char *driverName = "medipixDetector";
 #define medipixThHumid1String       "TH_HUMID_1"
 #define medipixThHumid2String       "TH_HUMID_2"
 #define medipixTvxVersionString      "TVXVERSION"
+#define medipixStartThresholdScanString	"THRESHOLDSTART"
+#define medipixStopThresholdScanString	"THRESHOLDSTOP"
+#define medipixStepThresholdScanString	"THRESHOLDSTEP"
+#define medipixStartThresholdScanningString	"STARTTHRESHOLDSCANNING"
 
 /** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
 class medipixDetector: public ADDriver
@@ -140,7 +144,9 @@ public:
 protected:
 	int medipixDelayTime;
 #define FIRST_medipix_PARAM medipixDelayTime
-	int medipixThreshold;
+	int medipixThreshold0;
+	int medipixThreshold1;
+	int medipixOperatingEnergy;
 	int medipixThresholdApply;
 	int medipixThresholdAutoApply;
 	int medipixArmed;
@@ -177,6 +183,10 @@ protected:
 	int medipixThHumid0;
 	int medipixThHumid1;
 	int medipixThHumid2;
+	int medipixStartThresholdScan;
+	int medipixStopThresholdScan;
+	int medipixStepThresholdScan;
+	int medipixStartThresholdScanning;
 	int medipixTvxVersion;
 #define LAST_medipix_PARAM medipixTvxVersion
 
@@ -185,6 +195,7 @@ private:
 	void abortAcquisition();
 	asynStatus setAcquireParams();
 	asynStatus setThreshold();
+    asynStatus updateThresholdScanParms();
 
 	/* The labview communication primitives */
 	asynStatus mpxGet(char* valueId, double timeout);
@@ -204,6 +215,7 @@ private:
 	asynUser *pasynLabViewCmd;
 	asynUser *pasynLabViewData;
 	double averageFlatField;
+	medipixAcquisitionMode acquisitionMode;
 
 	/* input and output from the labView controller     */
 	char toLabview[MPX_MAXLINE];
@@ -716,54 +728,54 @@ asynStatus medipixDetector::setAcquireParams()
 
 asynStatus medipixDetector::setThreshold()
 {
-	// TODOTODO - temp disabled
-	return (asynSuccess);
+	int status;
+	double threshold0, threshold1, energy;
+	char value[MPX_MAXLINE];
 
-	int igain, status;
-	double threshold, dgain;
-	char *substr = NULL;
-	int threshold_readback = 0;
 
-	getDoubleParam(ADGain, &dgain);
-	igain = (int) (dgain + 0.5);
-	if (igain < 0)
-		igain = 0;
-	if (igain > 3)
-		igain = 3;
-	getDoubleParam(medipixThreshold, &threshold);
-	epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-			"SetThreshold %s %f", gainStrings[igain], threshold * 1000.);
+	getDoubleParam(medipixThreshold0, &threshold0);
+	getDoubleParam(medipixThreshold1, &threshold1);
+	getDoubleParam(medipixOperatingEnergy, &energy);
+
 	/* Set the status to waiting so we can be notified when it has finished */
 	setIntegerParam(ADStatus, ADStatusWaiting);
 	setStringParam(ADStatusMessage, "Setting threshold");
 	callParamCallbacks();
 
-	//status = writeReadLabview(90.0); /* This command can take 78 seconds on a 6M */
+	epicsSnprintf(value, MPX_MAXLINE, "%f", threshold0);
+	status = mpxSet(MPXVAR_THRESHOLD0, value, Labview_DEFAULT_TIMEOUT);
+	if(status == asynSuccess)
+	{
+		epicsSnprintf(value, MPX_MAXLINE, "%f", threshold1);
+		status = mpxSet(MPXVAR_THRESHOLD1, value, Labview_DEFAULT_TIMEOUT);
+	}
+	if(status == asynSuccess)
+	{
+		epicsSnprintf(value, MPX_MAXLINE, "%f", energy);
+		status = mpxSet(MPXVAR_OPERATINGENERGY, value, Labview_DEFAULT_TIMEOUT);
+	}
+
 	if (status)
 		setIntegerParam(ADStatus, ADStatusError);
 	else
 		setIntegerParam(ADStatus, ADStatusIdle);
-	setIntegerParam(medipixThresholdApply, 0);
 
 	/* Read back the actual setting, in case we are out of bounds.*/
-	epicsSnprintf(this->toLabview, sizeof(this->toLabview), "SetThreshold");
-	//status = writeReadLabview(5.0);
+	status = mpxGet(MPXVAR_THRESHOLD0, Labview_DEFAULT_TIMEOUT);
+	if(status == asynSuccess)
+		setDoubleParam(medipixThreshold0, atof(fromLabviewValue));
+	status = mpxGet(MPXVAR_THRESHOLD1, Labview_DEFAULT_TIMEOUT);
+	if(status == asynSuccess)
+		setDoubleParam(medipixThreshold1, atof(fromLabviewValue));
+	status = mpxGet(MPXVAR_OPERATINGENERGY, Labview_DEFAULT_TIMEOUT);
+	if(status == asynSuccess)
+		setDoubleParam(medipixOperatingEnergy, atof(fromLabviewValue));
 
-	/* Response should contain "threshold: 9000 eV; vcmp:"*/
-	if (!status)
-	{
-		if ((substr = strstr(this->fromLabview, "threshold: ")) != NULL)
-		{
-			sscanf(strtok(substr, ";"), "threshold: %d eV",
-					&threshold_readback);
-			setDoubleParam(medipixThreshold,
-					(double) threshold_readback / 1000.0);
-		}
-	}
 
+	// TODO is this required for medipix
 	/* The SetThreshold command resets numimages to 1 and gapfill to 0, so re-send current
 	 * acquisition parameters */
-	setAcquireParams();
+	//setAcquireParams();
 
 	callParamCallbacks();
 
@@ -790,7 +802,7 @@ void medipixDetector::medipixTask()
 	//double startAngle;
 	NDArray *pImage;
 	double acquireTime, acquirePeriod;
-	double readImageFileTimeout, timeout;
+	double readImageFileTimeout;
 	int triggerMode;
 	epicsTimeStamp startTime;
 	const char *functionName = "medipixTask";
@@ -901,6 +913,14 @@ void medipixDetector::medipixTask()
 
 			printf("\n\nReceived image frame of %d bytes\nHeader: %s\n", nread, fromLabviewImgHdr);
 
+			// check for abort event
+            if (epicsEventTryWait(this->stopEventId) == epicsEventWaitOK) {
+                setStringParam(ADStatusMessage, "Acquisition aborted");
+                acquire = 0;
+                this->lock();
+                continue;
+            }
+
 			this->lock();
 			/* If there was an error jump to bottom of loop */
 			if (status)
@@ -963,20 +983,10 @@ void medipixDetector::medipixTask()
 				/* Free the image buffer */
 				pImage->release();
 			}
+
 			if (numImages == 1)
 			{
-				if (triggerMode == TMAlignment)
-				{
-					// TODO GK do we have a equivalent?
-					//epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-					//		"Exposure %s", fullFileName);
-					/* Send the acquire command to Labview and wait for the 15OK response */
-					//writeReadLabview(2.0);
-				}
-				else
-				{
-					acquire = 0;
-				}
+				acquire = 0;
 			}
 			else if (numImages > 1)
 			{
@@ -988,25 +998,6 @@ void medipixDetector::medipixTask()
 
 		}
 		/* We are done acquiring */
-		/* Wait for the 7OK response from Labview in the case of multiple images */
-		if ((numImages > 1) && (status == asynSuccess))
-		{
-			/* If arrayCallbacks is 0 we will have gone through the above loop without waiting
-			 * for each image file to be written.  Thus, we may need to wait a long time for
-			 * the 7OK response.
-			 * If arrayCallbacks is 1 then the response should arrive fairly soon. */
-			if (arrayCallbacks)
-				timeout = readImageFileTimeout;
-			else
-				timeout = numImages * acquireTime + readImageFileTimeout;
-			setStringParam(ADStatusMessage, "Waiting for 7OK response");
-			callParamCallbacks();
-			/* We release the mutex because we may wait a long time and need to allow abort
-			 * operations to get through */
-			this->unlock();
-			// TODO GK readLabview(timeout);
-			this->lock();
-		}
 		setShutter(0);
 		setIntegerParam(ADAcquire, 0);
 		setIntegerParam(medipixArmed, 0);
@@ -1071,7 +1062,9 @@ void medipixDetector::medipixStatus()
 			unlock();
 		}
 
-		/*This thread does not need to run often.*/
+		/* This thread does not need to run often - wait for 60 seconds and perform status
+		 * read again
+		 */
 		epicsThreadSleep(60);
 	}
 
@@ -1098,14 +1091,34 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 		if (value && (adstatus == ADStatusIdle || adstatus == ADStatusError))
 		{
 			/* Send an event to wake up the medipix task.  */
+		    acquisitionMode = AcquireImage;
 			epicsEventSignal(this->startEventId);
 		}
-		if (!value && (adstatus == ADStatusAcquire))
+		if (!value && (adstatus == ADStatusAcquire) && (acquisitionMode == AcquireImage))
 		{
 			/* This was a command to stop acquisition */
-			// TODO
-			printf("Acquistion abort requested - NOT YET IMPLEMENTED");
+		    mpxCommand(MPXCMD_STOPACQUISITION, Labview_DEFAULT_TIMEOUT);
+            epicsEventSignal(this->stopEventId);
+            acquisitionMode = NoAcquisition;
 		}
+	}
+	else if (function == medipixStartThresholdScanning)
+	{
+	    getIntegerParam(ADStatus, &adstatus);
+	    if(value && (adstatus == ADStatusIdle || adstatus == ADStatusError))
+	    {
+	        // start a threshold scan by signalling the status task
+            acquisitionMode = ThresholdScan;
+            updateThresholdScanParms();
+            mpxCommand(MPXCMD_THSTART, Labview_DEFAULT_TIMEOUT);
+	    }
+	    else if ((adstatus == ADStatusAcquire) && (acquisitionMode == ThresholdScan))
+	    {
+	        // abort a threshold scan
+            mpxCommand(MPXCMD_THSTOP, Labview_DEFAULT_TIMEOUT);
+            acquisitionMode = NoAcquisition;
+	    }
+
 	}
 	else if ((function == ADTriggerMode) || (function == ADNumImages)
 			|| (function == ADNumExposures) || (function == medipixGapFill))
@@ -1138,6 +1151,36 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	return status;
 }
 
+asynStatus medipixDetector::updateThresholdScanParms()
+{
+    double dval;
+    asynStatus status = asynSuccess;
+    char valueStr[MPX_MAXLINE];
+
+    status = getDoubleParam(medipixStartThresholdScan, &dval);
+    if(status == asynSuccess)
+    {
+        epicsSnprintf(valueStr, MPX_MAXLINE, "%f",dval);
+        status = mpxSet(MPXVAR_THSTART, valueStr, Labview_DEFAULT_TIMEOUT);
+    }
+
+    status = getDoubleParam(medipixStopThresholdScan, &dval);
+    if(status == asynSuccess)
+    {
+        epicsSnprintf(valueStr, MPX_MAXLINE, "%f", dval);
+        status = mpxSet(MPXVAR_THSTOP, valueStr, Labview_DEFAULT_TIMEOUT);
+    }
+
+    status = getDoubleParam(medipixStepThresholdScan, &dval);
+    if(status == asynSuccess)
+    {
+        epicsSnprintf(valueStr, MPX_MAXLINE, "%f", dval);
+        status = mpxSet(MPXVAR_THSTEP, valueStr, Labview_DEFAULT_TIMEOUT);
+    }
+
+    return status;
+}
+
 /** Called when asyn clients call pasynFloat64->write().
  * This function performs actions for some parameters, including ADAcquireTime, ADGain, etc.
  * For all parameters it sets the value in the parameter library and calls any registered callbacks..
@@ -1149,10 +1192,9 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
 	int function = pasynUser->reason;
 	asynStatus status = asynSuccess;
 	double energyLow, energyHigh;
-	double beamX, beamY;
-	int thresholdAutoApply;
 	const char *functionName = "writeFloat64";
 	double oldValue;
+	char valueStr[MPX_MAXLINE];
 
 	/* Set the parameter and readback in the parameter library.  This may be overwritten when we read back the
 	 * status at the end, but that's OK */
@@ -1163,22 +1205,20 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
 	// as the "function ==" clause below
 
 	/* Changing any of the following parameters requires recomputing the base image */
-	if ((function == ADGain) || (function == medipixThreshold))
+	if ((function == medipixThreshold0) || (function == medipixThreshold1)|| (function == medipixOperatingEnergy))
 	{
-		getIntegerParam(medipixThresholdAutoApply, &thresholdAutoApply);
-		if (thresholdAutoApply)
-			setThreshold();
+		// TODO - we may want to group up other threshold settings like pilatus
+		setThreshold();
 	}
 	else if ((function == ADAcquireTime) || (function == ADAcquirePeriod)
 			|| (function == medipixDelayTime))
 	{
 		setAcquireParams();
 	}
-	else if (function == medipixWavelength)
+	else if ((function == medipixStartThresholdScan) || (function == medipixStopThresholdScan)
+	            || (function == medipixStepThresholdScan))
 	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Wavelength %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
+	    updateThresholdScanParms();
 	}
 	else if ((function == medipixEnergyLow) || (function == medipixEnergyHigh))
 	{
@@ -1187,88 +1227,7 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
 		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
 				"mxsettings Energy_range %f,%f", energyLow, energyHigh);
 		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixDetDist)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Detector_distance %f", value / 1000.0);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixDetVOffset)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Detector_Voffset %f", value / 1000.0);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if ((function == medipixBeamX) || (function == medipixBeamY))
-	{
-		getDoubleParam(medipixBeamX, &beamX);
-		getDoubleParam(medipixBeamY, &beamY);
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Beam_xy %f,%f", beamX, beamY);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixFlux)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Flux %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixFilterTransm)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Filter_transmission %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixStartAngle)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Start_angle %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixAngleIncr)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Angle_increment %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixDet2theta)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Detector_2theta %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixPolarization)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Polarization %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixAlpha)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Alpha %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixKappa)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Kappa %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixPhi)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Phi %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else if (function == medipixChi)
-	{
-		epicsSnprintf(this->toLabview, sizeof(this->toLabview),
-				"mxsettings Chi %f", value);
-		//writeReadLabview(Labview_DEFAULT_TIMEOUT);
-	}
-	else
+	}	else
 	{
 		/* If this parameter belongs to a base class call its method */
 		if (function < FIRST_medipix_PARAM
@@ -1422,13 +1381,13 @@ medipixDetector::medipixDetector(const char *portName,
 				functionName);
 		return;
 	}
-	this->stopEventId = epicsEventCreate(epicsEventEmpty);
-	if (!this->stopEventId)
-	{
-		printf("%s:%s epicsEventCreate failure for stop event\n", driverName,
-				functionName);
-		return;
-	}
+    this->stopEventId = epicsEventCreate(epicsEventEmpty);
+    if (!this->stopEventId)
+    {
+        printf("%s:%s epicsEventCreate failure for stop event\n", driverName,
+                functionName);
+        return;
+    }
 
 	/* Allocate the raw buffer we use to read image files.  Only do this once */
 	dims[0] = maxSizeX;
@@ -1443,7 +1402,9 @@ medipixDetector::medipixDetector(const char *portName,
 			&this->pasynLabViewData, NULL);
 
 	createParam(medipixDelayTimeString, asynParamFloat64, &medipixDelayTime);
-	createParam(medipixThresholdString, asynParamFloat64, &medipixThreshold);
+	createParam(medipixThreshold0String, asynParamFloat64, &medipixThreshold0);
+	createParam(medipixThreshold1String, asynParamFloat64, &medipixThreshold1);
+	createParam(medipixOperatingEnergyString, asynParamFloat64, &medipixOperatingEnergy);
 	createParam(medipixThresholdApplyString, asynParamInt32,
 			&medipixThresholdApply);
 	createParam(medipixThresholdAutoApplyString, asynParamInt32,
@@ -1484,6 +1445,7 @@ medipixDetector::medipixDetector(const char *portName,
 	createParam(medipixOscillAxisString, asynParamOctet, &medipixOscillAxis);
 	createParam(medipixNumOscillString, asynParamInt32, &medipixNumOscill);
 	createParam(medipixPixelCutOffString, asynParamInt32, &medipixPixelCutOff);
+
 	createParam(medipixThTemp0String, asynParamFloat64, &medipixThTemp0);
 	createParam(medipixThTemp1String, asynParamFloat64, &medipixThTemp1);
 	createParam(medipixThTemp2String, asynParamFloat64, &medipixThTemp2);
@@ -1491,6 +1453,11 @@ medipixDetector::medipixDetector(const char *portName,
 	createParam(medipixThHumid1String, asynParamFloat64, &medipixThHumid1);
 	createParam(medipixThHumid2String, asynParamFloat64, &medipixThHumid2);
 	createParam(medipixTvxVersionString, asynParamOctet, &medipixTvxVersion);
+
+	createParam(medipixStartThresholdScanString, asynParamFloat64, &medipixStartThresholdScan);
+	createParam(medipixStopThresholdScanString, asynParamFloat64, &medipixStopThresholdScan);
+	createParam(medipixStepThresholdScanString, asynParamFloat64, &medipixStepThresholdScan);
+	createParam(medipixStartThresholdScanningString, asynParamInt32, &medipixStartThresholdScanning);
 
 	/* Set some default values for parameters */
 	status = setStringParam(ADManufacturer, "Medipix Consortium");
