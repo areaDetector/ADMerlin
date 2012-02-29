@@ -75,7 +75,7 @@ extern int mpxDisconnect(void);
 // commands
 #define MPXCMD_STARTACQUISITION         "STARTACQUISITION"
 #define MPXCMD_STOPACQUISITION          "STOPACQUISITION"
-#define MPXCMD_THSTART                  "STARTACQUISITION"
-#define MPXCMD_THSTOP                   "THSTOP"
+#define MPXCMD_THSTART                  "THSTART"
+
 
 #endif /* MPX_LOW_H */

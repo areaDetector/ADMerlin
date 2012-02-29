@@ -239,6 +239,23 @@ record(ai, "$(P)$(R)StepThresholdScan_RBV")
     field(SCAN, "I/O Intr")
 }
 
+# % gdatag, pv, rw, $(PORT)_medipix, ThresholdScan, Set ThresholdScan
+record(longout, "$(P)$(R)ThresholdScan") {
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))THRESHOLDSCAN")
+   field(DESC, "ThresholdScan")
+   field(VAL, "0")
+}
+
+# % gdatag, pv, ro, $(PORT)_medipix, ThresholdScan_RBV, Readback for ThresholdScan
+record(longin, "$(P)$(R)ThresholdScan_RBV") {
+   field(DTYP, "asynInt32")
+   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))THRESHOLDSCAN")
+   field(DESC, "ThresholdScan")
+   field(SCAN, "I/O Intr")
+}
+
 ###################################################################
 #  threshold scan start and stop 
 ###################################################################

@@ -37,6 +37,7 @@ void *dataThread(void* data_fd);
 int produce_data(int data_fd);
 
 int frame_count = 0;
+int frames_to_send = 0;
 
 int data_exit = 0;
 int do_data = 0;
@@ -319,11 +320,12 @@ int echo_request(int socket_fd)
 
 		if (!strncmp(cmdType, "SET", 3))
 		{
-		    cmdValue = strtok(bptr, ",");
+		    cmdValue = strtok(NULL, ",");
 		    cmdIntValue = atoi(cmdValue);
 
             if(!strncmp(cmdName,"NUMFRAMESTOACQUIRE",MAXLINE))
             {
+                printf("setting frame count to %d\n\n", cmdIntValue);
                 frame_count = cmdIntValue;
             }
 
@@ -333,28 +335,34 @@ int echo_request(int socket_fd)
 		}
 		else if (!strncmp(cmdType, "GET", 3))
 		{
+		    char strResp[MAXLINE] = "9.0";
+
 			if(!strncmp(cmdName,"DETECTORSTATUS",MAXLINE))
-			{
-				bodylen = strlen(cmdName) + 9;
-				sprintf(response, "MPX,%010u,GET,%s,0,0", bodylen, cmdName);
-			}
+			    strcpy(strResp, "0");
             if(!strncmp(cmdName,"GETSOFTWAREVERSION",MAXLINE))
-            {
-                bodylen = strlen(cmdName) + 11;
-                sprintf(response, "MPX,%010u,GET,%s,0.1,0", bodylen, cmdName);
-            }
-			else
-			{
-				// default response
-				bodylen = strlen(cmdName) + 11;
-				sprintf(response, "MPX,%010u,GET,%s,9.0,0", bodylen, cmdName);
-			}
+                strcpy(strResp, "2.2");
+            if(!strncmp(cmdName,"THSTART",MAXLINE))
+                strcpy(strResp, "2.0");
+            if(!strncmp(cmdName,"THSTOP",MAXLINE))
+                strcpy(strResp, "8.0");
+            if(!strncmp(cmdName,"THSTEP",MAXLINE))
+                strcpy(strResp, "1.0");
+
+            bodylen = strlen(cmdName) + strlen(strResp) + 8;
+            sprintf(response, "MPX,%010u,GET,%s,%s,0", bodylen, cmdName, strResp);
 		}
 		else if (!strncmp(cmdType, "CMD", 3))
 		{
-            if (!strncmp(cmdName, "STARTACQUISITION", 16))
+            if (!strncmp(cmdName, "STARTACQUISITION", 16)
+                    || !strncmp(cmdName, "THSTART", 16))
             {
-                strncpy(response, "MPX,0000000023,CMD,STARTACQUISITION,0", MAXLINE);
+                if(!strncmp(cmdName, "THSTART", 16))
+                    frames_to_send = 7;
+                else
+                    frames_to_send = frame_count;
+
+                bodylen = strlen(cmdName) + 7;
+                sprintf(response, "MPX,%010u,CMD,%s,0", bodylen, cmdName);
                 /*signal data thread to send some data back.*/
                 printf("***signalling data thread.\n");
                 pthread_mutex_lock(&do_data_mutex);
@@ -457,9 +465,9 @@ int produce_data(int data_fd)
 			}
 			printf("*** wrote data - acquisition header\n");
 */
-
+		    printf("*** writing %d data frames\n", frames_to_send);
 		    int i;
-		    for(i = 0; i<frame_count; i++)
+		    for(i = 0; i<frames_to_send; i++)
 		    {
                 // write an image
                 if (write(data_fd, data, frameSize) <= 0)
