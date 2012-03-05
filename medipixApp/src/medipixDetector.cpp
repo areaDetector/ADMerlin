@@ -611,7 +611,7 @@ asynStatus medipixDetector::setAcquireParams()
 		setDoubleParam(ADAcquirePeriod, dval2);
 	}
 	epicsSnprintf(value, MPX_MAXLINE, "%f", dval2*1000); // translated into millisec
-	this->mpxSet(MPXVAR_ACQUISITIOINPERIOD, value, Labview_DEFAULT_TIMEOUT);
+	this->mpxSet(MPXVAR_ACQUISITIONPERIOD, value, Labview_DEFAULT_TIMEOUT);
 
 //	status = getDoubleParam(medipixDelayTime, &dval);
 //	if ((status != asynSuccess) || (dval < 0.))
@@ -859,7 +859,7 @@ void medipixDetector::medipixTask()
 		if(acquisitionMode == AcquireImage)
 		    status = mpxCommand(MPXCMD_STARTACQUISITION, Labview_DEFAULT_TIMEOUT);
 		else
-		    status = mpxCommand(MPXCMD_THSTART, Labview_DEFAULT_TIMEOUT);
+		    status = mpxCommand(MPXCMD_THSCAN, Labview_DEFAULT_TIMEOUT);
 
 		/* If the status wasn't asynSuccess or asynTimeout, report the error */
 		if (status > 1)
