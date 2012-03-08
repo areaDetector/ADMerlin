@@ -24,6 +24,7 @@ extern int mpxDisconnect(void);
 #define MPX_GET "GET"
 #define MPX_CMD "CMD"
 #define MPX_DATA_HEADER "CMD"
+#define MPX_DATA_ACQ_HDR "HDR"
 #define MPX_DATA_12 "12B"
 #define MPX_DATA_14 "24B"
 #define MPX_MSG_LEN_DIGITS 10
@@ -31,6 +32,7 @@ extern int mpxDisconnect(void);
 
 #define MPX_MAXLINE 256
 #define MPX_DATAFRAME 128000
+#define MPX_ACQUISITION_HEADER_LEN 2048
 
 #define MPX_X_SIZE 256
 #define MPX_Y_SIZE 256

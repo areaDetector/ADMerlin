@@ -39,6 +39,8 @@ int produce_data(int data_fd);
 int frame_count = 0;
 int frames_to_send = 0;
 
+int incrementer = 0;
+
 int data_exit = 0;
 int do_data = 0;
 pthread_mutex_t do_data_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -335,18 +337,21 @@ int echo_request(int socket_fd)
 		}
 		else if (!strncmp(cmdType, "GET", 3))
 		{
-		    char strResp[MAXLINE] = "9.0";
+		    char strResp[MAXLINE];
+		    sprintf(strResp,"%d",++incrementer);
 
 			if(!strncmp(cmdName,"DETECTORSTATUS",MAXLINE))
 			    strcpy(strResp, "0");
             if(!strncmp(cmdName,"GETSOFTWAREVERSION",MAXLINE))
                 strcpy(strResp, "2.2");
+/*
             if(!strncmp(cmdName,"THSTART",MAXLINE))
                 strcpy(strResp, "2.0");
             if(!strncmp(cmdName,"THSTOP",MAXLINE))
                 strcpy(strResp, "8.0");
             if(!strncmp(cmdName,"THSTEP",MAXLINE))
                 strcpy(strResp, "1.0");
+*/
 
             bodylen = strlen(cmdName) + strlen(strResp) + 8;
             sprintf(response, "MPX,%010u,GET,%s,%s,0", bodylen, cmdName, strResp);
@@ -454,7 +459,7 @@ int produce_data(int data_fd)
 		if ((do_data == 1) && (data_exit == 0))
 		{
 
-/*
+
 			// send a silly acquisition header
 			if (write(data_fd, "MPX,0000000030,HDR,dummy acquisition header.", 30 + HEADER_LEN -1) <= 0)
 			{
@@ -464,7 +469,7 @@ int produce_data(int data_fd)
 				//return EXIT_FAILURE;
 			}
 			printf("*** wrote data - acquisition header\n");
-*/
+
 		    printf("*** writing %d data frames\n", frames_to_send);
 		    int i;
 		    for(i = 0; i<frames_to_send; i++)

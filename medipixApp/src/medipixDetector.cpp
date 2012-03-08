@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #include <epicsTime.h>
 #include <epicsThread.h>
@@ -60,12 +61,13 @@ typedef enum
     TMAlignment
 } medipixTriggerMode;/** Trigger modes */
 
+/** data header types */
 typedef enum
 {
-    NoAcquisition,
-    AcquireImage,
-    ThresholdScan
-} medipixAcquisitionMode;
+    MPXDataHeader,
+    MPXAcquisitionHeader,
+    MPXUnknownHeader
+} medipixDataHeader;
 
 static const char *driverName = "medipixDetector";
 
@@ -122,8 +124,9 @@ private:
 	/* These are the methods that are new to this class */
 	void abortAcquisition();
 	asynStatus setAcquireParams();
-	asynStatus setThreshold();
+	asynStatus getThreshold();
     asynStatus updateThresholdScanParms();
+    medipixDataHeader parseDataFrame(NDArray* pImage, const char* header);
 
 	/* The labview communication primitives */
 	asynStatus mpxGet(char* valueId, double timeout);
@@ -143,7 +146,8 @@ private:
 	asynUser *pasynLabViewCmd;
 	asynUser *pasynLabViewData;
 	double averageFlatField;
-	medipixAcquisitionMode acquisitionMode;
+
+	bool startingUp;  // used to avoid very chatty initialisation
 
 	/* input and output from the labView controller     */
 	char toLabview[MPX_MAXLINE];
@@ -568,6 +572,9 @@ asynStatus medipixDetector::setAcquireParams()
 //	char *substr = NULL;
 //	int pixelCutOff = 0;
 
+	if(startingUp)
+	    return asynSuccess;
+
 	status = getIntegerParam(ADTriggerMode, &triggerMode);
 	if (status != asynSuccess)
 		triggerMode = TMInternal;
@@ -613,79 +620,16 @@ asynStatus medipixDetector::setAcquireParams()
 	epicsSnprintf(value, MPX_MAXLINE, "%f", dval2*1000); // translated into millisec
 	this->mpxSet(MPXVAR_ACQUISITIONPERIOD, value, Labview_DEFAULT_TIMEOUT);
 
-//	status = getDoubleParam(medipixDelayTime, &dval);
-//	if ((status != asynSuccess) || (dval < 0.))
-//	{
-//		dval = 0.;
-//		setDoubleParam(medipixDelayTime, dval);
-//	}
-//	epicsSnprintf(value, MPX_MAXLINE, "%d", ival);
-//	this->mpxSet(MPXVAR_???, value, Labview_DEFAULT_TIMEOUT);
-
-//		status = getIntegerParam(medipixGapFill, &ival);
-//	if ((status != asynSuccess) || (ival < -2) || (ival > 0))
-//	{
-//		ival = -2;
-//		setIntegerParam(medipixGapFill, ival);
-//	}
-//	/* -2 is used to indicate that GapFill is not supported because it is a single element detector */
-//	if (ival != -2)
-//	{
-//		epicsSnprintf(this->toLabview, sizeof(this->toLabview), "gapfill %d",
-//				ival);
-//		writeReadLabview(Labview_DEFAULT_TIMEOUT);
-//	}
-//
-//	/*Read back the pixel count rate cut off value.*/
-//	epicsSnprintf(this->toLabview, sizeof(this->toLabview), "Tau");
-//	status = writeReadLabview(5.0);
-//
-//	/*Response contains the string "cutoff = 1221026 counts"*/
-//	if (!status)
-//	{
-//		if ((substr = strstr(this->fromLabview, "cutoff")) != NULL)
-//		{
-//			sscanf(substr, "cutoff = %d counts", &pixelCutOff);
-//			setIntegerParam(medipixPixelCutOff, pixelCutOff);
-//		}
-//	}
-
 	return (asynSuccess);
 
 }
 
-asynStatus medipixDetector::setThreshold()
+asynStatus medipixDetector::getThreshold()
 {
 	int status;
-	double threshold0, threshold1, energy;
-	char value[MPX_MAXLINE];
 
-	getDoubleParam(medipixThreshold0, &threshold0);
-	getDoubleParam(medipixThreshold1, &threshold1);
-	getDoubleParam(medipixOperatingEnergy, &energy);
-
-	/* Set the status to waiting so we can be notified when it has finished */
-	setIntegerParam(ADStatus, ADStatusWaiting);
-	setStringParam(ADStatusMessage, "Setting threshold");
-	callParamCallbacks();
-
-	epicsSnprintf(value, MPX_MAXLINE, "%f", threshold0);
-	status = mpxSet(MPXVAR_THRESHOLD0, value, Labview_DEFAULT_TIMEOUT);
-	if(status == asynSuccess)
-	{
-		epicsSnprintf(value, MPX_MAXLINE, "%f", threshold1);
-		status = mpxSet(MPXVAR_THRESHOLD1, value, Labview_DEFAULT_TIMEOUT);
-	}
-    if(status == asynSuccess)
-    {
-        epicsSnprintf(value, MPX_MAXLINE, "%f", energy);
-        status = mpxSet(MPXVAR_OPERATINGENERGY, value, Labview_DEFAULT_TIMEOUT);
-    }
-
-	if (status)
-		setIntegerParam(ADStatus, ADStatusError);
-	else
-		setIntegerParam(ADStatus, ADStatusIdle);
+    if(startingUp)
+        return asynSuccess;
 
 	/* Read back the actual setting, in case we are out of bounds.*/
 	status = mpxGet(MPXVAR_THRESHOLD0, Labview_DEFAULT_TIMEOUT);
@@ -698,11 +642,6 @@ asynStatus medipixDetector::setThreshold()
     if(status == asynSuccess)
         setDoubleParam(medipixOperatingEnergy, atof(fromLabviewValue));
 
-	// TODO is this required for medipix
-	/* The SetThreshold command resets numimages to 1 and gapfill to 0, so re-send current
-	 * acquisition parameters */
-	//setAcquireParams();
-
 	callParamCallbacks();
 
 	return (asynSuccess);
@@ -714,6 +653,9 @@ asynStatus medipixDetector::updateThresholdScanParms()
     char valueStr[MPX_MAXLINE];
     int thresholdScan;
     double start, stop, step;
+
+    if(startingUp)
+        return asynSuccess;
 
     getDoubleParam(medipixStartThresholdScan, &start);
     getDoubleParam(medipixStopThresholdScan, &stop);
@@ -765,250 +707,194 @@ static void medipixTaskC(void *drvPvt)
 	pPvt->medipixTask();
 }
 
+// returns true if the header is a data header
+// parses the data header and adds appropriate attributes to pImage
+medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
+{
+    char buff[MPX_IMG_HDR_LEN];
+    int iVal;
+    char* tok;
+
+    // make a copy since strtok is destructive
+    strncpy(buff, header, MPX_IMG_HDR_LEN);
+
+    strtok(buff,",");
+    if(!strcmp(buff, MPX_DATA_ACQ_HDR))
+    {
+        printf("Acquisition Header found.\n");
+        return MPXAcquisitionHeader;
+    }
+    else if(!strcmp(buff, MPX_DATA_12))
+    {
+        tok = strtok(NULL,",");
+        if(tok != NULL)
+        {
+            iVal = atoi(tok);
+            pImage->pAttributeList->add("Frame Number","", NDAttrInt32, &iVal);
+        }
+        tok = strtok(NULL, ",");
+        if(tok != NULL)
+        {
+            iVal = atoi(tok);
+            pImage->pAttributeList->add("Counter Number","", NDAttrInt32, &iVal);
+        }
+        tok = strtok(NULL, ",");
+        if(tok != NULL)
+        {
+            // Todo - agree a definite date format and parse it here
+            // then work out how to encode to be useful for GDA (UTC Posix time or EPICS time ?)
+            // probably EPICS time since this includes sub seconds --> then encode in two int32s
+            // e.g.
+            // sscanf(tok,"%d-%d-%d %d:%d:%d.%d",&year,&month,&day,&hours,&mins,&secs,&msecs);
+        }
+        tok = strtok(NULL, ",");
+        if(tok != NULL)
+        {
+            iVal = atoi(tok);
+            pImage->pAttributeList->add("Duration","", NDAttrInt32, &iVal);
+        }
+        tok = strtok(NULL, ",");
+        if(tok != NULL)
+        {
+            iVal = atoi(tok);
+            pImage->pAttributeList->add("Threshold 0","", NDAttrInt32, &iVal);
+        }
+        tok = strtok(NULL, ",");
+        if(tok != NULL)
+        {
+            iVal = atoi(tok);
+            pImage->pAttributeList->add("Threshold 1","", NDAttrInt32, &iVal);
+        }
+        return MPXDataHeader;
+    }
+    else
+    {
+        return MPXUnknownHeader;
+    }
+}
+
 /** This thread controls acquisition, reads image files to get the image data, and
  * does the callbacks to send it to higher layers */
 void medipixDetector::medipixTask()
 {
 	int status = asynSuccess;
 	int imageCounter;
-	int numImages;
-	int multipleFileNextImage = 0; /* This is the next image number, starting at 0 */
-	int acquire, scan;
-	ADStatus_t acquiring;
 	NDArray *pImage;
-	double acquireTime, acquirePeriod;
-	int triggerMode;
 	epicsTimeStamp startTime;
 	const char *functionName = "medipixTask";
 	int dims[2];
 	int arrayCallbacks;
 	int nread;
 	char *bigBuff;
-	double start,stop,step;
+	char aquisitionHeader[MPX_ACQUISITION_HEADER_LEN+1];
 
 	this->lock();
 
 	// allocate a buffer for reading in images from labview over network
 	bigBuff = (char*) calloc(MPX_IMG_FRAME_LEN, 1);
 
+
 	/* Loop forever */
 	while (1)
 	{
-		/* Is acquisition active? */
-        getIntegerParam(ADAcquire, &acquire);
-        getIntegerParam(medipixStartThresholdScanning, &scan);
-		/* If we are not acquiring then wait for a semaphore that is given when acquisition is started */
-		if (!acquire || scan)
-		{
-			/* Only set the status message if we didn't encounter any errors last time, so we don't overwrite the
-			 error message */
-			if (!status)
-				setStringParam(ADStatusMessage, "Waiting for acquire command");
-			callParamCallbacks();
-			/* Release the lock while we wait for an event that says acquire has started, then lock again */
-			this->unlock();
-			asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
-					"%s:%s: waiting for acquire to start\n", driverName,
-					functionName);
-			status = epicsEventWait(this->startEventId);
-			this->lock();
-			getIntegerParam(ADAcquire, &acquire);
-	        getIntegerParam(medipixStartThresholdScanning, &scan);
-		}
+        // Get the current time - note this is the time we start listening and may be up
+	    // to 10 seconds earlier than frame received - oh well !
+        epicsTimeGetCurrent(&startTime);
 
-		/* We are acquiring. */
-		/* Get the current time */
-		epicsTimeGetCurrent(&startTime);
+        // Acquire an image from the data channel
+        // Todo replace printfs with asyn logging
+        fromLabviewImgHdr[0] = 0;
+        memset(bigBuff, 0, MPX_IMG_FRAME_LEN);
 
-		/* Get the exposure parameters */
-		getDoubleParam(ADAcquireTime, &acquireTime);
-		getDoubleParam(ADAcquirePeriod, &acquirePeriod);
+        /* We release the mutex when waiting because this takes a long time and
+         * we need to allow abort operations to get through */
+        this->unlock();
+        // wait for the next data frame packet - this function spends most of its time here
+        status = mpxRead(this->pasynLabViewData, bigBuff, MPX_IMG_FRAME_LEN, &nread, 10);
+        this->lock();
 
-		/* Get the acquisition parameters */
-		getIntegerParam(ADTriggerMode, &triggerMode);
-		if(acquisitionMode == AcquireImage)
-		{
-		    getIntegerParam(ADNumImages, &numImages);
-		}
-		else
-		{
-            getDoubleParam(medipixStartThresholdScan, &start);
-            getDoubleParam(medipixStopThresholdScan, &stop);
-            getDoubleParam(medipixStepThresholdScan, &step);
-
-            if(isnan(step) || isnan(start) || isnan(stop) || step == 0.0 || stop <= start)
+        /* If there was an error jump to bottom of loop */
+        if (status)
+        {
+            if (status == asynTimeout)
+                status = asynSuccess;   // timeouts are expected
+            else
             {
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                        "%s:%s: error, invalid threshold range - cannot perform threshold scan\n", driverName,
+                setStringParam(ADStatusMessage,
+                        "Error in Labview data channel response");
+                // wait before trying again - otherwise socket error creates a tight loop
+                epicsThreadSleep(2);
+            }
+            continue;
+        }
+
+        // if we get here we have successfully received a data frame
+        strncpy(fromLabviewImgHdr, bigBuff, MPX_IMG_HDR_LEN);
+        fromLabviewImgHdr[MPX_IMG_HDR_LEN] = 0;
+        printf("\n\nReceived image frame of %d bytes\nHeader: %s\n", nread, fromLabviewImgHdr);
+
+        getIntegerParam(NDArrayCallbacks, &arrayCallbacks);
+
+        if (arrayCallbacks)
+        {
+            getIntegerParam(NDArrayCounter, &imageCounter);
+            imageCounter++;
+            setIntegerParam(NDArrayCounter, imageCounter);
+            /* Call the callbacks to update any changes */
+            callParamCallbacks();
+
+            /* Get an image buffer from the pool */
+            getIntegerParam(ADMaxSizeX, &dims[0]);
+            getIntegerParam(ADMaxSizeY, &dims[1]);
+            pImage = this->pNDArrayPool->alloc(2, dims, NDInt16, 0, NULL);
+
+            epicsInt16 *pData, *pSrc;
+            int i;
+            for (	i = 0,
+                    pData = (epicsInt16 *) pImage->pData,
+                    pSrc = (epicsInt16 *) (bigBuff + MPX_IMG_HDR_LEN);
+                    i < dims[0] * dims[1];
+                    i++, pData++, pSrc++)
+            {
+                *pData = *pSrc;
+            }
+
+            /* Put the frame number and time stamp into the buffer */
+            pImage->uniqueId = imageCounter;
+            pImage->timeStamp = startTime.secPastEpoch
+                    + startTime.nsec / 1.e9;
+
+            // parse the header and apply attributes to the NDArray
+            medipixDataHeader header = parseDataFrame(pImage, fromLabviewImgHdr);
+
+            if(header == MPXAcquisitionHeader)
+            {
+                // this is an acquisition header
+                strncpy(aquisitionHeader, bigBuff, MPX_ACQUISITION_HEADER_LEN);
+                aquisitionHeader[MPX_ACQUISITION_HEADER_LEN] = 0;
+            }
+            else if(header == MPXDataHeader)
+            {
+                // string attributes are global in HDF5 plugin so most recent acquisition header is
+                // applied to all files
+                pImage->pAttributeList->add("Acquisition Header","Acquisition Header", NDAttrString, aquisitionHeader);
+
+                /* Get any attributes that have been defined for this driver */
+                this->getAttributes(pImage->pAttributeList);
+
+                /* Call the NDArray callback */
+                /* Must release the lock here, or we can get into a deadlock, because we can
+                 * block on the plugin lock, and the plugin can be calling us */
+                this->unlock();
+                asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
+                        "%s:%s: calling NDArray callback\n", driverName,
                         functionName);
-                scan = 0; acquire = 0; status = asynError;
-                setStringParam(ADStatusMessage, "Error: invalid threshold range");
-                continue;
-            }
-            numImages = (int) ((stop - start) / step);
-            if(fmod((stop - start), step) == 0.0)
-                numImages++;
-		}
-
-		acquiring = ADStatusAcquire;
-		setIntegerParam(ADStatus, acquiring);
-
-		setStringParam(ADStatusMessage, "Starting exposure");
-		/* Send the acquire command to Labview and wait for the 15OK response */
-
-		if(acquisitionMode == AcquireImage)
-		    status = mpxCommand(MPXCMD_STARTACQUISITION, Labview_DEFAULT_TIMEOUT);
-		else
-		    status = mpxCommand(MPXCMD_THSCAN, Labview_DEFAULT_TIMEOUT);
-
-		/* If the status wasn't asynSuccess or asynTimeout, report the error */
-		if (status > 1)
-		{
-			acquire = 0;
-			scan = 0;
-		}
-		else
-		{
-			/* Set status back to asynSuccess as the timeout was expected */
-			status = asynSuccess;
-			/* Open the shutter */
-			setShutter(1);
-			/* Set the armed flag */
-			setIntegerParam(medipixArmed, 1);
-			multipleFileNextImage = 0;
-			/* Call the callbacks to update any changes */
-			callParamCallbacks();
-		}
-
-/*
- * TODO current implementation is not sending a header
- *
- *
-		// Read the Acquisition header
-		printf("reading acquisition header from data channel..\n");
-		status = mpxRead(this->pasynLabViewData, bigBuff, MPX_ACQ_HDR_LEN, &nread, 5);
-		bigBuff[nread] = 0;
-		printf("\n\nReceived Acquistion Header:\n%s\n\n", bigBuff);
-*/
-
-		while (acquire || scan)
-		{
-			setStringParam(ADStatusMessage, "Waiting for image response");
-			callParamCallbacks();
-			/* We release the mutex when waiting because this takes a long time and
-			 * we need to allow abort operations to get through */
-			this->unlock();
-
-			// Acquire an image from the data channel
-			// TODO temp test code - todo use the configurable timeout instead of 10
-			// todo replace printfs with asyn logging
-			printf("reading image from data channel..\n");
-			fromLabviewImgHdr[0] = 0;
-			memset(bigBuff, 0, MPX_IMG_FRAME_LEN);
-
-			status = mpxRead(this->pasynLabViewData, bigBuff, MPX_IMG_FRAME_LEN, &nread, 10);
-			strncpy(fromLabviewImgHdr, bigBuff, MPX_IMG_HDR_LEN);
-			fromLabviewImgHdr[MPX_IMG_HDR_LEN] = 0;
-
-			printf("\n\nReceived image frame of %d bytes\nHeader: %s\n", nread, fromLabviewImgHdr);
-
-			// check for abort event
-            if (epicsEventTryWait(this->stopEventId) == epicsEventWaitOK) {
-                setStringParam(ADStatusMessage, "Acquisition aborted");
-                acquire = 0; scan = 0;
+                doCallbacksGenericPointer(pImage, NDArrayData, 0);
                 this->lock();
-                continue;
+                /* Free the image buffer */
+                pImage->release();
             }
-
-			this->lock();
-			/* If there was an error jump to bottom of loop */
-			if (status)
-			{
-				printf("error %d reading image\n",status);
-				acquire = 0; scan = 0;
-				if (status == asynTimeout)
-					setStringParam(ADStatusMessage,
-							"Timeout waiting for Labview response");
-				else
-					setStringParam(ADStatusMessage,
-							"Error in Labview response");
-				continue;
-			}
-
-			getIntegerParam(NDArrayCallbacks, &arrayCallbacks);
-
-			if (arrayCallbacks)
-			{
-				getIntegerParam(NDArrayCounter, &imageCounter);
-				imageCounter++;
-				setIntegerParam(NDArrayCounter, imageCounter);
-				/* Call the callbacks to update any changes */
-				callParamCallbacks();
-
-				/* Get an image buffer from the pool */
-				getIntegerParam(ADMaxSizeX, &dims[0]);
-				getIntegerParam(ADMaxSizeY, &dims[1]);
-				pImage = this->pNDArrayPool->alloc(2, dims, NDInt16, 0, NULL);
-
-				epicsInt16 *pData, *pSrc;
-				int i;
-				for (	i = 0,
-						pData = (epicsInt16 *) pImage->pData,
-						pSrc = (epicsInt16 *) (bigBuff + MPX_IMG_HDR_LEN);
-						i < dims[0] * dims[1];
-						i++, pData++, pSrc++)
-				{
-					*pData = *pSrc;
-				}
-
-				/* Put the frame number and time stamp into the buffer */
-				pImage->uniqueId = imageCounter;
-				pImage->timeStamp = startTime.secPastEpoch
-						+ startTime.nsec / 1.e9;
-				pImage->pAttributeList->add("Data Frame Header","Image acquisition header", NDAttrString, fromLabviewImgHdr);
-
-				/* Get any attributes that have been defined for this driver */
-				this->getAttributes(pImage->pAttributeList);
-
-				/* Call the NDArray callback */
-				/* Must release the lock here, or we can get into a deadlock, because we can
-				 * block on the plugin lock, and the plugin can be calling us */
-				this->unlock();
-				asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
-						"%s:%s: calling NDArray callback\n", driverName,
-						functionName);
-				doCallbacksGenericPointer(pImage, NDArrayData, 0);
-				this->lock();
-				/* Free the image buffer */
-				pImage->release();
-			}
-
-			if (numImages == 1)
-			{
-				acquire = 0; scan = 0;
-			}
-			else if (numImages > 1)
-			{
-				multipleFileNextImage++;
-				multipleFileNumber++;
-				if (multipleFileNextImage == numImages)
-				{
-					acquire = 0;scan = 0;
-				}
-			}
-
-		}
-		/* We are done acquiring */
-		setShutter(0);
-		setIntegerParam(ADAcquire, 0);
-        setIntegerParam(medipixStartThresholdScanning, 0);
-		setIntegerParam(medipixArmed, 0);
-
-		/* If everything was ok, set the status back to idle */
-		if (!status)
-			setIntegerParam(ADStatus, ADStatusIdle);
-		else
-			setIntegerParam(ADStatus, ADStatusError);
+        }
 
 		/* Call the callbacks to update any changes */
 		callParamCallbacks();
@@ -1029,45 +915,63 @@ static void medipixStatusC(void *drvPvt)
 void medipixDetector::medipixStatus()
 {
 	int result = asynSuccess;
-	int acquire = 0;
+	int status =0;
 	int statusCode;
 
 	// let the startup script complete before attempting I/O
 	epicsThreadSleep(4);
+	startingUp = 0;
+
+	// make sure important grouped variables are set to agree with
+	// IOCs auto saved values
+	setAcquireParams();
+	updateThresholdScanParms();
+	getThreshold();
+
+    result = mpxGet(MPXVAR_GETSOFTWAREVERSION, Labview_DEFAULT_TIMEOUT);
+    statusCode = atoi(this->fromLabviewValue);
+
+    // initial status
+    setIntegerParam(ADStatus, ADStatusIdle);
 
 	while (1)
 	{
 		lock();
-		/* Is acquisition active? */
-		getIntegerParam(ADAcquire, &acquire);
+        getIntegerParam(ADStatus, &status);
 
-		result = mpxGet(MPXVAR_DETECTORSTATUS, Labview_DEFAULT_TIMEOUT);
-		statusCode = atoi(this->fromLabviewValue);
+        if(status == ADStatusIdle)
+        {
+            setStringParam(ADStatusMessage, "Waiting for acquire command");
+        }
+        else
+        {
+            result = mpxGet(MPXVAR_DETECTORSTATUS, Labview_DEFAULT_TIMEOUT);
+            statusCode = atoi(this->fromLabviewValue);
 
-		// TODO need to wire up status code to somthing useful!
-		// TODO review things that need monitoring in this function
-		result = mpxGet(MPXVAR_GETSOFTWAREVERSION, Labview_DEFAULT_TIMEOUT);
-		statusCode = atoi(this->fromLabviewValue);
-
-
-		/* Response should contain: 1 = busy, 0 = idle */
-
-		if (result == asynSuccess && this->fromLabviewError == MPX_OK)
-		{
-			callParamCallbacks();
-			unlock();
-		}
-		else
-		{
-			setStringParam(ADStatusMessage, "Labview communication error");
-			/*Unlock right away and try again next time*/
-			unlock();
-		}
-
-		/* This thread does not need to run often - wait for 60 seconds and perform status
-		 * read again
-		 */
-		epicsThreadSleep(60);
+            if (result == asynSuccess && this->fromLabviewError == MPX_OK)
+            {
+                callParamCallbacks();
+                // todo implement full set of status codes
+                if(statusCode == 0)
+                {
+                    // detector has reported idle state
+                    setIntegerParam(ADStatus, ADStatusIdle);
+                    setIntegerParam(ADAcquire, 0);
+                }
+            }
+            else
+            {
+                setStringParam(ADStatusMessage, "Labview communication error");
+                // abort any acquire state
+                setIntegerParam(ADAcquire, 0);
+                setIntegerParam(ADStatus, ADStatusError);
+                /*Unlock right away and try again next time*/
+                unlock();
+            }
+        }
+        unlock();
+        callParamCallbacks();
+		epicsThreadSleep(5);
 	}
 
 }
@@ -1092,16 +996,14 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 		getIntegerParam(ADStatus, &adstatus);
 		if (value && (adstatus == ADStatusIdle || adstatus == ADStatusError))
 		{
-			/* Send an event to wake up the medipix task.  */
-		    acquisitionMode = AcquireImage;
-			epicsEventSignal(this->startEventId);
+            setIntegerParam(ADStatus, ADStatusAcquire);
+            setStringParam(ADStatusMessage, "Acquiring...");
+		    mpxCommand(MPXCMD_STARTACQUISITION, Labview_DEFAULT_TIMEOUT);
 		}
-		if (!value && (adstatus == ADStatusAcquire) && (acquisitionMode == AcquireImage))
+		if (!value && (adstatus == ADStatusAcquire))
 		{
-			/* This was a command to stop acquisition */
+            setIntegerParam(ADStatus, ADStatusIdle);
 		    mpxCommand(MPXCMD_STOPACQUISITION, Labview_DEFAULT_TIMEOUT);
-            epicsEventSignal(this->stopEventId);
-            acquisitionMode = NoAcquisition;
 		}
 	}
 	else if (function == medipixStartThresholdScanning)
@@ -1109,15 +1011,15 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	    getIntegerParam(ADStatus, &adstatus);
 	    if(value && (adstatus == ADStatusIdle || adstatus == ADStatusError))
 	    {
-	        // start a threshold scan by signalling the status task
-            acquisitionMode = ThresholdScan;
-            epicsEventSignal(this->startEventId);
+	        setIntegerParam(ADStatus, ADStatusAcquire);
+            setStringParam(ADStatusMessage, "Performing Threshold Scan...");
+	        status = mpxCommand(MPXCMD_THSCAN, Labview_DEFAULT_TIMEOUT);
 	    }
-	    else if ((adstatus == ADStatusAcquire) && (acquisitionMode == ThresholdScan))
+	    else if ((adstatus == ADStatusAcquire))
 	    {
 	        // abort a threshold scan
+            setIntegerParam(ADStatus, ADStatusIdle);
             mpxCommand(MPXCMD_STOPACQUISITION, Labview_DEFAULT_TIMEOUT);
-            acquisitionMode = NoAcquisition;
 	    }
 
 	}
@@ -1128,7 +1030,8 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	}
 	else if (function == medipixThresholdApply)
 	{
-		setThreshold();
+	    // TODO what is the relevance of this command to medipix?
+		getThreshold();
 	}
 	else
 	{
@@ -1163,6 +1066,7 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
 	int function = pasynUser->reason;
 	asynStatus status = asynSuccess;
 	const char *functionName = "writeFloat64";
+	char value_str[MPX_MAXLINE];
 	double oldValue;
 
 	/* Set the parameter and readback in the parameter library.  This may be overwritten when we read back the
@@ -1170,20 +1074,30 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
 	getDoubleParam(function, &oldValue);
 	status = setDoubleParam(function, value);
 
-	// TODO TODO TODO - where the following are not required - remove their member variables as well
-	// as the "function ==" clause below
-
 	/* Changing any of the following parameters requires recomputing the base image */
-	if ((function == medipixThreshold0) || (function == medipixThreshold1)|| (function == medipixOperatingEnergy))
-	{
-		// TODO - we may want to group up other threshold settings like pilatus
-		setThreshold();
-	}
-	else if ((function == ADAcquireTime) || (function == ADAcquirePeriod)
-			|| (function == medipixDelayTime))
-	{
-		setAcquireParams();
-	}
+    if (function == medipixThreshold0)
+    {
+        epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
+        status = mpxSet(MPXVAR_THRESHOLD0, value_str, Labview_DEFAULT_TIMEOUT);
+        getThreshold();
+    }
+    else if (function == medipixThreshold1)
+    {
+        epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
+        status = mpxSet(MPXVAR_THRESHOLD1, value_str, Labview_DEFAULT_TIMEOUT);
+        getThreshold();
+    }
+    else if (function == medipixOperatingEnergy)
+    {
+        epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
+        status = mpxSet(MPXVAR_OPERATINGENERGY, value_str, Labview_DEFAULT_TIMEOUT);
+        getThreshold();
+    }
+    else if ((function == ADAcquireTime) || (function == ADAcquirePeriod)
+            /* || (function == medipixDelayTime) */)
+    {
+        setAcquireParams();
+    }
 	else if ((function == medipixStartThresholdScan) || (function == medipixStopThresholdScan)
 	        || (function == medipixStepThresholdScan) )
 	{
@@ -1324,6 +1238,8 @@ medipixDetector::medipixDetector(const char *portName,
 	int status = asynSuccess;
 	const char *functionName = "medipixDetector";
 	int dims[2];
+
+	startingUp = 1;
 
 	/* Create the epicsEvents for signaling to the medipix task when acquisition starts and stops */
 	this->startEventId = epicsEventCreate(epicsEventEmpty);
