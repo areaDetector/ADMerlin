@@ -31,14 +31,13 @@ extern int mpxDisconnect(void);
 #define MPX_MSG_DATATYPE_LEN 3
 
 #define MPX_MAXLINE 256
-#define MPX_DATAFRAME 128000
-#define MPX_ACQUISITION_HEADER_LEN 2048
+#define MPX_IMG_HDR_LEN 252
+#define MPX_ACQUISITION_HEADER_LEN 2044
 
 #define MPX_X_SIZE 256
 #define MPX_Y_SIZE 256
 #define MPX_IMAGE_PIXELS 65536
 #define MPX_IMAGE_BYTES MPX_IMAGE_PIXELS * 2 // 16 bit pixels
-#define MPX_IMG_HDR_LEN 256
 // size of buffer for image frame body including leading comma
 #define MPX_IMG_FRAME_LEN MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES + MPX_MSG_DATATYPE_LEN + 2
 

@@ -769,6 +769,7 @@ medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* h
     }
     else
     {
+        printf("Bad Data Header found.\n");
         return MPXUnknownHeader;
     }
 }
