@@ -56,10 +56,16 @@ typedef enum
 {
     TMInternal,
     TMExternalEnable,
-    TMExternalTrigger,
-    TMMultipleExternalTrigger,
-    TMAlignment
+    TMExternalTriggerHigh,
+    TMExternalTriggerLow
 } medipixTriggerMode;/** Trigger modes */
+
+/** Medipix Individual Trigger types */
+
+#define TMTrigInternal  "0"
+#define TMTrigRising 	"1"
+#define TMTrigFalling 	"2"
+
 
 /** data header types */
 typedef enum
@@ -576,8 +582,30 @@ asynStatus medipixDetector::setAcquireParams()
 	    return asynSuccess;
 
 	status = getIntegerParam(ADTriggerMode, &triggerMode);
-	if (status != asynSuccess)
+	if (status != asynSuccess || triggerMode < TMInternal || triggerMode > TMExternalTriggerHigh)
 		triggerMode = TMInternal;
+	// medipix individually controls how start and stop triggers are read
+	// here we translate the chosen trigger mode into a combination of start
+	// and stop modes
+	switch(triggerMode)
+	{
+	case TMInternal :
+		this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigInternal, Labview_DEFAULT_TIMEOUT);
+		this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal, Labview_DEFAULT_TIMEOUT);
+		break;
+	case TMExternalEnable :
+		this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising, Labview_DEFAULT_TIMEOUT);
+		this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigFalling, Labview_DEFAULT_TIMEOUT);
+		break;
+	case TMExternalTriggerLow :
+		this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigFalling, Labview_DEFAULT_TIMEOUT);
+		this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal, Labview_DEFAULT_TIMEOUT);
+		break;
+	case TMExternalTriggerHigh :
+		this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising, Labview_DEFAULT_TIMEOUT);
+		this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal, Labview_DEFAULT_TIMEOUT);
+		break;
+	}
 
 	status = getIntegerParam(ADNumImages, &ival);
 	if ((status != asynSuccess) || (ival < 1))
@@ -612,13 +640,18 @@ asynStatus medipixDetector::setAcquireParams()
 		dval = 2.;
 		setDoubleParam(ADAcquirePeriod, dval2);
 	}
-	else if(dval2 - dval < 0.00085) // hardcoded value for readback time TODO parameterize
+	else if(dval2 - dval < 0)
 	{
-		dval2 = dval + 0.00085;
+		dval2 = dval + 0.00085; // this is hard coded readback time but only used in error condition, see below
 		setDoubleParam(ADAcquirePeriod, dval2);
 	}
 	epicsSnprintf(value, MPX_MAXLINE, "%f", dval2*1000); // translated into millisec
 	this->mpxSet(MPXVAR_ACQUISITIONPERIOD, value, Labview_DEFAULT_TIMEOUT);
+	// read the acquire period back from the server so that it can insert
+	// the readback time if necessary
+	this->mpxGet(MPXVAR_ACQUISITIONPERIOD, Labview_DEFAULT_TIMEOUT);
+	if(status == asynSuccess)
+		setDoubleParam(ADAcquirePeriod, atof(fromLabviewValue)/1000); // translated into secs
 
 	return (asynSuccess);
 
@@ -712,6 +745,7 @@ static void medipixTaskC(void *drvPvt)
 medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
 {
     char buff[MPX_IMG_HDR_LEN];
+    unsigned long lVal;
     int iVal;
     char* tok;
 
@@ -741,11 +775,18 @@ medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* h
         tok = strtok(NULL, ",");
         if(tok != NULL)
         {
-            // Todo - agree a definite date format and parse it here
-            // then work out how to encode to be useful for GDA (UTC Posix time or EPICS time ?)
-            // probably EPICS time since this includes sub seconds --> then encode in two int32s
-            // e.g.
-            // sscanf(tok,"%d-%d-%d %d:%d:%d.%d",&year,&month,&day,&hours,&mins,&secs,&msecs);
+        	int  year, month, day, hours, mins, secs, msecs;
+        	struct tm t;
+
+            // Covert string representation to EPICS Time and store in attributes as
+        	// a u long
+        	// format is 2012-02-01 11:26:00.000
+            sscanf(tok,"%d-%d-%d %d:%d:%d.%d",&year,&month,&day,&hours,&mins,&secs,&msecs);
+
+            // TODO - calculate UTC time in EPOCH seconds
+
+            pImage->pAttributeList->add("Start Time seconds","", NDAttrUInt32, &lVal);
+            pImage->pAttributeList->add("Start Time millsecs","", NDAttrUInt32, &lVal);
         }
         tok = strtok(NULL, ",");
         if(tok != NULL)
@@ -775,7 +816,10 @@ medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* h
 }
 
 /** This thread controls acquisition, reads image files to get the image data, and
- * does the callbacks to send it to higher layers */
+ * does the callbacks to send it to higher layers
+ * It is totally decoupled from the command thread and simply waits for data
+ * frames to be sent on the data channel (TCP) regardless of the state in the command
+ * thread and TCP channel */
 void medipixDetector::medipixTask()
 {
 	int status = asynSuccess;
@@ -1036,8 +1080,8 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	}
 	else
 	{
-		// TODO this looks like it does not work to me !! FIRST_medipix_PARAM is the value in medipixDelayTime
-		/* If this parameter belongs to a base class call its method */
+		// function numbers are assigned sequentially via createParam in the constructor and hence
+		// any function numbers lower than our first function is handled by a (the) super class
 		if (function < FIRST_medipix_PARAM
 			) status = ADDriver::writeInt32(pasynUser, value);
 	}

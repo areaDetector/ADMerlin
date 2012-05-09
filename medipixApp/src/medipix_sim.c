@@ -24,7 +24,7 @@
 
 #define MAXLINE 256
 #define MAXDATA 256*256*2 // 256 X by 256 Y by 2 bytes per pixel
-#define DATAHEADERLEN 256
+#define DATAHEADERLEN 252
 #define CMDLEN 4
 #define HEADER_LEN 15 // this includes 2 commas + the header and length fields
 
@@ -338,7 +338,7 @@ int echo_request(int socket_fd)
 		else if (!strncmp(cmdType, "GET", 3))
 		{
 		    char strResp[MAXLINE];
-		    sprintf(strResp,"%d",++incrementer);
+		    sprintf(strResp,"%d",++incrementer * 100);
 
 			if(!strncmp(cmdName,"DETECTORSTATUS",MAXLINE))
 			    strcpy(strResp, "0");
@@ -427,7 +427,7 @@ int produce_data(int data_fd)
 	int headersLength = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN;
 
 	snprintf(data, HEADER_LEN,"MPX,%010u,", frameSize - HEADER_LEN);
-	sprintf((data + HEADER_LEN), "12B,%-256s",
+	sprintf((data + HEADER_LEN), "12B,%-252s",
 			"1,1,2012-02-01 11:26:00.000,.05,6.0,8.0,0,0,0,0,0,0,0,0");
 
 	// create dummy data
