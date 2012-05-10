@@ -26,7 +26,7 @@ extern int mpxDisconnect(void);
 #define MPX_DATA_HEADER "CMD"
 #define MPX_DATA_ACQ_HDR "HDR"
 #define MPX_DATA_12 "12B"
-#define MPX_DATA_14 "24B"
+#define MPX_DATA_24 "24B"
 #define MPX_MSG_LEN_DIGITS 10
 #define MPX_MSG_DATATYPE_LEN 3
 
@@ -40,6 +40,7 @@ extern int mpxDisconnect(void);
 #define MPX_IMAGE_BYTES MPX_IMAGE_PIXELS * 2 // 16 bit pixels
 // size of buffer for image frame body including leading comma
 #define MPX_IMG_FRAME_LEN MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES + MPX_MSG_DATATYPE_LEN + 2
+#define MPX_IMG_FRAME_LEN24 MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES * 2 + MPX_MSG_DATATYPE_LEN + 2 // 32 bit pixels in 12 bit mode
 
 // error definitions
 #define MPX_OK 0    			/*Ok*/

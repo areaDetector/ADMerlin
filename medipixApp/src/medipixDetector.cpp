@@ -772,7 +772,7 @@ medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* h
 #endif
         return MPXAcquisitionHeader;
     }
-    else if(!strcmp(buff, MPX_DATA_12))
+    else if(!strcmp(buff, MPX_DATA_12) || !strcmp(buff, MPX_DATA_24))
     {
         tok = strtok(NULL,",");
         if(tok != NULL)
@@ -859,6 +859,7 @@ void medipixDetector::medipixTask()
 {
 	int status = asynSuccess;
 	int imageCounter;
+	int counterDepth;
 	NDArray *pImage;
 	epicsTimeStamp startTime;
 	const char *functionName = "medipixTask";
@@ -871,7 +872,7 @@ void medipixDetector::medipixTask()
 	this->lock();
 
 	// allocate a buffer for reading in images from labview over network
-	bigBuff = (char*) calloc(MPX_IMG_FRAME_LEN, 1);
+	bigBuff = (char*) calloc(MPX_IMG_FRAME_LEN24, 1);
 
 
 	/* Loop forever */
@@ -890,7 +891,7 @@ void medipixDetector::medipixTask()
          * we need to allow abort operations to get through */
         this->unlock();
         // wait for the next data frame packet - this function spends most of its time here
-        status = mpxRead(this->pasynLabViewData, bigBuff, MPX_IMG_FRAME_LEN, &nread, 10);
+        status = mpxRead(this->pasynLabViewData, bigBuff, MPX_IMG_FRAME_LEN24, &nread, 10);
         this->lock();
 
         /* If there was an error jump to bottom of loop */
@@ -917,6 +918,7 @@ void medipixDetector::medipixTask()
 
         if (arrayCallbacks)
         {
+        	getIntegerParam(medipixCounterDepth, &counterDepth);
             getIntegerParam(NDArrayCounter, &imageCounter);
             imageCounter++;
             setIntegerParam(NDArrayCounter, imageCounter);
@@ -926,17 +928,35 @@ void medipixDetector::medipixTask()
             /* Get an image buffer from the pool */
             getIntegerParam(ADMaxSizeX, &dims[0]);
             getIntegerParam(ADMaxSizeY, &dims[1]);
-            pImage = this->pNDArrayPool->alloc(2, dims, NDInt16, 0, NULL);
-
-            epicsInt16 *pData, *pSrc;
-            int i;
-            for (	i = 0,
-                    pData = (epicsInt16 *) pImage->pData,
-                    pSrc = (epicsInt16 *) (bigBuff + MPX_IMG_HDR_LEN);
-                    i < dims[0] * dims[1];
-                    i++, pData++, pSrc++)
+            if(counterDepth == 12)
             {
-                *pData = *pSrc;
+				pImage = this->pNDArrayPool->alloc(2, dims, NDInt16, 0, NULL);
+
+				epicsInt16 *pData, *pSrc;
+				int i;
+				for (	i = 0,
+						pData = (epicsInt16 *) pImage->pData,
+						pSrc = (epicsInt16 *) (bigBuff + MPX_IMG_HDR_LEN);
+						i < dims[0] * dims[1];
+						i++, pData++, pSrc++)
+				{
+					*pData = *pSrc;
+				}
+            }
+            else if(counterDepth == 24)
+            {
+				pImage = this->pNDArrayPool->alloc(2, dims, NDInt32, 0, NULL);
+
+				epicsInt32 *pData, *pSrc;
+				int i;
+				for (	i = 0,
+						pData = (epicsInt32 *) pImage->pData,
+						pSrc = (epicsInt32 *) (bigBuff + MPX_IMG_HDR_LEN);
+						i < dims[0] * dims[1];
+						i++, pData++, pSrc++)
+				{
+					*pData = *pSrc;
+				}
             }
 
             /* Put the frame number and time stamp into the buffer */

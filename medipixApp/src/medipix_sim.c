@@ -493,7 +493,7 @@ int produce_data(int data_fd)
 		    	// create dummy data
 		    	for (j = headersLength; j < MAXDATA/(24/Depth) +headersLength; j++)
 		    	{
-		    		data[j] = ((j % 220) + (rand() % 35)) & 0xFF;
+		    		data[j] = rand() % 255;
 		    	}
 
                 // write an image
