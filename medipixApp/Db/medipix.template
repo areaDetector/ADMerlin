@@ -239,6 +239,7 @@ record(ai, "$(P)$(R)StepThresholdScan_RBV")
     field(SCAN, "I/O Intr")
 }
 
+# execute Threshold Scan 
 # % gdatag, pv, rw, $(PORT)_medipix, ThresholdScan, Set ThresholdScan
 record(longout, "$(P)$(R)ThresholdScan") {
    field(PINI, "YES")
@@ -282,9 +283,38 @@ record(bi, "$(P)$(R)StartThresholdScanning_RBV") {
 }
 
 ##########################################################################
-# Disable fields from ADBase etc. that we do not use for medipix
+# Further Medipix specific records
 ##########################################################################
 
+# Counter depth - number of bits per pixel
+# % autosave 2 
+# % gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
+record(mbbo,"$(P)$(R)CounterDepth") {
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))COUNTERDEPTH")
+    field(DESC,"Image depth")
+    field(ZRVL,"12")
+    field(ZRST,"12 bit")
+    field(ONVL,"24")
+    field(ONST,"24 bit")
+}
+
+# % gdatag, pv, ro, $(PORT)_medipix, CounterDepth_RBV, Read CounterDepth
+record(mbbi,"$(P)$(R)CounterDepth_RBV") {
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))COUNTERDEPTH")
+    field(DESC,"Image depth")
+    field(ZRVL,"12")
+    field(ZRST,"12 bit")
+    field(ONVL,"24")
+    field(ONST,"24 bit")
+   field(SCAN, "I/O Intr")
+}
+
+##########################################################################
+# Disable records from ADBase etc. that we do not use for medipix
+##########################################################################
 
 
 record(mbbo, "$(P)$(R)DataType")

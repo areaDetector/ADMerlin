@@ -22,8 +22,10 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include <time.h>
+
 #define MAXLINE 256
-#define MAXDATA 256*256*2 // 256 X by 256 Y by 2 bytes per pixel
+#define MAXDATA 256*256*2*2 // 256 X by 256 Y by 2 bytes per pixel * 2 for 24 bit depth (= 32 bits data)
 #define DATAHEADERLEN 252
 #define CMDLEN 4
 #define HEADER_LEN 15 // this includes 2 commas + the header and length fields
@@ -45,6 +47,8 @@ int data_exit = 0;
 int do_data = 0;
 pthread_mutex_t do_data_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t do_data_cond = PTHREAD_COND_INITIALIZER;
+
+int Depth=12;
 
 int main(int argc, char *argv[])
 {
@@ -330,6 +334,14 @@ int echo_request(int socket_fd)
                 printf("setting frame count to %d\n\n", cmdIntValue);
                 frame_count = cmdIntValue;
             }
+            else if(!strcmp(cmdName, "COUNTERDEPTH"))
+			{
+            	if(!strcmp(cmdValue, "12"))
+            		Depth = 12;
+            	else
+            		Depth = 24;
+            	printf("switching counter depth to %d\n\n",Depth);
+			}
 
             // default response
             bodylen = strlen(cmdName) + 7;
@@ -366,8 +378,7 @@ int echo_request(int socket_fd)
                 else
                     frames_to_send = frame_count;
 
-                bodylen = strlen(cmdName) + 7;
-                sprintf(response, "MPX,%010u,CMD,%s,0", bodylen, cmdName);
+
                 /*signal data thread to send some data back.*/
                 printf("***signalling data thread.\n");
                 pthread_mutex_lock(&do_data_mutex);
@@ -376,12 +387,10 @@ int echo_request(int socket_fd)
                 pthread_mutex_unlock(&do_data_mutex);
                 printf("***data thread singnalled.\n");
             }
-            else
-            {
-                bodylen = strlen(cmdName) + 7;
-                sprintf(response, "MPX,%010u,CMD,%s,0", bodylen, cmdName);
-                printf("***generic command response...\n");
-            }
+
+            // construct response
+			bodylen = strlen(cmdName) + 7;
+			sprintf(response, "MPX,%010u,CMD,%s,0", bodylen, cmdName);
 		}
 		else
 		{
@@ -421,21 +430,12 @@ int produce_data(int data_fd)
 
 	// frame = header (including comma) + data frame type (3 chars) +
 	//		comma + data frame header + image data
-	int frameSize = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA;
-    char data[frameSize];
-	unsigned int i;
+	int frameSize24 = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA;
+	int frameSize12 = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA/2;
+
+    char data[frameSize24];
+	unsigned int i,j;
 	int headersLength = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN;
-
-	snprintf(data, HEADER_LEN,"MPX,%010u,", frameSize - HEADER_LEN);
-	sprintf((data + HEADER_LEN), "12B,%-252s",
-			"1,1,2012-02-01 11:26:00.000,.05,6.0,8.0,0,0,0,0,0,0,0,0");
-
-	// create dummy data
-	for (i = headersLength; i < MAXDATA+headersLength; i++)
-	{
-		data[i] = (i % 255) & 0xFF;
-		//printf("data[%d]: %x\n", i, data[i] & 0xFF);
-	}
 
 	while (1)
 	{
@@ -471,18 +471,40 @@ int produce_data(int data_fd)
 			printf("*** wrote data - acquisition header\n");
 
 		    printf("*** writing %d data frames\n", frames_to_send);
-		    int i;
+
 		    for(i = 0; i<frames_to_send; i++)
 		    {
+	            char timebuf[255];
+	            char buf2[255];
+	            time_t now;
+	            struct tm *current;
+	            int thisFrameSize = Depth==12 ? frameSize12 : frameSize24;
+
+	            now = time(0); //current time in C representation
+	            current = localtime(&now);
+
+	            strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S.123", current);
+
+	            snprintf(data, HEADER_LEN,"MPX,%010u,", thisFrameSize - HEADER_LEN);
+	            	        	sprintf(buf2, "1,1,%s.007,.05,6.0,8.0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0",
+	        			timebuf);
+		    	sprintf((data + HEADER_LEN), "%dB,%-252s",Depth,buf2);
+
+		    	// create dummy data
+		    	for (j = headersLength; j < MAXDATA/(24/Depth) +headersLength; j++)
+		    	{
+		    		data[j] = ((j % 220) + (rand() % 35)) & 0xFF;
+		    	}
+
                 // write an image
-                if (write(data_fd, data, frameSize) <= 0)
+                if (write(data_fd, data, thisFrameSize) <= 0)
                 {
                     printf("Error writing data frame 1 to client.\n");
                     do_data = 0;
                     pthread_mutex_unlock(&do_data_mutex);
                     //return EXIT_FAILURE;
                 }
-                printf("*** wrote data - image %d \n", i);
+                printf("*** wrote data - image %d at time %s\n", i, timebuf);
 		    }
 
 			do_data = 0;

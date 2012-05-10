@@ -24,7 +24,7 @@
 #include <math.h>
 #include <time.h>
 
-#include <epicsTime.h>
+// #include <epicsTime.h>
 #include <epicsThread.h>
 #include <epicsEvent.h>
 #include <epicsMutex.h>
@@ -91,6 +91,7 @@ static const char *driverName = "medipixDetector";
 #define medipixStopThresholdScanString	"THRESHOLDSTOP"
 #define medipixStepThresholdScanString	"THRESHOLDSTEP"
 #define medipixStartThresholdScanningString	"STARTTHRESHOLDSCANNING"
+#define medipixCounterDepthString	"COUNTERDEPTH"
 
 /** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
 class medipixDetector: public ADDriver
@@ -124,6 +125,7 @@ protected:
 	int medipixStepThresholdScan;
 	int medipixStartThresholdScanning;
 	int medipixTvxVersion;
+	int medipixCounterDepth;
 #define LAST_medipix_PARAM medipixTvxVersion
 
 private:
@@ -625,6 +627,15 @@ asynStatus medipixDetector::setAcquireParams()
 	epicsSnprintf(value, MPX_MAXLINE, "%d", ival);
 	this->mpxSet(MPXVAR_NUMFRAMESPERTRIGGER, value, Labview_DEFAULT_TIMEOUT);
 
+	status = getIntegerParam(medipixCounterDepth, &ival);
+	if ((status != asynSuccess) || (ival != 12 && ival != 24)) // currently limited to 12/24 bit
+	{
+		ival = 12;
+		setIntegerParam(medipixCounterDepth, ival);
+	}
+	epicsSnprintf(value, MPX_MAXLINE, "%d", ival);
+	this->mpxSet(MPXVAR_COUNTERDEPTH, value, Labview_DEFAULT_TIMEOUT);
+
 	status = getDoubleParam(ADAcquireTime, &dval);
 	if ((status != asynSuccess) || (dval < 0.))
 	{
@@ -746,7 +757,8 @@ medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* h
 {
     char buff[MPX_IMG_HDR_LEN];
     unsigned long lVal;
-    int iVal;
+    int iVal, dacNum;
+    char dacName[10];
     char* tok;
 
     // make a copy since strtok is destructive
@@ -755,7 +767,9 @@ medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* h
     strtok(buff,",");
     if(!strcmp(buff, MPX_DATA_ACQ_HDR))
     {
+#ifdef DEBUG
         printf("Acquisition Header found.\n");
+#endif
         return MPXAcquisitionHeader;
     }
     else if(!strcmp(buff, MPX_DATA_12))
@@ -775,18 +789,29 @@ medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* h
         tok = strtok(NULL, ",");
         if(tok != NULL)
         {
-        	int  year, month, day, hours, mins, secs, msecs;
-        	struct tm t;
+        	tm t;
+        	char* msecsstr;
+        	unsigned long msecs;
+
 
             // Covert string representation to EPICS Time and store in attributes as
-        	// a u long
+        	// a unsigned long
         	// format is 2012-02-01 11:26:00.000
-            sscanf(tok,"%d-%d-%d %d:%d:%d.%d",&year,&month,&day,&hours,&mins,&secs,&msecs);
 
-            // TODO - calculate UTC time in EPOCH seconds
+            memset(&t, 0, sizeof(struct tm));
+            msecsstr = strptime(tok, "%Y-%m-%d %H:%M:%S.", &t);
+            msecs = atol(msecsstr);
+            lVal = (unsigned long) mktime(&t);
 
-            pImage->pAttributeList->add("Start Time seconds","", NDAttrUInt32, &lVal);
-            pImage->pAttributeList->add("Start Time millsecs","", NDAttrUInt32, &lVal);
+#ifdef DEBUG
+            char buf[255];
+            strftime(buf, sizeof(buf), "%d %b %Y %H:%M:%S", &t);
+            msecs = atol(msecsstr);
+            printf("TIME2 -- %s.%ld\n\n",buf,msecs);
+#endif
+
+            pImage->pAttributeList->add("Start Time UTC seconds","", NDAttrUInt32, &lVal);
+            pImage->pAttributeList->add("Start Time millisecs","", NDAttrUInt32, &msecs);
         }
         tok = strtok(NULL, ",");
         if(tok != NULL)
@@ -805,6 +830,16 @@ medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* h
         {
             iVal = atoi(tok);
             pImage->pAttributeList->add("Threshold 1","", NDAttrInt32, &iVal);
+        }
+        for(dacNum = 1; dacNum <=100; dacNum++ && tok != NULL)
+        {
+            tok = strtok(NULL, ",");
+            if(tok != NULL)
+            {
+                iVal = atoi(tok);
+                sprintf(dacName,"DAC %03d", dacNum);
+                pImage->pAttributeList->add(dacName,"", NDAttrInt32, &iVal);
+            }
         }
         return MPXDataHeader;
     }
@@ -920,9 +955,9 @@ void medipixDetector::medipixTask()
             }
             else if(header == MPXDataHeader)
             {
-                // string attributes are global in HDF5 plugin so most recent acquisition header is
+                // string attributes are global in HDF5 plugin so the most recent acquisition header is
                 // applied to all files
-                pImage->pAttributeList->add("Acquisition Header","Acquisition Header", NDAttrString, aquisitionHeader);
+                pImage->pAttributeList->add("Acquisition Header","", NDAttrString, aquisitionHeader);
 
                 /* Get any attributes that have been defined for this driver */
                 this->getAttributes(pImage->pAttributeList);
@@ -1069,7 +1104,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 
 	}
 	else if ((function == ADTriggerMode) || (function == ADNumImages)
-			|| (function == ADNumExposures) )
+			|| (function == ADNumExposures) || (function == medipixCounterDepth))
 	{
 		setAcquireParams();
 	}
@@ -1327,6 +1362,7 @@ medipixDetector::medipixDetector(const char *portName,
 	createParam(medipixStopThresholdScanString, asynParamFloat64, &medipixStopThresholdScan);
 	createParam(medipixStepThresholdScanString, asynParamFloat64, &medipixStepThresholdScan);
 	createParam(medipixStartThresholdScanningString, asynParamInt32, &medipixStartThresholdScanning);
+	createParam(medipixCounterDepthString, asynParamInt32, &medipixCounterDepth);
 
 	/* Set some default values for parameters */
 	status = setStringParam(ADManufacturer, "Medipix Consortium");

@@ -3,8 +3,8 @@ beginScreenProperties
 major 4
 minor 0
 release 1
-x 167
-y 166
+x 916
+y 109
 w 395
 h 820
 font "arial-bold-r-12.0"
@@ -71,7 +71,7 @@ minor 1
 release 0
 x 5
 y 475
-w 96
+w 91
 h 14
 font "arial-medium-r-12.0"
 fgColor index 14
@@ -207,7 +207,7 @@ minor 1
 release 0
 x 185
 y 690
-w 144
+w 147
 h 14
 font "arial-bold-r-12.0"
 fontAlign "center"
@@ -441,7 +441,7 @@ minor 1
 release 0
 x 185
 y 665
-w 174
+w 184
 h 14
 font "arial-bold-r-12.0"
 fontAlign "center"
@@ -498,6 +498,64 @@ numPvs 4
 numDsps 1
 displayFileName {
   0 "medipixThreshold.edl"
+}
+endObjectProperties
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 270
+y 600
+w 95
+h 20
+
+beginGroup
+
+# (Menu Button)
+object activeMenuButtonClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 270
+y 600
+w 95
+h 20
+fgColor index 25
+bgColor index 3
+inconsistentColor index 0
+topShadowColor index 1
+botShadowColor index 11
+controlPv "$(P)$(R)CounterDepth"
+indicatorPv "$(P)$(R)CounterDepth_RBV"
+font "arial-bold-r-12.0"
+endObjectProperties
+
+endGroup
+
+visMin "0"
+visMax "1"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 175
+y 600
+w 90
+h 20
+font "arial-bold-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "Image Depth: "
 }
 endObjectProperties
 
