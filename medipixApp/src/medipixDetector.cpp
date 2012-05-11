@@ -70,7 +70,9 @@ typedef enum
 /** data header types */
 typedef enum
 {
-    MPXDataHeader,
+    MPXDataHeaderNone,
+    MPXDataHeader12,
+    MPXDataHeader24,
     MPXAcquisitionHeader,
     MPXUnknownHeader
 } medipixDataHeader;
@@ -134,7 +136,8 @@ private:
 	asynStatus setAcquireParams();
 	asynStatus getThreshold();
     asynStatus updateThresholdScanParms();
-    medipixDataHeader parseDataFrame(NDArray* pImage, const char* header);
+    void parseDataFrame(NDArray* pImage, const char* header);
+    medipixDataHeader parseDataHeader(const char* header);
 
 	/* The labview communication primitives */
 	asynStatus mpxGet(char* valueId, double timeout);
@@ -753,7 +756,26 @@ static void medipixTaskC(void *drvPvt)
 
 // returns true if the header is a data header
 // parses the data header and adds appropriate attributes to pImage
-medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
+medipixDataHeader medipixDetector::parseDataHeader(const char* header)
+{
+    char buff[MPX_MSG_DATATYPE_LEN];
+    medipixDataHeader headerType = MPXUnknownHeader;
+
+    strncpy(buff, header, MPX_MSG_DATATYPE_LEN);
+
+    if(!strncmp(buff, MPX_DATA_12,MPX_MSG_DATATYPE_LEN))
+            headerType = MPXDataHeader12;
+    else if(!strncmp(buff, MPX_DATA_24,MPX_MSG_DATATYPE_LEN))
+            headerType =  MPXDataHeader24;
+    else if(!strncmp(buff, MPX_DATA_ACQ_HDR,MPX_MSG_DATATYPE_LEN))
+        headerType =  MPXAcquisitionHeader;
+
+    return headerType;
+}
+
+// returns true if the header is a data header
+// parses the data header and adds appropriate attributes to pImage
+void  medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
 {
     char buff[MPX_IMG_HDR_LEN];
     unsigned long lVal;
@@ -764,89 +786,75 @@ medipixDataHeader medipixDetector::parseDataFrame(NDArray* pImage, const char* h
     // make a copy since strtok is destructive
     strncpy(buff, header, MPX_IMG_HDR_LEN);
 
-    strtok(buff,",");
-    if(!strcmp(buff, MPX_DATA_ACQ_HDR))
+    tok = strtok(buff,",");
+    tok = strtok(NULL,",");  // skip the (HDR already parsed)
+    if(tok != NULL)
     {
-#ifdef DEBUG
-        printf("Acquisition Header found.\n");
-#endif
-        return MPXAcquisitionHeader;
+        iVal = atoi(tok);
+        pImage->pAttributeList->add("Frame Number","", NDAttrInt32, &iVal);
     }
-    else if(!strcmp(buff, MPX_DATA_12) || !strcmp(buff, MPX_DATA_24))
+    tok = strtok(NULL, ",");
+    if(tok != NULL)
     {
-        tok = strtok(NULL,",");
-        if(tok != NULL)
-        {
-            iVal = atoi(tok);
-            pImage->pAttributeList->add("Frame Number","", NDAttrInt32, &iVal);
-        }
-        tok = strtok(NULL, ",");
-        if(tok != NULL)
-        {
-            iVal = atoi(tok);
-            pImage->pAttributeList->add("Counter Number","", NDAttrInt32, &iVal);
-        }
-        tok = strtok(NULL, ",");
-        if(tok != NULL)
-        {
-        	tm t;
-        	char* msecsstr;
-        	unsigned long msecs;
+        iVal = atoi(tok);
+        pImage->pAttributeList->add("Counter Number","", NDAttrInt32, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if(tok != NULL)
+    {
+        tm t;
+        char* msecsstr;
+        unsigned long msecs;
 
 
-            // Covert string representation to EPICS Time and store in attributes as
-        	// a unsigned long
-        	// format is 2012-02-01 11:26:00.000
+        // Covert string representation to EPICS Time and store in attributes as
+        // a unsigned long
+        // format is 2012-02-01 11:26:00.000
 
-            memset(&t, 0, sizeof(struct tm));
-            msecsstr = strptime(tok, "%Y-%m-%d %H:%M:%S.", &t);
+        memset(&t, 0, sizeof(struct tm));
+        msecsstr = strptime(tok, "%Y-%m-%d %H:%M:%S.", &t);
+        if(msecsstr != NULL)
             msecs = atol(msecsstr);
-            lVal = (unsigned long) mktime(&t);
+        lVal = (unsigned long) mktime(&t);
 
 #ifdef DEBUG
-            char buf[255];
-            strftime(buf, sizeof(buf), "%d %b %Y %H:%M:%S", &t);
+        char buf[255];
+        strftime(buf, sizeof(buf), "%d %b %Y %H:%M:%S", &t);
+        if(msecsstr != NULL)
             msecs = atol(msecsstr);
-            printf("TIME2 -- %s.%ld\n\n",buf,msecs);
+        printf("TIME2 -- %s.%ld\n\n",buf,msecs);
 #endif
 
-            pImage->pAttributeList->add("Start Time UTC seconds","", NDAttrUInt32, &lVal);
-            pImage->pAttributeList->add("Start Time millisecs","", NDAttrUInt32, &msecs);
-        }
-        tok = strtok(NULL, ",");
-        if(tok != NULL)
-        {
-            iVal = atoi(tok);
-            pImage->pAttributeList->add("Duration","", NDAttrInt32, &iVal);
-        }
-        tok = strtok(NULL, ",");
-        if(tok != NULL)
-        {
-            iVal = atoi(tok);
-            pImage->pAttributeList->add("Threshold 0","", NDAttrInt32, &iVal);
-        }
-        tok = strtok(NULL, ",");
-        if(tok != NULL)
-        {
-            iVal = atoi(tok);
-            pImage->pAttributeList->add("Threshold 1","", NDAttrInt32, &iVal);
-        }
-        for(dacNum = 1; dacNum <=100; dacNum++ && tok != NULL)
-        {
-            tok = strtok(NULL, ",");
-            if(tok != NULL)
-            {
-                iVal = atoi(tok);
-                sprintf(dacName,"DAC %03d", dacNum);
-                pImage->pAttributeList->add(dacName,"", NDAttrInt32, &iVal);
-            }
-        }
-        return MPXDataHeader;
+        pImage->pAttributeList->add("Start Time UTC seconds","", NDAttrUInt32, &lVal);
+        pImage->pAttributeList->add("Start Time millisecs","", NDAttrUInt32, &msecs);
     }
-    else
+    tok = strtok(NULL, ",");
+    if(tok != NULL)
     {
-        printf("Bad Data Header found.\n");
-        return MPXUnknownHeader;
+        iVal = atoi(tok);
+        pImage->pAttributeList->add("Duration","", NDAttrInt32, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if(tok != NULL)
+    {
+        iVal = atoi(tok);
+        pImage->pAttributeList->add("Threshold 0","", NDAttrInt32, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if(tok != NULL)
+    {
+        iVal = atoi(tok);
+        pImage->pAttributeList->add("Threshold 1","", NDAttrInt32, &iVal);
+    }
+    for(dacNum = 1; dacNum <=100; dacNum++ && tok != NULL)
+    {
+        tok = strtok(NULL, ",");
+        if(tok != NULL)
+        {
+            iVal = atoi(tok);
+            sprintf(dacName,"DAC %03d", dacNum);
+            pImage->pAttributeList->add(dacName,"", NDAttrInt32, &iVal);
+        }
     }
 }
 
@@ -890,9 +898,12 @@ void medipixDetector::medipixTask()
         /* We release the mutex when waiting because this takes a long time and
          * we need to allow abort operations to get through */
         this->unlock();
+
+        printf("waiting for data frame ...\n");
         // wait for the next data frame packet - this function spends most of its time here
         status = mpxRead(this->pasynLabViewData, bigBuff, MPX_IMG_FRAME_LEN24, &nread, 10);
         this->lock();
+        printf("... data received\n");
 
         /* If there was an error jump to bottom of loop */
         if (status)
@@ -925,10 +936,12 @@ void medipixDetector::medipixTask()
             /* Call the callbacks to update any changes */
             callParamCallbacks();
 
+            medipixDataHeader header = parseDataHeader(fromLabviewImgHdr);
+
             /* Get an image buffer from the pool */
             getIntegerParam(ADMaxSizeX, &dims[0]);
             getIntegerParam(ADMaxSizeY, &dims[1]);
-            if(counterDepth == 12)
+            if(header == MPXDataHeader12)
             {
 				pImage = this->pNDArrayPool->alloc(2, dims, NDInt16, 0, NULL);
 
@@ -943,7 +956,7 @@ void medipixDetector::medipixTask()
 					*pData = *pSrc;
 				}
             }
-            else if(counterDepth == 24)
+            else if(header == MPXDataHeader24)
             {
 				pImage = this->pNDArrayPool->alloc(2, dims, NDInt32, 0, NULL);
 
@@ -959,13 +972,6 @@ void medipixDetector::medipixTask()
 				}
             }
 
-            /* Put the frame number and time stamp into the buffer */
-            pImage->uniqueId = imageCounter;
-            pImage->timeStamp = startTime.secPastEpoch
-                    + startTime.nsec / 1.e9;
-
-            // parse the header and apply attributes to the NDArray
-            medipixDataHeader header = parseDataFrame(pImage, fromLabviewImgHdr);
 
             if(header == MPXAcquisitionHeader)
             {
@@ -973,8 +979,16 @@ void medipixDetector::medipixTask()
                 strncpy(aquisitionHeader, bigBuff, MPX_ACQUISITION_HEADER_LEN);
                 aquisitionHeader[MPX_ACQUISITION_HEADER_LEN] = 0;
             }
-            else if(header == MPXDataHeader)
+            else if(header == MPXDataHeader12 || header == MPXDataHeader24)
             {
+                // parse the header and apply attributes to the NDArray
+                parseDataFrame(pImage, fromLabviewImgHdr);
+
+                /* Put the frame number and time stamp into the buffer */
+                pImage->uniqueId = imageCounter;
+                pImage->timeStamp = startTime.secPastEpoch
+                        + startTime.nsec / 1.e9;
+
                 // string attributes are global in HDF5 plugin so the most recent acquisition header is
                 // applied to all files
                 pImage->pAttributeList->add("Acquisition Header","", NDAttrString, aquisitionHeader);
