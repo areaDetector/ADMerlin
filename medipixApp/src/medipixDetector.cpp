@@ -47,7 +47,7 @@
 #define MAX_BAD_PIXELS 100
 /** Time to poll when reading from Labview */
 #define ASYN_POLL_TIME .01 
-#define Labview_DEFAULT_TIMEOUT 0.3
+#define Labview_DEFAULT_TIMEOUT 2.0
 /** Time between checking to see if image file is complete */
 #define FILE_READ_DELAY .01
 
@@ -57,7 +57,8 @@ typedef enum
     TMInternal,
     TMExternalEnable,
     TMExternalTriggerHigh,
-    TMExternalTriggerLow
+    TMExternalTriggerLow,
+    TMExternalTriggerRising,
 } medipixTriggerMode;/** Trigger modes */
 
 /** Medipix Individual Trigger types */
@@ -166,7 +167,6 @@ private:
 	char fromLabviewHeader[MPX_MAXLINE];
 	char fromLabviewBody[MPX_MAXLINE];
 	char fromLabviewValue[MPX_MAXLINE];
-	char fromLabviewImgHdr[MPX_IMG_HDR_LEN+1];
 	int fromLabviewError;
 };
 
@@ -587,7 +587,7 @@ asynStatus medipixDetector::setAcquireParams()
 	    return asynSuccess;
 
 	status = getIntegerParam(ADTriggerMode, &triggerMode);
-	if (status != asynSuccess || triggerMode < TMInternal || triggerMode > TMExternalTriggerHigh)
+	if (status != asynSuccess)
 		triggerMode = TMInternal;
 	// medipix individually controls how start and stop triggers are read
 	// here we translate the chosen trigger mode into a combination of start
@@ -606,9 +606,13 @@ asynStatus medipixDetector::setAcquireParams()
 		this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigFalling, Labview_DEFAULT_TIMEOUT);
 		this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal, Labview_DEFAULT_TIMEOUT);
 		break;
-	case TMExternalTriggerHigh :
-		this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising, Labview_DEFAULT_TIMEOUT);
-		this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal, Labview_DEFAULT_TIMEOUT);
+    case TMExternalTriggerHigh :
+        this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising, Labview_DEFAULT_TIMEOUT);
+        this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal, Labview_DEFAULT_TIMEOUT);
+        break;
+    case TMExternalTriggerRising :
+        this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising, Labview_DEFAULT_TIMEOUT);
+        this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigRising, Labview_DEFAULT_TIMEOUT);
 		break;
 	}
 
@@ -777,14 +781,20 @@ medipixDataHeader medipixDetector::parseDataHeader(const char* header)
 // parses the data header and adds appropriate attributes to pImage
 void  medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
 {
-    char buff[MPX_IMG_HDR_LEN];
+    char buff[MPX_IMG_HDR_LEN+1];
     unsigned long lVal;
+    double dVal;
     int iVal, dacNum;
     char dacName[10];
     char* tok;
 
     // make a copy since strtok is destructive
     strncpy(buff, header, MPX_IMG_HDR_LEN);
+    buff[MPX_IMG_HDR_LEN+1] = 0;
+
+#ifdef DEBUG
+    printf("Image frame Header: %s\n\n", buff);
+#endif
 
     tok = strtok(buff,",");
     tok = strtok(NULL,",");  // skip the (HDR already parsed)
@@ -802,8 +812,7 @@ void  medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
     tok = strtok(NULL, ",");
     if(tok != NULL)
     {
-        tm t;
-        char* msecsstr;
+        time_t rawtime;
         unsigned long msecs;
 
 
@@ -811,17 +820,25 @@ void  medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
         // a unsigned long
         // format is 2012-02-01 11:26:00.000
 
-        memset(&t, 0, sizeof(struct tm));
+/*
+ * NOTE it has been decided that this driver will provide a timestamp and will ignore the value
+ * passed from medipix - this is because the FPGA does not have access to a clock while processing
+ * and hence all frames in a given acquisition are reported as starting at the same microsecond
+ *
         msecsstr = strptime(tok, "%Y-%m-%d %H:%M:%S.", &t);
         if(msecsstr != NULL)
             msecs = atol(msecsstr);
-        lVal = (unsigned long) mktime(&t);
+*/
+
+        rawtime = time (NULL);
+        lVal = (unsigned long) rawtime;
+        msecs = 0;
 
 #ifdef DEBUG
         char buf[255];
-        strftime(buf, sizeof(buf), "%d %b %Y %H:%M:%S", &t);
-        if(msecsstr != NULL)
-            msecs = atol(msecsstr);
+        tm *ptm;
+        ptm = gmtime(&rawtime);
+        strftime(buf, sizeof(buf), "%d %b %Y %H:%M:%S", ptm);
         printf("TIME2 -- %s.%ld\n\n",buf,msecs);
 #endif
 
@@ -831,20 +848,20 @@ void  medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
     tok = strtok(NULL, ",");
     if(tok != NULL)
     {
-        iVal = atoi(tok);
-        pImage->pAttributeList->add("Duration","", NDAttrInt32, &iVal);
+        dVal = atof(tok);
+        pImage->pAttributeList->add("Duration","", NDAttrFloat64, &dVal);
     }
     tok = strtok(NULL, ",");
     if(tok != NULL)
     {
-        iVal = atoi(tok);
-        pImage->pAttributeList->add("Threshold 0","", NDAttrInt32, &iVal);
+        dVal = atof(tok);
+        pImage->pAttributeList->add("Threshold 0","", NDAttrFloat64, &dVal);
     }
     tok = strtok(NULL, ",");
     if(tok != NULL)
     {
-        iVal = atoi(tok);
-        pImage->pAttributeList->add("Threshold 1","", NDAttrInt32, &iVal);
+        dVal = atof(tok);
+        pImage->pAttributeList->add("Threshold 1","", NDAttrFloat64, &dVal);
     }
     for(dacNum = 1; dacNum <=100; dacNum++ && tok != NULL)
     {
@@ -892,18 +909,15 @@ void medipixDetector::medipixTask()
 
         // Acquire an image from the data channel
         // Todo replace printfs with asyn logging
-        fromLabviewImgHdr[0] = 0;
         memset(bigBuff, 0, MPX_IMG_FRAME_LEN);
 
         /* We release the mutex when waiting because this takes a long time and
          * we need to allow abort operations to get through */
         this->unlock();
 
-        printf("waiting for data frame ...\n");
         // wait for the next data frame packet - this function spends most of its time here
         status = mpxRead(this->pasynLabViewData, bigBuff, MPX_IMG_FRAME_LEN24, &nread, 10);
         this->lock();
-        printf("... data received\n");
 
         /* If there was an error jump to bottom of loop */
         if (status)
@@ -921,9 +935,9 @@ void medipixDetector::medipixTask()
         }
 
         // if we get here we have successfully received a data frame
-        strncpy(fromLabviewImgHdr, bigBuff, MPX_IMG_HDR_LEN);
-        fromLabviewImgHdr[MPX_IMG_HDR_LEN] = 0;
-        printf("\n\nReceived image frame of %d bytes\nHeader: %s\n", nread, fromLabviewImgHdr);
+#ifdef DEBUG
+        printf("\n\nReceived image frame of %d bytes\n", nread);
+#endif
 
         getIntegerParam(NDArrayCallbacks, &arrayCallbacks);
 
@@ -936,13 +950,14 @@ void medipixDetector::medipixTask()
             /* Call the callbacks to update any changes */
             callParamCallbacks();
 
-            medipixDataHeader header = parseDataHeader(fromLabviewImgHdr);
+            medipixDataHeader header = parseDataHeader(bigBuff);
 
             /* Get an image buffer from the pool */
             getIntegerParam(ADMaxSizeX, &dims[0]);
             getIntegerParam(ADMaxSizeY, &dims[1]);
             if(header == MPXDataHeader12)
             {
+                printf("12bit Array\n");
 				pImage = this->pNDArrayPool->alloc(2, dims, NDInt16, 0, NULL);
 
 				epicsInt16 *pData, *pSrc;
@@ -958,6 +973,7 @@ void medipixDetector::medipixTask()
             }
             else if(header == MPXDataHeader24)
             {
+                printf("24bit Array\n");
 				pImage = this->pNDArrayPool->alloc(2, dims, NDInt32, 0, NULL);
 
 				epicsInt32 *pData, *pSrc;
@@ -972,17 +988,19 @@ void medipixDetector::medipixTask()
 				}
             }
 
-
             if(header == MPXAcquisitionHeader)
             {
                 // this is an acquisition header
                 strncpy(aquisitionHeader, bigBuff, MPX_ACQUISITION_HEADER_LEN);
                 aquisitionHeader[MPX_ACQUISITION_HEADER_LEN] = 0;
+#ifdef DEBUG
+                printf("Acquisition Header:\n%s\n\n", aquisitionHeader);
+#endif
             }
             else if(header == MPXDataHeader12 || header == MPXDataHeader24)
             {
                 // parse the header and apply attributes to the NDArray
-                parseDataFrame(pImage, fromLabviewImgHdr);
+                parseDataFrame(pImage, bigBuff);
 
                 /* Put the frame number and time stamp into the buffer */
                 pImage->uniqueId = imageCounter;
@@ -1085,7 +1103,7 @@ void medipixDetector::medipixStatus()
         }
         unlock();
         callParamCallbacks();
-		epicsThreadSleep(5);
+		epicsThreadSleep(0.5);
 	}
 
 }

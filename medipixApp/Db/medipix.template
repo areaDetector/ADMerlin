@@ -19,13 +19,13 @@ record(mbbo,"$(P)$(R)TriggerMode") {
     field(ZRVL,"0")
     field(ZRST,"Internal")
     field(ONVL,"1")
-    field(ONST,"Ext. Enable")
+    field(ONST,"Trigger Enable")
     field(TWVL,"2")
-    field(TWST,"Ext. Trigger rising")
+    field(TWST,"Trigger start rising")
     field(THVL,"3")
-    field(THST,"Ext. Trigger falling")
-#    field(FRVL,"4")
-#    field(FRST,"Alignment")
+    field(THST,"Trigger start falling")
+    field(FRVL,"4")
+    field(FRST,"Trigger both rising")
 }
 
 record(mbbi,"$(P)$(R)TriggerMode_RBV") {
@@ -33,13 +33,13 @@ record(mbbi,"$(P)$(R)TriggerMode_RBV") {
     field(ZRVL,"0")
     field(ZRST,"Internal")
     field(ONVL,"1")
-    field(ONST,"Ext. Enable")
+    field(ONST,"Trigger Enable")
     field(TWVL,"2")
-    field(TWST,"Ext. Trigger rising")
+    field(TWST,"Trigger start rising")
     field(THVL,"3")
-    field(THST,"Ext. Trigger falling")
- #   field(FRVL,"4")
- #   field(FRST,"Alignment")
+    field(THST,"Trigger start falling")
+    field(FRVL,"4")
+    field(FRST,"Trigger both rising ")
 }
 
 # We redefine the states for the FileFormat records defined in NDFile.template
