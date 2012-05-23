@@ -416,10 +416,15 @@ asynStatus medipixDetector::mpxRead(asynUser* pasynUser, char* bodyBuf, int bufS
 	}
 
 	if(leadingJunk)
+	{
 		asynPrint(pasynUser, ASYN_TRACEIO_DEVICE,
 				"%s:%s, status=%d received %d bytes - Leading garbage discarded \n",
 				driverName, functionName, status, nread,
 				this->fromLabview);
+#ifdef DEBUG
+	printf("---------- %d bytes - Leading garbage discarded ----------- \n", nread);
+#endif
+	}
 
 	// read the rest of the header block including message length
 	status = pasynOctetSyncIO->read(pasynUser, header + mpxLen,
@@ -929,7 +934,7 @@ void medipixDetector::medipixTask()
                 setStringParam(ADStatusMessage,
                         "Error in Labview data channel response");
                 // wait before trying again - otherwise socket error creates a tight loop
-                epicsThreadSleep(2);
+                epicsThreadSleep(.5);
             }
             continue;
         }
@@ -1068,7 +1073,7 @@ void medipixDetector::medipixStatus()
 
 	while (1)
 	{
-		lock();
+		this->lock();
         getIntegerParam(ADStatus, &status);
 
         if(status == ADStatusIdle)
@@ -1077,12 +1082,13 @@ void medipixDetector::medipixStatus()
         }
         else
         {
+            this->unlock();
             result = mpxGet(MPXVAR_DETECTORSTATUS, Labview_DEFAULT_TIMEOUT);
+            this->lock();
             statusCode = atoi(this->fromLabviewValue);
 
             if (result == asynSuccess && this->fromLabviewError == MPX_OK)
             {
-                callParamCallbacks();
                 // todo implement full set of status codes
                 if(statusCode == 0)
                 {
@@ -1097,13 +1103,11 @@ void medipixDetector::medipixStatus()
                 // abort any acquire state
                 setIntegerParam(ADAcquire, 0);
                 setIntegerParam(ADStatus, ADStatusError);
-                /*Unlock right away and try again next time*/
-                unlock();
             }
+            callParamCallbacks();
         }
         unlock();
-        callParamCallbacks();
-		epicsThreadSleep(0.5);
+		epicsThreadSleep(.5);
 	}
 
 }

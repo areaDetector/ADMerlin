@@ -398,12 +398,12 @@ int echo_request(int socket_fd)
 			sprintf(response, "MPX,0000000008,ERROR,1");
 		}
 
-
+/*
 		// deliberately send junk to test re-synch capability
 		printf("sending garbage..\n");
 		if(write(socket_fd, "garbage MP garbage", 15) <=0)
 			printf("garbage 1 failed\n");
-
+*/
 		printf("sending response: %s \n", response);
 		if (write(socket_fd, response, strlen(response)) <= 0)
 		{
@@ -486,7 +486,8 @@ int produce_data(int data_fd)
 
 	            strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S.123", current);
 
-	            snprintf(data, HEADER_LEN,"MPX,%010u,", thisFrameSize - HEADER_LEN);
+	            // ??? getting spurious one byte garbage - so adding 1 to length of data packet ???
+	            snprintf(data, HEADER_LEN,"MPX,%010u,", thisFrameSize - HEADER_LEN+1);
 	            	        	sprintf(buf2, "%4d,1,%s.007,1.5E-2,6.0,8.01E2,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0XEND",
 	        			i,timebuf);
 		    	sprintf((data + HEADER_LEN), "%dB,%-252s",Depth,buf2);
