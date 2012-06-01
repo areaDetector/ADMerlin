@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# to capture tcp traffic between client and sim execute this script
+# hot ^c to terminate capture and lauch wireshark
+
+sudo /usr/sbin/tcpdump -i lo -X -w /scratch/tcpout.pcap portrange 6300-6400
+/usr/sbin/wireshark /scratch/tcpout.pcap &

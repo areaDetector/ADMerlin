@@ -342,11 +342,11 @@ asynStatus medipixDetector::mpxWrite(double timeout)
 	printf("mpxWrite: Request: %s\n", toLabview);
 #endif
 
-	pasynOctetSyncIO->flush(this->pasynLabViewCmd);
+	// pasynOctetSyncIO->flush(this->pasynLabViewCmd);
 	status = pasynOctetSyncIO->write(this->pasynLabViewCmd, this->toLabview,
 			strlen(this->toLabview), timeout, &nwrite);
 	// make sure buffers are written out for short messages
-	pasynOctetSyncIO->flush(this->pasynLabViewCmd);
+	// pasynOctetSyncIO->flush(this->pasynLabViewCmd);
 
 	if (status)
 		asynPrint(this->pasynLabViewCmd, ASYN_TRACE_ERROR,
@@ -377,12 +377,12 @@ asynStatus medipixDetector::mpxRead(asynUser* pasynUser, char* bodyBuf, int bufS
 	asynStatus status = asynSuccess;
 	int eomReason;
 	const char *functionName = "mpxRead";
-	size_t headerSize = strlen(MPX_HEADER) + MPX_MSG_LEN_DIGITS + 2;
-	unsigned int mpxLen = strlen(MPX_HEADER);
+	int headerSize = strlen(MPX_HEADER) + MPX_MSG_LEN_DIGITS + 2;
+	int mpxLen = strlen(MPX_HEADER);
 	int bodySize;
 	int readCount = 0;
-	bool leadingJunk = 0;
-	unsigned int headerChar = 0;
+	int leadingJunk = 0;
+	int headerChar = 0;
 
 	char headerStr[] = MPX_HEADER;
 	char* tok;
@@ -410,48 +410,49 @@ asynStatus medipixDetector::mpxRead(asynUser* pasynUser, char* bodyBuf, int bufS
 		}
 		else
 		{
-			leadingJunk = 1;
+			leadingJunk++;
 			headerChar = 0;
 		}
 	}
 
-	if(leadingJunk)
+	if(leadingJunk > 0)
 	{
-		asynPrint(pasynUser, ASYN_TRACEIO_DEVICE,
-				"%s:%s, status=%d received %d bytes - Leading garbage discarded \n",
-				driverName, functionName, status, nread,
+		asynPrint(pasynUser, ASYN_TRACE_ERROR,
+				"%s:%s, status=%d %d bytes of leading garbage discarded before header %s \n",
+				driverName, functionName, status, leadingJunk,
 				this->fromLabview);
-#ifdef DEBUG
-	printf("---------- %d bytes - Leading garbage discarded ----------- \n", nread);
-#endif
 	}
 
 	// read the rest of the header block including message length
-	status = pasynOctetSyncIO->read(pasynUser, header + mpxLen,
-			headerSize - mpxLen,
-			timeout, &nread, &eomReason);
-
-	nread += mpxLen;
+	readCount = 0;
+    do
+    {
+        status = pasynOctetSyncIO->read(pasynUser, header + mpxLen + readCount,
+                    (headerSize - mpxLen) - readCount,
+                    timeout, &nread, &eomReason);
+        if(status == asynSuccess)
+            readCount += nread;
+    } while (nread != 0 && readCount < (headerSize - mpxLen) && status == asynSuccess);
 
 	if (status != asynSuccess)
 	{
 		asynPrint(pasynUser, ASYN_TRACE_ERROR,
 				"%s:%s, timeout=%f, status=%d received %d bytes\n%s\n",
-				driverName, functionName, timeout, status, nread,
+				driverName, functionName, timeout, status, readCount,
 				this->fromLabview);
 	}
 	else
 	{
+	    if(readCount != (headerSize - mpxLen))
+            return asynError;
+
 		// terminate the response for string handling
-		header[nread] = (char) NULL;
+		header[readCount + mpxLen] = (char) NULL;
 		strncpy(fromLabviewHeader, header, MPX_MAXLINE);
 
 	#ifdef DEBUG
 		printf("mpxRead: Response Header: %s\n", header);
 	#endif
-
-		if (nread != headerSize)
-			return asynError;
 
 		// parse the header
 		tok = strtok(header, ","); // this first element already verified above
@@ -467,18 +468,21 @@ asynStatus medipixDetector::mpxRead(asynUser* pasynUser, char* bodyBuf, int bufS
 			return asynError;
 
 		// now read the rest of the message (the body)
-		do
+	    readCount = 0;
+	    do
 		{
-			status = pasynOctetSyncIO->read(pasynUser, bodyBuf, bodySize - readCount,
+			status = pasynOctetSyncIO->read(pasynUser, bodyBuf + readCount,
+			    bodySize - readCount,
 				timeout, &nread, &eomReason);
-			readCount += nread;
-		} while (nread != 0 && readCount < bodySize);
+			if(status == asynSuccess)
+			    readCount += nread;
+		} while (nread != 0 && readCount < bodySize && status == asynSuccess);
 
 		if(readCount < bodySize)
 		{
 			asynPrint(pasynUser, ASYN_TRACE_ERROR,
-					"%s:%s, timeout=%f, status=%d received %d bytes in MPX header, expected %d\n",
-					driverName, functionName, timeout, status, *bytesRead, bodySize);
+					"%s:%s, timeout=%f, status=%d received %d bytes in MPX command body, expected %d\n",
+					driverName, functionName, timeout, status, readCount, bodySize);
 			fromLabviewError = MPX_ERR_LEN;
 			return status = asynSuccess ? asynError : status;
 		}
@@ -560,6 +564,8 @@ asynStatus medipixDetector::mpxWriteRead(char* cmdType, char* cmdName ,double ti
 {
 	asynStatus status;
 
+	this->lock(); // make sure commands from different threads are not interleaved
+
 	if ((status = mpxWrite(timeout)) != asynSuccess)
 	{
 		return status;
@@ -569,6 +575,8 @@ asynStatus medipixDetector::mpxWriteRead(char* cmdType, char* cmdName ,double ti
 	{
 		return status;
 	}
+
+	this->unlock();
 
 	return asynSuccess;
 }
@@ -899,6 +907,9 @@ void medipixDetector::medipixTask()
 	char *bigBuff;
 	char aquisitionHeader[MPX_ACQUISITION_HEADER_LEN+1];
 
+	// TODO TODO REMOVE ME
+	//return;
+
 	this->lock();
 
 	// allocate a buffer for reading in images from labview over network
@@ -931,6 +942,9 @@ void medipixDetector::medipixTask()
                 status = asynSuccess;   // timeouts are expected
             else
             {
+                asynPrint(this->pasynLabViewData, ASYN_TRACE_ERROR,
+                        "%s:%s: error in Labview data channel response, status=%d\n", driverName,
+                        functionName, status);
                 setStringParam(ADStatusMessage,
                         "Error in Labview data channel response");
                 // wait before trying again - otherwise socket error creates a tight loop
@@ -1055,9 +1069,14 @@ void medipixDetector::medipixStatus()
 	int status =0;
 	int statusCode;
 
+
+    //TODO TODO TODO REMOVE ME
+	//startingUp = 0; return;
+
 	// let the startup script complete before attempting I/O
 	epicsThreadSleep(4);
 	startingUp = 0;
+
 
 	// make sure important grouped variables are set to agree with
 	// IOCs auto saved values
