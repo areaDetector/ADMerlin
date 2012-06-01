@@ -14,8 +14,7 @@
  *
  */
 
-// TODO remove for production
-#define DEBUG 1
+// #define DEBUG 1
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -151,8 +150,6 @@ private:
 
 	/* Our data */
 	int imagesRemaining;
-	epicsEventId startEventId;
-	epicsEventId stopEventId;
 	NDArray *pFlatField;
 	int multipleFileNumber;
 	asynUser *pasynLabViewCmd;
@@ -805,9 +802,9 @@ void  medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
     strncpy(buff, header, MPX_IMG_HDR_LEN);
     buff[MPX_IMG_HDR_LEN+1] = 0;
 
-#ifdef DEBUG
-    printf("Image frame Header: %s\n\n", buff);
-#endif
+    #ifdef DEBUG
+        printf("Image frame Header: %s\n\n", buff);
+    #endif
 
     tok = strtok(buff,",");
     tok = strtok(NULL,",");  // skip the (HDR already parsed)
@@ -846,14 +843,6 @@ void  medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
         rawtime = time (NULL);
         lVal = (unsigned long) rawtime;
         msecs = 0;
-
-#ifdef DEBUG
-        char buf[255];
-        tm *ptm;
-        ptm = gmtime(&rawtime);
-        strftime(buf, sizeof(buf), "%d %b %Y %H:%M:%S", ptm);
-        printf("TIME2 -- %s.%ld\n\n",buf,msecs);
-#endif
 
         pImage->pAttributeList->add("Start Time UTC seconds","", NDAttrUInt32, &lVal);
         pImage->pAttributeList->add("Start Time millisecs","", NDAttrUInt32, &msecs);
@@ -907,9 +896,6 @@ void medipixDetector::medipixTask()
 	char *bigBuff;
 	char aquisitionHeader[MPX_ACQUISITION_HEADER_LEN+1];
 
-	// TODO TODO REMOVE ME
-	//return;
-
 	this->lock();
 
 	// allocate a buffer for reading in images from labview over network
@@ -924,7 +910,6 @@ void medipixDetector::medipixTask()
         epicsTimeGetCurrent(&startTime);
 
         // Acquire an image from the data channel
-        // Todo replace printfs with asyn logging
         memset(bigBuff, 0, MPX_IMG_FRAME_LEN);
 
         /* We release the mutex when waiting because this takes a long time and
@@ -954,9 +939,9 @@ void medipixDetector::medipixTask()
         }
 
         // if we get here we have successfully received a data frame
-#ifdef DEBUG
-        printf("\n\nReceived image frame of %d bytes\n", nread);
-#endif
+        #ifdef DEBUG
+            printf("\n\nReceived image frame of %d bytes\n", nread);
+        #endif
 
         getIntegerParam(NDArrayCallbacks, &arrayCallbacks);
 
@@ -976,7 +961,10 @@ void medipixDetector::medipixTask()
             getIntegerParam(ADMaxSizeY, &dims[1]);
             if(header == MPXDataHeader12)
             {
-                printf("12bit Array\n");
+                #ifdef DEBUG
+                    printf("12bit Array\n");
+                #endif
+
 				pImage = this->pNDArrayPool->alloc(2, dims, NDInt16, 0, NULL);
 
 				epicsInt16 *pData, *pSrc;
@@ -992,7 +980,10 @@ void medipixDetector::medipixTask()
             }
             else if(header == MPXDataHeader24)
             {
-                printf("24bit Array\n");
+                #ifdef DEBUG
+                    printf("24bit Array\n");
+                #endif
+
 				pImage = this->pNDArrayPool->alloc(2, dims, NDInt32, 0, NULL);
 
 				epicsInt32 *pData, *pSrc;
@@ -1012,9 +1003,10 @@ void medipixDetector::medipixTask()
                 // this is an acquisition header
                 strncpy(aquisitionHeader, bigBuff, MPX_ACQUISITION_HEADER_LEN);
                 aquisitionHeader[MPX_ACQUISITION_HEADER_LEN] = 0;
-#ifdef DEBUG
-                printf("Acquisition Header:\n%s\n\n", aquisitionHeader);
-#endif
+
+                #ifdef DEBUG
+                    printf("Acquisition Header:\n%s\n\n", aquisitionHeader);
+                #endif
             }
             else if(header == MPXDataHeader12 || header == MPXDataHeader24)
             {
@@ -1068,10 +1060,6 @@ void medipixDetector::medipixStatus()
 	int result = asynSuccess;
 	int status =0;
 	int statusCode;
-
-
-    //TODO TODO TODO REMOVE ME
-	//startingUp = 0; return;
 
 	// let the startup script complete before attempting I/O
 	epicsThreadSleep(4);
@@ -1297,7 +1285,6 @@ asynStatus medipixDetector::writeOctet(asynUser *pasynUser, const char *value,
 	asynStatus status = asynSuccess;
 	const char *functionName = "writeOctet";
 
-	// Todo this function disabled temporarily
 	return asynSuccess;
 
 	/* Set the parameter in the parameter library. */
@@ -1310,8 +1297,8 @@ asynStatus medipixDetector::writeOctet(asynUser *pasynUser, const char *value,
 	else
 	{
 		/* If this parameter belongs to a base class call its method */
-		if (function < FIRST_medipix_PARAM
-			) status = ADDriver::writeOctet(pasynUser, value, nChars, nActual);
+		if (function < FIRST_medipix_PARAM)
+		    status = ADDriver::writeOctet(pasynUser, value, nChars, nActual);
 	}
 
 	/* Do callbacks so higher layers see any changes */
@@ -1396,22 +1383,6 @@ medipixDetector::medipixDetector(const char *portName,
 
 	startingUp = 1;
 
-	/* Create the epicsEvents for signaling to the medipix task when acquisition starts and stops */
-	this->startEventId = epicsEventCreate(epicsEventEmpty);
-	if (!this->startEventId)
-	{
-		printf("%s:%s epicsEventCreate failure for start event\n", driverName,
-				functionName);
-		return;
-	}
-    this->stopEventId = epicsEventCreate(epicsEventEmpty);
-    if (!this->stopEventId)
-    {
-        printf("%s:%s epicsEventCreate failure for stop event\n", driverName,
-                functionName);
-        return;
-    }
-
 	/* Allocate the raw buffer we use to read image files.  Only do this once */
 	dims[0] = maxSizeX;
 	dims[1] = maxSizeY;
@@ -1463,18 +1434,6 @@ medipixDetector::medipixDetector(const char *portName,
 		printf("%s: unable to set camera parameters\n", functionName);
 		return;
 	}
-
-	/* TODO do we need any startup coms with labview???
-
-	 // Read the TVX Version at startup.
-	 epicsSnprintf(this->toLabview, sizeof(this->toLabview), "version");
-	 status=writeReadLabview(1.0);
-	 if (!status) {
-	 if ((substr = strstr(this->fromLabview, "tvx")) != NULL) {
-	 setStringParam(medipixTvxVersion, substr);
-	 }
-	 }
-	 */
 
 	/* Create the thread that updates the images */
 	status = (epicsThreadCreate("medipixDetTask", epicsThreadPriorityMedium,
