@@ -14,7 +14,7 @@
  *
  */
 
-// #define DEBUG 1
+#define DEBUG 1
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -94,6 +94,7 @@ static const char *driverName = "medipixDetector";
 #define medipixStepThresholdScanString	"THRESHOLDSTEP"
 #define medipixStartThresholdScanningString	"STARTTHRESHOLDSCANNING"
 #define medipixCounterDepthString	"COUNTERDEPTH"
+#define medipixResetString "RESET"
 
 /** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
 class medipixDetector: public ADDriver
@@ -128,7 +129,9 @@ protected:
 	int medipixStartThresholdScanning;
 	int medipixTvxVersion;
 	int medipixCounterDepth;
-#define LAST_medipix_PARAM medipixTvxVersion
+	int medipixReset;
+
+#define LAST_medipix_PARAM medipixReset
 
 private:
 	/* These are the methods that are new to this class */
@@ -165,6 +168,9 @@ private:
 	char fromLabviewBody[MPX_MAXLINE];
 	char fromLabviewValue[MPX_MAXLINE];
 	int fromLabviewError;
+
+	char LabviewCommandPortName[20];
+	char LabviewDataPortName[20];
 };
 
 #define NUM_medipix_PARAMS (&LAST_medipix_PARAM - &FIRST_medipix_PARAM + 1)
@@ -544,13 +550,18 @@ asynStatus medipixDetector::mpxReadCmd(char* cmdType, char* cmdName ,double time
 
 		// if we get here then the expected response was not received
 		// report an error and retry
+
 		asynPrint(this->pasynLabViewCmd, ASYN_TRACE_ERROR,
 				"%s:%s error, status=%d unexpected response from labview: '%s%s'\n", driverName,
 				functionName, status, fromLabviewHeader, fromLabviewBody);
+
+		fromLabviewHeader[0] = 0; // clear for consistent error reporting
+        fromLabviewBody[0] = 0;
+        fromLabview[0] = 0;
 	}
 
 #ifdef DEBUG
-	printf("mpxRead: Full Response: %s\n", fromLabview);
+	printf("mpxReadCmd: Full Response: %s\n", fromLabview);
 #endif
 
 	fromLabviewError = MPX_OK;
@@ -561,7 +572,9 @@ asynStatus medipixDetector::mpxWriteRead(char* cmdType, char* cmdName ,double ti
 {
 	asynStatus status;
 
-	this->lock(); // make sure commands from different threads are not interleaved
+	// this->lock(); // make sure commands from different threads are not interleaved
+	// removed above because I do not believe you can nest locks and the following unlock
+	// would therefore free the AsynPort Thread when called from WriteInt32 for example
 
 	if ((status = mpxWrite(timeout)) != asynSuccess)
 	{
@@ -573,7 +586,8 @@ asynStatus medipixDetector::mpxWriteRead(char* cmdType, char* cmdName ,double ti
 		return status;
 	}
 
-	this->unlock();
+	// removed - see above comment
+	// this->unlock();
 
 	return asynSuccess;
 }
@@ -593,6 +607,7 @@ asynStatus medipixDetector::setAcquireParams()
 //	char *substr = NULL;
 //	int pixelCutOff = 0;
 
+	// avoid chatty startup which keeps setting these values
 	if(startingUp)
 	    return asynSuccess;
 
@@ -1042,7 +1057,7 @@ void medipixDetector::medipixTask()
 		/* Call the callbacks to update any changes */
 		callParamCallbacks();
 	}
-	// release the image buffer
+	// release the image buffer (in reality this does not get called - I need a thread shutdown signal)
 	free(bigBuff);
 }
 
@@ -1058,7 +1073,7 @@ static void medipixStatusC(void *drvPvt)
 void medipixDetector::medipixStatus()
 {
 	int result = asynSuccess;
-	int status =0;
+	int status = 0;
 	int statusCode;
 
 	// let the startup script complete before attempting I/O
@@ -1089,9 +1104,7 @@ void medipixDetector::medipixStatus()
         }
         else
         {
-            this->unlock();
             result = mpxGet(MPXVAR_DETECTORSTATUS, Labview_DEFAULT_TIMEOUT);
-            this->lock();
             statusCode = atoi(this->fromLabviewValue);
 
             if (result == asynSuccess && this->fromLabviewError == MPX_OK)
@@ -1134,8 +1147,16 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 
 	status = setIntegerParam(function, value);
 
-	if (function == ADAcquire)
-	{
+    if (function == medipixReset)
+    {
+        mpxCommand(MPXCMD_RESET, Labview_DEFAULT_TIMEOUT);
+
+        // I cannot successfully reconnect to the server after a reset
+        // the only solution found so far is to restart the ioc
+        exit(0);
+    }
+    else if (function == ADAcquire)
+    {
 		getIntegerParam(ADStatus, &adstatus);
 		if (value && (adstatus == ADStatusIdle || adstatus == ADStatusError))
 		{
@@ -1382,6 +1403,8 @@ medipixDetector::medipixDetector(const char *portName,
 	int dims[2];
 
 	startingUp = 1;
+    strcpy(LabviewCommandPortName, LabviewCommandPort);
+    strcpy(LabviewDataPortName, LabviewDataPort);
 
 	/* Allocate the raw buffer we use to read image files.  Only do this once */
 	dims[0] = maxSizeX;
@@ -1409,6 +1432,7 @@ medipixDetector::medipixDetector(const char *portName,
 	createParam(medipixStepThresholdScanString, asynParamFloat64, &medipixStepThresholdScan);
 	createParam(medipixStartThresholdScanningString, asynParamInt32, &medipixStartThresholdScanning);
 	createParam(medipixCounterDepthString, asynParamInt32, &medipixCounterDepth);
+	createParam(medipixResetString, asynParamInt32, &medipixReset);
 
 	/* Set some default values for parameters */
 	status = setStringParam(ADManufacturer, "Medipix Consortium");

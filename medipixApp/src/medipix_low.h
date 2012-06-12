@@ -65,7 +65,7 @@ extern int mpxDisconnect(void);
 #define MPXVAR_NUMFRAMESPERTRIGGER 		"NUMFRAMESPERTRIGGER"
 #define MPXVAR_COUNTERDEPTH		 		"COUNTERDEPTH"
 // variables Threshold Scan Control
-#define MPXVAR_THSSCAN 					"THSSCAN"
+#define MPXVAR_THSSCAN 					"THSCAN"
 #define MPXVAR_THWINDOWMODE 			"THWINDOWMODE"
 #define MPXVAR_THWINDOWSIZE 			"THWINDOWSIZE"
 #define MPXVAR_THSTART 					"THSTART"
@@ -79,6 +79,7 @@ extern int mpxDisconnect(void);
 #define MPXCMD_STARTACQUISITION         "STARTACQUISITION"
 #define MPXCMD_STOPACQUISITION          "STOPACQUISITION"
 #define MPXCMD_THSCAN                   "THSCAN"
+#define MPXCMD_RESET                    "RESET"
 
 
 #endif /* MPX_LOW_H */
