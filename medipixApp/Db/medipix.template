@@ -12,7 +12,7 @@
 
 # This associates the template with an edm screen
 # % gui, $(PORT), edmtab, medipixDetector.edl, P=$(P),R=$(R)
-# % gdatag, template, $(PORT)_medipix, Merlin, Merlin detector
+##  gdatag, template, Merlin, $(PORT)_medipix, Merlin detector
 
 # We redefine the states for the TriggerMode records defined in ADBase.template
 record(mbbo,"$(P)$(R)TriggerMode") {
@@ -91,7 +91,7 @@ record(asyn, "$(P)$(R)LabviewAsynData")
 
 # Threshold 0 energy
 # % autosave 2 
-# % gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy0, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy0, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy0")
 {
     field(PINI, "YES")
@@ -103,7 +103,7 @@ record(ao, "$(P)$(R)ThresholdEnergy0")
     field(VAL, "10.000")
 }
 
-# % gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy0_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy0_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy0_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -116,7 +116,7 @@ record(ai, "$(P)$(R)ThresholdEnergy0_RBV")
 
 # Threshold 1 energy
 # % autosave 2 
-# % gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy1, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy1, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy1")
 {
     field(PINI, "YES")
@@ -128,7 +128,7 @@ record(ao, "$(P)$(R)ThresholdEnergy1")
     field(VAL, "10.000")
 }
 
-# % gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy1_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy1_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy1_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -141,7 +141,7 @@ record(ai, "$(P)$(R)ThresholdEnergy1_RBV")
 
 # Operating energy
 # % autosave 2 
-# % gdatag, pv, rw, $(PORT)_medipix, OperatingEnergy, Set OperatingEnergy
+##  gdatag, pv, rw, $(PORT)_medipix, OperatingEnergy, Set OperatingEnergy
 record(ao, "$(P)$(R)OperatingEnergy")
 {
     field(PINI, "YES")
@@ -153,7 +153,7 @@ record(ao, "$(P)$(R)OperatingEnergy")
     field(VAL, "20.000")
 }
 
-# % gdatag, pv, ro, $(PORT)_medipix, OperatingEnergy_RBV, Readback for OperatingEnergy
+##  gdatag, pv, ro, $(PORT)_medipix, OperatingEnergy_RBV, Readback for OperatingEnergy
 record(ai, "$(P)$(R)OperatingEnergy_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -167,7 +167,7 @@ record(ai, "$(P)$(R)OperatingEnergy_RBV")
 
 # Threshold Scan Start Energy
 # % autosave 2 
-# % gdatag, pv, rw, $(PORT)_medipix, StartThresholdScan, Set Threshold Scan Start Energy
+##  gdatag, pv, rw, $(PORT)_medipix, StartThresholdScan, Set Threshold Scan Start Energy
 record(ao, "$(P)$(R)StartThresholdScan")
 {
     field(PINI, "YES")
@@ -179,7 +179,7 @@ record(ao, "$(P)$(R)StartThresholdScan")
     field(VAL, "2.000")
 }
 
-# % gdatag, pv, ro, $(PORT)_medipix, StartThresholdScan_RBV, Readback for Threshold Scan Start Energy
+##  gdatag, pv, ro, $(PORT)_medipix, StartThresholdScan_RBV, Readback for Threshold Scan Start Energy
 record(ai, "$(P)$(R)StartThresholdScan_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -192,7 +192,7 @@ record(ai, "$(P)$(R)StartThresholdScan_RBV")
 
 # Threshold Scan Stop Energy
 # % autosave 2 
-# % gdatag, pv, rw, $(PORT)_medipix, StopThresholdScan, Set Threshold Scan Stop Energy
+##  gdatag, pv, rw, $(PORT)_medipix, StopThresholdScan, Set Threshold Scan Stop Energy
 record(ao, "$(P)$(R)StopThresholdScan")
 {
     field(PINI, "YES")
@@ -204,7 +204,7 @@ record(ao, "$(P)$(R)StopThresholdScan")
     field(VAL, "18.000")
 }
 
-# % gdatag, pv, ro, $(PORT)_medipix, StopThresholdScan_RBV, Readback for Threshold Scan Stop Energy
+##  gdatag, pv, ro, $(PORT)_medipix, StopThresholdScan_RBV, Readback for Threshold Scan Stop Energy
 record(ai, "$(P)$(R)StopThresholdScan_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -217,7 +217,7 @@ record(ai, "$(P)$(R)StopThresholdScan_RBV")
 
 # Threshold Scan Step Energy
 # % autosave 2 
-# % gdatag, pv, rw, $(PORT)_medipix, StepThresholdScan, Set Threshold Scan Step Energy
+##  gdatag, pv, rw, $(PORT)_medipix, StepThresholdScan, Set Threshold Scan Step Energy
 record(ao, "$(P)$(R)StepThresholdScan")
 {
     field(PINI, "YES")
@@ -229,7 +229,7 @@ record(ao, "$(P)$(R)StepThresholdScan")
     field(VAL, "1.000")
 }
 
-# % gdatag, pv, ro, $(PORT)_medipix, StepThresholdScan_RBV, Readback for Threshold Scan Step Energy
+##  gdatag, pv, ro, $(PORT)_medipix, StepThresholdScan_RBV, Readback for Threshold Scan Step Energy
 record(ai, "$(P)$(R)StepThresholdScan_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -241,7 +241,7 @@ record(ai, "$(P)$(R)StepThresholdScan_RBV")
 }
 
 # execute Threshold Scan 
-# % gdatag, pv, rw, $(PORT)_medipix, ThresholdScan, Set ThresholdScan
+##  gdatag, pv, rw, $(PORT)_medipix, ThresholdScan, Set ThresholdScan
 record(longout, "$(P)$(R)ThresholdScan") {
    field(PINI, "YES")
    field(DTYP, "asynInt32")
@@ -250,7 +250,7 @@ record(longout, "$(P)$(R)ThresholdScan") {
    field(VAL, "0")
 }
 
-# % gdatag, pv, ro, $(PORT)_medipix, ThresholdScan_RBV, Readback for ThresholdScan
+##  gdatag, pv, ro, $(PORT)_medipix, ThresholdScan_RBV, Readback for ThresholdScan
 record(longin, "$(P)$(R)ThresholdScan_RBV") {
    field(DTYP, "asynInt32")
    field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))THRESHOLDSCAN")
@@ -261,7 +261,7 @@ record(longin, "$(P)$(R)ThresholdScan_RBV") {
 ###################################################################
 #  threshold scan start and stop 
 ###################################################################
-# % gdatag, pv, rw, $(PORT)_ADBase, StartThresholdScanning, Set StartThresholdScanning
+##  gdatag, pv, rw, $(PORT)_ADBase, StartThresholdScanning, Set StartThresholdScanning
 record(busy, "$(P)$(R)StartThresholdScanning") {
    field(DTYP, "asynInt32")
    field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))STARTTHRESHOLDSCANNING")
@@ -272,7 +272,7 @@ record(busy, "$(P)$(R)StartThresholdScanning") {
 
 # This makes the component icon reflect the status
 # % gui, $(PORT), status
-# % gdatag, binary, ro, $(PORT)_ADBase, StartThresholdScanning_RBV, Readback for StartThresholdScanning
+##  gdatag, binary, ro, $(PORT)_ADBase, StartThresholdScanning_RBV, Readback for StartThresholdScanning
 record(bi, "$(P)$(R)StartThresholdScanning_RBV") {
    field(DTYP, "asynInt32")
    field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))STARTTHRESHOLDSCANNING")
@@ -289,7 +289,7 @@ record(bi, "$(P)$(R)StartThresholdScanning_RBV") {
 
 # Counter depth - number of bits per pixel
 # % autosave 2 
-# % gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
+##  gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
 record(mbbo,"$(P)$(R)CounterDepth") {
    field(PINI, "YES")
    field(DTYP, "asynInt32")
@@ -301,7 +301,7 @@ record(mbbo,"$(P)$(R)CounterDepth") {
     field(ONST,"24 bit")
 }
 
-# % gdatag, pv, ro, $(PORT)_medipix, CounterDepth_RBV, Read CounterDepth
+##  gdatag, pv, ro, $(PORT)_medipix, CounterDepth_RBV, Read CounterDepth
 record(mbbi,"$(P)$(R)CounterDepth_RBV") {
    field(DTYP, "asynInt32")
    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))COUNTERDEPTH")
