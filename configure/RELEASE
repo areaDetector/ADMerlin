@@ -16,16 +16,14 @@ TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 
 SUPPORT=/dls_sw/prod/R3.14.11/support
 WORK=/dls_sw/work/R3.14.11/support
-HOME=/home/hgv27681/local/R3.14.11/support
 
-#ASYN =         $(SUPPORT)/asyn/4-17
-ASYN =          $(HOME)/asyn
+ASYN =         $(SUPPORT)/asyn/4-17
 CALC=           $(SUPPORT)/calc/2-8dls4
 BUSY=           $(SUPPORT)/busy/1-3dls5
 SSCAN=          $(SUPPORT)/sscan/2-6-6dls2
 MCA=            $(SUPPORT)/mca/7-1dls1
 AUTOSAVE=       $(SUPPORT)/autosave/4-6dls4
-AREA_DETECTOR = $(WORK)/areaDetector
+AREA_DETECTOR = $(SUPPORT)/areaDetector/1-7-1beta3-dls2
 
 
 

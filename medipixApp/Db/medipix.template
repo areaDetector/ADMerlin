@@ -12,6 +12,7 @@
 
 # This associates the template with an edm screen
 # % gui, $(PORT), edmtab, medipixDetector.edl, P=$(P),R=$(R)
+# % gdatag, template, $(PORT)_medipix, Merlin, Merlin detector
 
 # We redefine the states for the TriggerMode records defined in ADBase.template
 record(mbbo,"$(P)$(R)TriggerMode") {
