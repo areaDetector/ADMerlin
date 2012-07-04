@@ -892,6 +892,22 @@ void  medipixDetector::parseDataFrame(NDArray* pImage, const char* header)
     }
 }
 
+/** helper functions for endien conversion
+ *
+ */
+inline void endian_swap(unsigned short& x)
+{
+    x = (x>>8) |
+        (x<<8);
+}
+
+inline void endian_swap(unsigned int& x)
+{
+    x = (x>>24) |
+        ((x<<8) & 0x00FF0000) |
+        ((x>>8) & 0x0000FF00) |
+        (x<<24);
+}
 /** This thread controls acquisition, reads image files to get the image data, and
  * does the callbacks to send it to higher layers
  * It is totally decoupled from the command thread and simply waits for data
@@ -980,18 +996,23 @@ void medipixDetector::medipixTask()
                     printf("12bit Array\n");
                 #endif
 
-				pImage = this->pNDArrayPool->alloc(2, dims, NDInt16, 0, NULL);
+                pImage = this->pNDArrayPool->alloc(2, dims, NDUInt16, 0, NULL);
 
-				epicsInt16 *pData, *pSrc;
-				int i;
-				for (	i = 0,
-						pData = (epicsInt16 *) pImage->pData,
-						pSrc = (epicsInt16 *) (bigBuff + MPX_IMG_HDR_LEN);
-						i < dims[0] * dims[1];
-						i++, pData++, pSrc++)
-				{
-					*pData = *pSrc;
-				}
+                // copy the data into NDArray, switching to little endien and Inverting in the Y axis
+                epicsUInt16 *pData, *pSrc;
+                int x,y;
+                for ( y = 0; y < dims[1]; y++)
+                {
+                    for (   x = 0,
+                            pData = (epicsUInt16 *) pImage->pData + y * dims[0],
+                            pSrc = (epicsUInt16 *) (bigBuff + MPX_IMG_HDR_LEN) + (dims[1] - y) * dims[0];
+                            x < dims[0];
+                            x++, pData++, pSrc++)
+                    {
+                        *pData = *pSrc;
+                        endian_swap(*pData);
+                    }
+                }
             }
             else if(header == MPXDataHeader24)
             {
@@ -999,18 +1020,22 @@ void medipixDetector::medipixTask()
                     printf("24bit Array\n");
                 #endif
 
-				pImage = this->pNDArrayPool->alloc(2, dims, NDInt32, 0, NULL);
+				pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
 
-				epicsInt32 *pData, *pSrc;
-				int i;
-				for (	i = 0,
-						pData = (epicsInt32 *) pImage->pData,
-						pSrc = (epicsInt32 *) (bigBuff + MPX_IMG_HDR_LEN);
-						i < dims[0] * dims[1];
-						i++, pData++, pSrc++)
-				{
-					*pData = *pSrc;
-				}
+				epicsUInt32 *pData, *pSrc;
+                int x,y;
+                for ( y = 0; y < dims[1]; y++)
+                {
+                    for (   x = 0,
+                            pData = (epicsUInt32 *) pImage->pData + y * dims[0],
+                            pSrc = (epicsUInt32 *) (bigBuff + MPX_IMG_HDR_LEN) + (dims[1] - y) * dims[0];
+                            x < dims[0];
+                            x++, pData++, pSrc++)
+                    {
+                        *pData = *pSrc;
+                        endian_swap(*pData);
+                    }
+                }
             }
 
             if(header == MPXAcquisitionHeader)
@@ -1411,6 +1436,10 @@ medipixDetector::medipixDetector(const char *portName,
 	dims[1] = maxSizeY;
 	/* Allocate the raw buffer we use for flat fields. */
 	this->pFlatField = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
+
+	// medipix is upside down by area detector standards
+	// this does not work - I need to invert using my own memory copy function
+	this->ADReverseY = 1;
 
 	/* Connect to Labview */
 	status = pasynOctetSyncIO->connect(LabviewCommandPort, 0,
