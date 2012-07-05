@@ -283,9 +283,29 @@ record(bi, "$(P)$(R)StartThresholdScanning_RBV") {
    field(SCAN, "I/O Intr")
 }
 
+
 ##########################################################################
 # Further Medipix specific records
 ##########################################################################
+
+# implements the reset button to restart the labview server
+record(busy, "$(P)$(R)Reset") {
+   field(DTYP, "asynInt32")
+   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))RESET")
+   field(ZNAM, "Done")
+   field(ONAM, "Reset")
+   field(VAL,  "0")
+}
+
+record(bi, "$(P)$(R)Reset_RBV") {
+   field(DTYP, "asynInt32")
+   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))RESET")
+   field(ZNAM, "Done")
+   field(ZSV,  "NO_ALARM")
+   field(ONAM, "Scanning")
+   field(OSV,  "MINOR")
+   field(SCAN, "I/O Intr")
+}
 
 # Counter depth - number of bits per pixel
 # % autosave 2 

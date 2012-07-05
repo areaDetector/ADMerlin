@@ -1100,6 +1100,7 @@ void medipixDetector::medipixStatus()
 	int result = asynSuccess;
 	int status = 0;
 	int statusCode;
+	int idleMessage = 0;
 
 	// let the startup script complete before attempting I/O
 	epicsThreadSleep(4);
@@ -1120,12 +1121,18 @@ void medipixDetector::medipixStatus()
 
 	while (1)
 	{
+        epicsThreadSleep(.5);
 		this->lock();
         getIntegerParam(ADStatus, &status);
 
         if(status == ADStatusIdle)
         {
-            setStringParam(ADStatusMessage, "Waiting for acquire command");
+            if (!idleMessage)
+            {
+                setStringParam(ADStatusMessage, "Waiting for acquire command");
+                callParamCallbacks();
+                idleMessage = 1;
+            }
         }
         else
         {
@@ -1140,19 +1147,19 @@ void medipixDetector::medipixStatus()
                     // detector has reported idle state
                     setIntegerParam(ADStatus, ADStatusIdle);
                     setIntegerParam(ADAcquire, 0);
+                    idleMessage = 0;
                 }
             }
             else
             {
                 setStringParam(ADStatusMessage, "Labview communication error");
                 // abort any acquire state
-                setIntegerParam(ADAcquire, 0);
                 setIntegerParam(ADStatus, ADStatusError);
+                setIntegerParam(ADAcquire, 0);
             }
             callParamCallbacks();
         }
         unlock();
-		epicsThreadSleep(.5);
 	}
 
 }
@@ -1188,6 +1195,9 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
             setIntegerParam(ADStatus, ADStatusAcquire);
             setStringParam(ADStatusMessage, "Acquiring...");
 		    mpxCommand(MPXCMD_STARTACQUISITION, Labview_DEFAULT_TIMEOUT);
+		    // this is required since Merlin has a (variable) delay before clearing idle status
+		    // This driver relies on the detector's idle status to report its own status
+		    epicsThreadSleep(.6);
 		}
 		if (!value && (adstatus == ADStatusAcquire))
 		{
