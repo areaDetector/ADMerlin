@@ -598,9 +598,6 @@ asynStatus medipixDetector::mpxWriteRead(char* cmdType, char* cmdName ,double ti
 
 asynStatus medipixDetector::setAcquireParams()
 {
-	int ival;
-	double dval;
-	double dval2;
 	int triggerMode;
 	char value[MPX_MAXLINE];
 	asynStatus status;
@@ -610,6 +607,59 @@ asynStatus medipixDetector::setAcquireParams()
 	// avoid chatty startup which keeps setting these values
 	if(startingUp)
 	    return asynSuccess;
+
+	int numImages;
+    status = getIntegerParam(ADNumImages, &numImages);
+    if ((status != asynSuccess) || (numImages < 1))
+    {
+        numImages = 1;
+        setIntegerParam(ADNumImages, numImages);
+    }
+
+    int numExposures;
+    status = getIntegerParam(ADNumExposures, &numExposures);
+    if ((status != asynSuccess) || (numExposures < 1))
+    {
+        numExposures = 1;
+        setIntegerParam(ADNumExposures, numExposures);
+    }
+
+    int counterDepth;
+    status = getIntegerParam(medipixCounterDepth, &counterDepth);
+    if ((status != asynSuccess) || (counterDepth != 12 && counterDepth != 24)) // currently limited to 12/24 bit
+    {
+        counterDepth = 12;
+        setIntegerParam(medipixCounterDepth, counterDepth);
+    }
+
+    double acquireTime;
+    status = getDoubleParam(ADAcquireTime, &acquireTime);
+    if ((status != asynSuccess) || (acquireTime <0.))
+    {
+        acquireTime = 1.;
+        setDoubleParam(ADAcquireTime, acquireTime);
+    }
+
+    double acquirePeriod;
+    status = getDoubleParam(ADAcquirePeriod, &acquirePeriod);
+    if ((status != asynSuccess) || (acquirePeriod < 0.))
+    {
+        acquirePeriod = 1.0;
+        setDoubleParam(ADAcquirePeriod, acquirePeriod);
+    }
+    callParamCallbacks();
+
+    // set the values on masse - this way we do not get strange GUI updates caused by slow comms
+    epicsSnprintf(value, MPX_MAXLINE, "%d", numImages);
+    this->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, value, Labview_DEFAULT_TIMEOUT);
+    epicsSnprintf(value, MPX_MAXLINE, "%d", numExposures);
+    this->mpxSet(MPXVAR_NUMFRAMESPERTRIGGER, value, Labview_DEFAULT_TIMEOUT);
+    epicsSnprintf(value, MPX_MAXLINE, "%d", counterDepth);
+    this->mpxSet(MPXVAR_COUNTERDEPTH, value, Labview_DEFAULT_TIMEOUT);
+    epicsSnprintf(value, MPX_MAXLINE, "%f", acquireTime*1000); // translated into millisec
+    this->mpxSet(MPXVAR_ACQUISITIONTIME, value, Labview_DEFAULT_TIMEOUT);
+    epicsSnprintf(value, MPX_MAXLINE, "%f", acquirePeriod*1000); // translated into millisec
+    this->mpxSet(MPXVAR_ACQUISITIONPERIOD, value, Labview_DEFAULT_TIMEOUT);
 
 	status = getIntegerParam(ADTriggerMode, &triggerMode);
 	if (status != asynSuccess)
@@ -641,55 +691,6 @@ asynStatus medipixDetector::setAcquireParams()
 		break;
 	}
 
-	status = getIntegerParam(ADNumImages, &ival);
-	if ((status != asynSuccess) || (ival < 1))
-	{
-		ival = 1;
-		setIntegerParam(ADNumImages, ival);
-	}
-	epicsSnprintf(value, MPX_MAXLINE, "%d", ival);
-	this->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, value, Labview_DEFAULT_TIMEOUT);
-
-	status = getIntegerParam(ADNumExposures, &ival);
-	if ((status != asynSuccess) || (ival < 1))
-	{
-		ival = 1;
-		setIntegerParam(ADNumExposures, ival);
-	}
-	epicsSnprintf(value, MPX_MAXLINE, "%d", ival);
-	this->mpxSet(MPXVAR_NUMFRAMESPERTRIGGER, value, Labview_DEFAULT_TIMEOUT);
-
-	status = getIntegerParam(medipixCounterDepth, &ival);
-	if ((status != asynSuccess) || (ival != 12 && ival != 24)) // currently limited to 12/24 bit
-	{
-		ival = 12;
-		setIntegerParam(medipixCounterDepth, ival);
-	}
-	epicsSnprintf(value, MPX_MAXLINE, "%d", ival);
-	this->mpxSet(MPXVAR_COUNTERDEPTH, value, Labview_DEFAULT_TIMEOUT);
-
-	status = getDoubleParam(ADAcquireTime, &dval);
-	if ((status != asynSuccess) || (dval < 0.))
-	{
-		dval = 1.;
-		setDoubleParam(ADAcquireTime, dval);
-	}
-	epicsSnprintf(value, MPX_MAXLINE, "%f", dval*1000); // translated into millisec
-	this->mpxSet(MPXVAR_ACQUISITIONTIME, value, Labview_DEFAULT_TIMEOUT);
-
-	status = getDoubleParam(ADAcquirePeriod, &dval2);
-	if ((status != asynSuccess) || (dval2 < 0.))
-	{
-		dval = 2.;
-		setDoubleParam(ADAcquirePeriod, dval2);
-	}
-	else if(dval2 - dval < 0)
-	{
-		dval2 = dval + 0.00085; // this is hard coded readback time but only used in error condition, see below
-		setDoubleParam(ADAcquirePeriod, dval2);
-	}
-	epicsSnprintf(value, MPX_MAXLINE, "%f", dval2*1000); // translated into millisec
-	this->mpxSet(MPXVAR_ACQUISITIONPERIOD, value, Labview_DEFAULT_TIMEOUT);
 	// read the acquire period back from the server so that it can insert
 	// the readback time if necessary
 	this->mpxGet(MPXVAR_ACQUISITIONPERIOD, Labview_DEFAULT_TIMEOUT);
@@ -916,8 +917,9 @@ inline void endian_swap(unsigned int& x)
 void medipixDetector::medipixTask()
 {
 	int status = asynSuccess;
-	int imageCounter;
-	int counterDepth;
+	int imageCounter;      // number of ndarrays sent to plugins
+    int numImagesCounter;  // number of images received
+  	int counterDepth;
 	NDArray *pImage;
 	epicsTimeStamp startTime;
 	const char *functionName = "medipixTask";
@@ -974,6 +976,15 @@ void medipixDetector::medipixTask()
             printf("\n\nReceived image frame of %d bytes\n", nread);
         #endif
 
+        medipixDataHeader header = parseDataHeader(bigBuff);
+        if(header != MPXAcquisitionHeader)
+        {
+            getIntegerParam(ADNumImagesCounter, &numImagesCounter);
+            numImagesCounter++;
+            setIntegerParam(ADNumImagesCounter, numImagesCounter);
+            imagesRemaining--;
+        }
+
         getIntegerParam(NDArrayCallbacks, &arrayCallbacks);
 
         if (arrayCallbacks)
@@ -982,10 +993,6 @@ void medipixDetector::medipixTask()
             getIntegerParam(NDArrayCounter, &imageCounter);
             imageCounter++;
             setIntegerParam(NDArrayCounter, imageCounter);
-            /* Call the callbacks to update any changes */
-            callParamCallbacks();
-
-            medipixDataHeader header = parseDataHeader(bigBuff);
 
             /* Get an image buffer from the pool */
             getIntegerParam(ADMaxSizeX, &dims[0]);
@@ -1079,6 +1086,14 @@ void medipixDetector::medipixTask()
             }
         }
 
+        // If all the expected images have been received then the driver can
+        // complete the acquisition and return to waiting for acquisition state
+        if(imagesRemaining <= 0)
+        {
+            setIntegerParam(ADAcquire, 0);
+            setIntegerParam(ADStatus, ADStatusIdle);
+        }
+
 		/* Call the callbacks to update any changes */
 		callParamCallbacks();
 	}
@@ -1106,6 +1121,7 @@ void medipixDetector::medipixStatus()
 	epicsThreadSleep(4);
 	startingUp = 0;
 
+	this->lock();
 
 	// make sure important grouped variables are set to agree with
 	// IOCs auto saved values
@@ -1119,9 +1135,11 @@ void medipixDetector::medipixStatus()
     // initial status
     setIntegerParam(ADStatus, ADStatusIdle);
 
+    this->unlock();
+
 	while (1)
 	{
-        epicsThreadSleep(.5);
+        epicsThreadSleep(2);
 		this->lock();
         getIntegerParam(ADStatus, &status);
 
@@ -1136,35 +1154,13 @@ void medipixDetector::medipixStatus()
         }
         else
         {
-            result = mpxGet(MPXVAR_DETECTORSTATUS, Labview_DEFAULT_TIMEOUT);
-            statusCode = atoi(this->fromLabviewValue);
-
-            if (result == asynSuccess && this->fromLabviewError == MPX_OK)
-            {
-                // todo implement full set of status codes
-                if(statusCode == 0)
-                {
-                    // detector has reported idle state
-                    setIntegerParam(ADStatus, ADStatusIdle);
-                    setIntegerParam(ADAcquire, 0);
-                    idleMessage = 0;
-                }
-            }
-            else
-            {
-                setStringParam(ADStatusMessage, "Labview communication error");
-                // abort any acquire state
-                setIntegerParam(ADStatus, ADStatusError);
-                setIntegerParam(ADAcquire, 0);
-            }
-            callParamCallbacks();
+            idleMessage = 0;
         }
-        unlock();
+        this->unlock();
 	}
 
 }
 
-
 /** Called when asyn clients call pasynInt32->write().
  * This function performs actions for some parameters, including ADAcquire, ADTriggerMode, etc.
  * For all parameters it sets the value in the parameter library and calls any registered callbacks..
@@ -1177,12 +1173,11 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	asynStatus status = asynSuccess;
 	const char *functionName = "writeInt32";
 
-	status = setIntegerParam(function, value);
+    status = setIntegerParam(function, value);
 
     if (function == medipixReset)
     {
         mpxCommand(MPXCMD_RESET, Labview_DEFAULT_TIMEOUT);
-
         // I cannot successfully reconnect to the server after a reset
         // the only solution found so far is to restart the ioc
         exit(0);
@@ -1194,10 +1189,10 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 		{
             setIntegerParam(ADStatus, ADStatusAcquire);
             setStringParam(ADStatusMessage, "Acquiring...");
+            // reset the image count - this is then used to determine when acquisition is complete
+            setIntegerParam(ADNumImagesCounter, 0);
+            getIntegerParam(ADNumImages, &imagesRemaining);
 		    mpxCommand(MPXCMD_STARTACQUISITION, Labview_DEFAULT_TIMEOUT);
-		    // this is required since Merlin has a (variable) delay before clearing idle status
-		    // This driver relies on the detector's idle status to report its own status
-		    epicsThreadSleep(.6);
 		}
 		if (!value && (adstatus == ADStatusAcquire))
 		{
@@ -1210,17 +1205,18 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	    getIntegerParam(ADStatus, &adstatus);
 	    if(value && (adstatus == ADStatusIdle || adstatus == ADStatusError))
 	    {
+	        // calculate the number of images expected
+	        double start, stop, step;
+            getDoubleParam(medipixStartThresholdScan, &start);
+            getDoubleParam(medipixStopThresholdScan, &stop);
+            getDoubleParam(medipixStepThresholdScan, &step);
+            imagesRemaining = (int) ((stop - start) / step);
+
 	        setIntegerParam(ADStatus, ADStatusAcquire);
+            setIntegerParam(ADNumImagesCounter, 0);
             setStringParam(ADStatusMessage, "Performing Threshold Scan...");
 	        status = mpxCommand(MPXCMD_THSCAN, Labview_DEFAULT_TIMEOUT);
 	    }
-	    else if ((adstatus == ADStatusAcquire))
-	    {
-	        // abort a threshold scan
-            setIntegerParam(ADStatus, ADStatusIdle);
-            mpxCommand(MPXCMD_STOPACQUISITION, Labview_DEFAULT_TIMEOUT);
-	    }
-
 	}
 	else if ((function == ADTriggerMode) || (function == ADNumImages)
 			|| (function == ADNumExposures) || (function == medipixCounterDepth))
@@ -1229,7 +1225,6 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	}
 	else if (function == medipixThresholdApply)
 	{
-	    // TODO what is the relevance of this command to medipix?
 		getThreshold();
 	}
 	else
@@ -1292,8 +1287,7 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
         status = mpxSet(MPXVAR_OPERATINGENERGY, value_str, Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
-    else if ((function == ADAcquireTime) || (function == ADAcquirePeriod)
-            /* || (function == medipixDelayTime) */)
+    else if ((function == ADAcquireTime) || (function == ADAcquirePeriod))
     {
         setAcquireParams();
     }

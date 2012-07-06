@@ -3,8 +3,8 @@ beginScreenProperties
 major 4
 minor 0
 release 1
-x 604
-y 84
+x 382
+y 340
 w 403
 h 245
 font "arial-bold-r-12.0"
@@ -67,7 +67,7 @@ minor 1
 release 0
 x 5
 y 5
-w 88
+w 90
 h 14
 font "arial-medium-r-12.0"
 fgColor index 14
@@ -307,7 +307,7 @@ onColor index 3
 offColor index 3
 topShadowColor index 1
 botShadowColor index 11
-controlPv "$(P)$(R)StartThresholdScanning"
+controlPv "$(P)$(R)Acquire"
 pressValue "0"
 onLabel "Stop"
 offLabel "Stop"
