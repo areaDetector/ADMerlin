@@ -24,6 +24,7 @@ SSCAN=          $(SUPPORT)/sscan/2-6-6dls2
 MCA=            $(SUPPORT)/mca/7-1dls1
 AUTOSAVE=       $(SUPPORT)/autosave/4-6dls4
 AREA_DETECTOR = $(SUPPORT)/areaDetector/1-7-1beta3-dls2
+FFMPEG=         $(SUPPORT)/ffmpegServer/1-9
 
 
 

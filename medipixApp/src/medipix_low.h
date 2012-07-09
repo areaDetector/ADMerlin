@@ -31,7 +31,7 @@ extern int mpxDisconnect(void);
 #define MPX_MSG_DATATYPE_LEN 3
 
 #define MPX_MAXLINE 256
-#define MPX_IMG_HDR_LEN 252
+#define MPX_IMG_HDR_LEN 256
 #define MPX_ACQUISITION_HEADER_LEN 2044
 
 #define MPX_X_SIZE 256
