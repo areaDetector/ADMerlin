@@ -921,6 +921,13 @@ void medipixDetector::medipixTask()
 	char *bigBuff;
 	char aquisitionHeader[MPX_ACQUISITION_HEADER_LEN+1];
 
+	// do not enter this thread until the IOC is initialised. This is because we are getting blocks of
+	// data on the data channel at startup after we have had a buffer overrun
+	while(startingUp)
+	{
+	    epicsThreadSleep(.5);
+	}
+
 	this->lock();
 
 	// allocate a buffer for reading in images from labview over network
@@ -1452,6 +1459,9 @@ medipixDetector::medipixDetector(const char *portName,
 			&this->pasynLabViewCmd, NULL);
 	status = pasynOctetSyncIO->connect(LabviewDataPort, 0,
 			&this->pasynLabViewData, NULL);
+
+    
+    mpxCommand(MPXCMD_STOPACQUISITION, Labview_DEFAULT_TIMEOUT);
 
 	createParam(medipixDelayTimeString, asynParamFloat64, &medipixDelayTime);
 	createParam(medipixThreshold0String, asynParamFloat64, &medipixThreshold0);
