@@ -79,6 +79,7 @@ extern int mpxDisconnect(void);
 #define MPXCMD_STARTACQUISITION         "STARTACQUISITION"
 #define MPXCMD_STOPACQUISITION          "STOPACQUISITION"
 #define MPXCMD_THSCAN                   "THSCAN"
+#define MPXCMD_SOFTWARETRIGGER          "SWTRIGGER"
 #define MPXCMD_RESET                    "RESET"
 
 

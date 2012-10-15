@@ -27,6 +27,8 @@ record(mbbo,"$(P)$(R)TriggerMode") {
     field(THST,"Trigger start falling")
     field(FRVL,"4")
     field(FRST,"Trigger both rising")
+    field(FVVL,"5")
+    field(FVST,"Software")
 }
 
 record(mbbi,"$(P)$(R)TriggerMode_RBV") {
@@ -41,6 +43,8 @@ record(mbbi,"$(P)$(R)TriggerMode_RBV") {
     field(THST,"Trigger start falling")
     field(FRVL,"4")
     field(FRST,"Trigger both rising ")
+    field(FVVL,"5")
+    field(FVST,"Software")
 }
 
 # We redefine the states for the FileFormat records defined in NDFile.template
@@ -276,6 +280,32 @@ record(busy, "$(P)$(R)StartThresholdScanning") {
 record(bi, "$(P)$(R)StartThresholdScanning_RBV") {
    field(DTYP, "asynInt32")
    field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))STARTTHRESHOLDSCANNING")
+   field(ZNAM, "Done")
+   field(ZSV,  "NO_ALARM")
+   field(ONAM, "Scanning")
+   field(OSV,  "MINOR")
+   field(SCAN, "I/O Intr")
+}
+
+
+###################################################################
+#  software Trigger
+###################################################################
+##  gdatag, pv, rw, $(PORT)_ADBase, SoftwareTrigger, Set SoftwareTrigger
+record(busy, "$(P)$(R)SoftwareTrigger") {
+   field(DTYP, "asynInt32")
+   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))SOFTWARETRIGGER")
+   field(ZNAM, "Waiting")
+   field(ONAM, "Triggered")
+   field(VAL,  "0")
+}
+
+# This makes the component icon reflect the status
+# % gui, $(PORT), status
+##  gdatag, binary, ro, $(PORT)_ADBase, SoftwareTrigger_RBV, Readback for SoftwareTrigger
+record(bi, "$(P)$(R)SoftwareTrigger_RBV") {
+   field(DTYP, "asynInt32")
+   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))SOFTWARETRIGGER")
    field(ZNAM, "Done")
    field(ZSV,  "NO_ALARM")
    field(ONAM, "Scanning")

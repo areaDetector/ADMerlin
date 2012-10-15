@@ -56,13 +56,15 @@ typedef enum
     TMExternalTriggerHigh,
     TMExternalTriggerLow,
     TMExternalTriggerRising,
+    TMSoftwareTrigger
 } medipixTriggerMode;/** Trigger modes */
 
 /** Medipix Individual Trigger types */
 
 #define TMTrigInternal  "0"
 #define TMTrigRising 	"1"
-#define TMTrigFalling 	"2"
+#define TMTrigFalling   "2"
+#define TMTrigSoftware  "3"
 
 
 /** data header types */
@@ -93,6 +95,7 @@ static const char *driverName = "medipixDetector";
 #define medipixStartThresholdScanningString	"STARTTHRESHOLDSCANNING"
 #define medipixCounterDepthString	"COUNTERDEPTH"
 #define medipixResetString "RESET"
+#define medipixSoftwareTriggerString "SOFTWARETRIGGER"
 
 /** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
 class medipixDetector: public ADDriver
@@ -127,6 +130,7 @@ protected:
 	int medipixStartThresholdScanning;
 	int medipixTvxVersion;
 	int medipixCounterDepth;
+    int medipixSoftwareTrigger;
 	int medipixReset;
 
 #define LAST_medipix_PARAM medipixReset
@@ -682,6 +686,9 @@ asynStatus medipixDetector::setAcquireParams()
         this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising, Labview_DEFAULT_TIMEOUT);
         this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigRising, Labview_DEFAULT_TIMEOUT);
 		break;
+    case TMSoftwareTrigger :
+        this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigSoftware, Labview_DEFAULT_TIMEOUT);
+        break;
 	}
 
 	// read the acquire period back from the server so that it can insert
@@ -920,6 +927,7 @@ void medipixDetector::medipixTask()
 	int nread;
 	char *bigBuff;
 	char aquisitionHeader[MPX_ACQUISITION_HEADER_LEN+1];
+	int triggerMode;
 
 	// do not enter this thread until the IOC is initialised. This is because we are getting blocks of
 	// data on the data channel at startup after we have had a buffer overrun
@@ -1081,6 +1089,15 @@ void medipixDetector::medipixTask()
             }
         }
 
+        // If we are using SW triggers then reset the trigger to 0 when an image is
+        // received
+        status = getIntegerParam(ADTriggerMode, &triggerMode);
+        if(triggerMode==TMSoftwareTrigger)
+        {
+            // software trigger resets  when image received
+            setIntegerParam(medipixSoftwareTrigger, 0);
+        }
+
         // If all the expected images have been received then the driver can
         // complete the acquisition and return to waiting for acquisition state
         if(imagesRemaining == 0)
@@ -1169,6 +1186,10 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
         // I cannot successfully reconnect to the server after a reset
         // the only solution found so far is to restart the ioc
         exit(0);
+    }
+    else if (function == medipixSoftwareTrigger)
+    {
+        mpxCommand(MPXCMD_SOFTWARETRIGGER, Labview_DEFAULT_TIMEOUT);
     }
     else if (function == ADAcquire)
     {
@@ -1477,7 +1498,8 @@ medipixDetector::medipixDetector(const char *portName,
 	createParam(medipixStepThresholdScanString, asynParamFloat64, &medipixStepThresholdScan);
 	createParam(medipixStartThresholdScanningString, asynParamInt32, &medipixStartThresholdScanning);
 	createParam(medipixCounterDepthString, asynParamInt32, &medipixCounterDepth);
-	createParam(medipixResetString, asynParamInt32, &medipixReset);
+    createParam(medipixResetString, asynParamInt32, &medipixReset);
+    createParam(medipixSoftwareTriggerString, asynParamInt32, &medipixSoftwareTrigger);
 
 	/* Set some default values for parameters */
 	status = setStringParam(ADManufacturer, "Medipix Consortium");
