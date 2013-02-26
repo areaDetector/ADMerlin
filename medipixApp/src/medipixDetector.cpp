@@ -79,23 +79,27 @@ typedef enum
 
 static const char *driverName = "medipixDetector";
 
-#define medipixDelayTimeString      "DELAY_TIME"
-#define medipixThreshold0String     "THRESHOLD0"
-#define medipixThreshold1String     "THRESHOLD1"
-#define medipixOperatingEnergyString "OPERATINGENERGY"
+/** ASYN PARAMETER NAMES **/
 
-#define medipixThresholdApplyString "THRESHOLD_APPLY"
-#define medipixThresholdAutoApplyString "THRESHOLD_AUTO_APPLY"
-#define medipixArmedString          "ARMED"
+#define medipixDelayTimeString              "DELAY_TIME"
+#define medipixThreshold0String             "THRESHOLD0"
+#define medipixThreshold1String             "THRESHOLD1"
+#define medipixOperatingEnergyString        "OPERATINGENERGY"
 
-#define medipixmedpixThresholdScanString "THRESHOLDSCAN"
-#define medipixStartThresholdScanString	"THRESHOLDSTART"
-#define medipixStopThresholdScanString	"THRESHOLDSTOP"
-#define medipixStepThresholdScanString	"THRESHOLDSTEP"
+#define medipixThresholdApplyString         "THRESHOLD_APPLY"
+#define medipixThresholdAutoApplyString     "THRESHOLD_AUTO_APPLY"
+#define medipixArmedString                  "ARMED"
+
+#define medipixmedpixThresholdScanString    "THRESHOLDSCAN"
+#define medipixStartThresholdScanString	    "THRESHOLDSTART"
+#define medipixStopThresholdScanString	    "THRESHOLDSTOP"
+#define medipixStepThresholdScanString	    "THRESHOLDSTEP"
 #define medipixStartThresholdScanningString	"STARTTHRESHOLDSCANNING"
-#define medipixCounterDepthString	"COUNTERDEPTH"
-#define medipixResetString "RESET"
-#define medipixSoftwareTriggerString "SOFTWARETRIGGER"
+#define medipixCounterDepthString	        "COUNTERDEPTH"
+#define medipixResetString                  "RESET"
+#define medipixSoftwareTriggerString        "SOFTWARETRIGGER"
+#define medipixEnableCounter1String         "ENABLECOUNTER1"
+#define medipixContinuousRWString           "CONTINUOUSRW"
 
 /** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
 class medipixDetector: public ADDriver
@@ -132,12 +136,15 @@ protected:
 	int medipixCounterDepth;
     int medipixSoftwareTrigger;
 	int medipixReset;
+    int medipixEnableCounter1;
+    int medipixContinuousRW;
 
-#define LAST_medipix_PARAM medipixReset
+#define LAST_medipix_PARAM medipixContinuousRW
 
 private:
 	/* These are the methods that are new to this class */
 	void abortAcquisition();
+	asynStatus setModeCommands(int function);
 	asynStatus setAcquireParams();
 	asynStatus getThreshold();
     asynStatus updateThresholdScanParms();
@@ -595,6 +602,51 @@ asynStatus medipixDetector::mpxWriteRead(char* cmdType, char* cmdName ,double ti
 // ##################### END OF Labview communications primitives ########################
 // #######################################################################################
 
+asynStatus medipixDetector::setModeCommands(int function)
+{
+    asynStatus status;
+    char value[MPX_MAXLINE];
+    int counter1Enabled, continuousEnabled;
+
+    if(function == medipixEnableCounter1)
+    {
+        status = getIntegerParam(medipixEnableCounter1, &counter1Enabled);
+        if ((status != asynSuccess) || (counter1Enabled < 0 || counter1Enabled > 1))
+        {
+            counter1Enabled = 0;
+            setIntegerParam(medipixEnableCounter1, counter1Enabled);
+        }
+        epicsSnprintf(value, MPX_MAXLINE, "%d", counter1Enabled);
+        this->mpxSet(MPXVAR_ENABLECOUNTER1, value, Labview_DEFAULT_TIMEOUT);
+    }
+
+    if(function == medipixContinuousRW)
+    {
+        status = getIntegerParam(medipixContinuousRW, &continuousEnabled);
+        if ((status != asynSuccess) || (continuousEnabled < 0 || continuousEnabled > 1))
+        {
+            continuousEnabled = 0;
+            setIntegerParam(medipixContinuousRW, continuousEnabled);
+        }
+        epicsSnprintf(value, MPX_MAXLINE, "%d", continuousEnabled);
+        this->mpxSet(MPXVAR_CONTINUOUSRW, value, Labview_DEFAULT_TIMEOUT);
+    }
+
+    epicsThreadSleep(.01);
+
+    // now get the values again from the device -- it may reset them to consistent values
+    // (presently only one of medipixContinuousRW or medipixEnableCounter1 can be set at a time)
+    status = mpxGet(MPXVAR_ENABLECOUNTER1, Labview_DEFAULT_TIMEOUT);
+    if(status == asynSuccess)
+        setIntegerParam(medipixEnableCounter1, atoi(fromLabviewValue));
+
+    status = mpxGet(MPXVAR_CONTINUOUSRW, Labview_DEFAULT_TIMEOUT);
+    if(status == asynSuccess)
+        setIntegerParam(medipixContinuousRW, atoi(fromLabviewValue));
+
+    return (asynSuccess);
+}
+
 asynStatus medipixDetector::setAcquireParams()
 {
 	int triggerMode;
@@ -648,7 +700,7 @@ asynStatus medipixDetector::setAcquireParams()
     }
     callParamCallbacks();
 
-    // set the values on masse - an attempt to fix the strange GUI updates caused by slow comms (failed)
+    // set the values enmasse - an attempt to fix the strange GUI updates caused by slow comms (failed)
     epicsSnprintf(value, MPX_MAXLINE, "%d", numExposures);
     this->mpxSet(MPXVAR_NUMFRAMESPERTRIGGER, value, Labview_DEFAULT_TIMEOUT);
     epicsSnprintf(value, MPX_MAXLINE, "%d", counterDepth);
@@ -1253,6 +1305,10 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 	{
 		setAcquireParams();
 	}
+	else if ((function == medipixEnableCounter1 || function == medipixContinuousRW))
+	{
+	    setModeCommands(function);
+	}
 	else if (function == medipixThresholdApply)
 	{
 		getThreshold();
@@ -1500,6 +1556,10 @@ medipixDetector::medipixDetector(const char *portName,
 	createParam(medipixCounterDepthString, asynParamInt32, &medipixCounterDepth);
     createParam(medipixResetString, asynParamInt32, &medipixReset);
     createParam(medipixSoftwareTriggerString, asynParamInt32, &medipixSoftwareTrigger);
+
+    createParam(medipixEnableCounter1String, asynParamInt32, &medipixEnableCounter1);
+    createParam(medipixContinuousRWString, asynParamInt32, &medipixContinuousRW);
+
 
 	/* Set some default values for parameters */
 	status = setStringParam(ADManufacturer, "Medipix Consortium");

@@ -363,6 +363,54 @@ record(mbbi,"$(P)$(R)CounterDepth_RBV") {
    field(SCAN, "I/O Intr")
 }
 
+############### TODO ##############################################################
+
+# Counter depth - number of bits per pixel
+# % autosave 2 
+##  gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
+record(bo,"$(P)$(R)EnableCounter1") {
+    field(PINI, "YES")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ENABLECOUNTER1")
+    field(DESC,"Enable Counter 1")
+    field(ZNAM,"Disabled")
+    field(ONAM,"Enabled")
+}
+
+##  gdatag, pv, ro, $(PORT)_medipix, CounterDepth_RBV, Read CounterDepth
+record(bi,"$(P)$(R)EnableCounter1_RBV") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ENABLECOUNTER1")
+    field(DESC,"Enable Counter 1")
+    field(ZNAM,"Disabled")
+    field(ONAM,"Enabled")
+    field(SCAN, "I/O Intr")
+}
+
+# Counter depth - number of bits per pixel
+# % autosave 2 
+##  gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
+record(bo,"$(P)$(R)ContinuousRW") {
+    field(PINI, "YES")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))CONTINUOUSRW")
+    field(DESC,"Enable Continuous Read/Write")
+    field(ZNAM,"Disabled")
+    field(ONAM,"Enabled")
+}
+
+##  gdatag, pv, ro, $(PORT)_medipix, CounterDepth_RBV, Read CounterDepth
+record(bi,"$(P)$(R)ContinuousRW_RBV") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))CONTINUOUSRW")
+    field(DESC,"Enable Continuous Read/Write")
+    field(ZNAM,"Disabled")
+    field(ONAM,"Enabled")
+    field(SCAN, "I/O Intr")
+}
+
+############### END OF TODO ##############################################################
+
 ##########################################################################
 # Disable records from ADBase etc. that we do not use for medipix
 ##########################################################################

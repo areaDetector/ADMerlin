@@ -3,8 +3,8 @@ beginScreenProperties
 major 4
 minor 0
 release 1
-x 916
-y 109
+x 809
+y 222
 w 395
 h 820
 font "arial-bold-r-12.0"
@@ -89,9 +89,9 @@ beginObjectProperties
 major 10
 minor 0
 release 0
-x 10
+x 105
 y 750
-w 370
+w 275
 h 20
 controlPv "$(P)$(R)StringToServer_RBV"
 fgColor index 16
@@ -108,9 +108,9 @@ beginObjectProperties
 major 10
 minor 0
 release 0
-x 10
+x 105
 y 790
-w 370
+w 275
 h 20
 controlPv "$(P)$(R)StringFromServer_RBV"
 fgColor index 16
@@ -128,15 +128,15 @@ major 4
 minor 1
 release 0
 x 10
-y 730
-w 145
+y 750
+w 90
 h 20
 font "arial-bold-r-12.0"
 fgColor index 14
 bgColor index 3
 useDisplayBg
 value {
-  "String to labview:"
+  "To labview:"
 }
 endObjectProperties
 
@@ -147,15 +147,15 @@ major 4
 minor 1
 release 0
 x 10
-y 770
-w 145
+y 790
+w 95
 h 20
 font "arial-bold-r-12.0"
 fgColor index 14
 bgColor index 3
 useDisplayBg
 value {
-  "String from labview:"
+  "From labview:"
 }
 endObjectProperties
 
@@ -167,7 +167,7 @@ minor 0
 release 0
 x 255
 y 715
-w 120
+w 110
 h 20
 fgColor index 25
 bgColor index 3
@@ -230,7 +230,7 @@ minor 1
 release 0
 x 180
 y 685
-w 200
+w 185
 h 20
 font "arial-bold-r-12.0"
 fontAlign "center"
@@ -251,7 +251,7 @@ major 10
 minor 0
 release 0
 x 255
-y 505
+y 495
 w 110
 h 20
 controlPv "$(P)$(R)ThresholdEnergy0_RBV"
@@ -270,7 +270,7 @@ major 4
 minor 5
 release 0
 x 135
-y 505
+y 495
 w 110
 h 20
 controlPv "$(P)$(R)ThresholdEnergy0"
@@ -295,7 +295,7 @@ major 4
 minor 1
 release 0
 x 15
-y 505
+y 495
 w 110
 h 20
 font "arial-bold-r-12.0"
@@ -314,7 +314,7 @@ major 10
 minor 0
 release 0
 x 255
-y 530
+y 520
 w 110
 h 20
 controlPv "$(P)$(R)ThresholdEnergy1_RBV"
@@ -333,7 +333,7 @@ major 4
 minor 5
 release 0
 x 135
-y 530
+y 520
 w 110
 h 20
 controlPv "$(P)$(R)ThresholdEnergy1"
@@ -358,7 +358,7 @@ major 4
 minor 1
 release 0
 x 15
-y 530
+y 520
 w 110
 h 20
 font "arial-bold-r-12.0"
@@ -377,7 +377,7 @@ major 10
 minor 0
 release 0
 x 255
-y 555
+y 545
 w 110
 h 20
 controlPv "$(P)$(R)OperatingEnergy_RBV"
@@ -396,7 +396,7 @@ major 4
 minor 5
 release 0
 x 135
-y 555
+y 545
 w 110
 h 20
 controlPv "$(P)$(R)OperatingEnergy"
@@ -421,7 +421,7 @@ major 4
 minor 1
 release 0
 x 15
-y 555
+y 545
 w 110
 h 20
 font "arial-bold-r-12.0"
@@ -464,7 +464,7 @@ minor 1
 release 0
 x 180
 y 660
-w 200
+w 185
 h 20
 font "arial-bold-r-12.0"
 fontAlign "center"
@@ -485,7 +485,7 @@ major 4
 minor 2
 release 0
 x 15
-y 595
+y 660
 w 115
 h 25
 fgColor index 14
@@ -507,9 +507,9 @@ beginObjectProperties
 major 4
 minor 0
 release 0
-x 270
-y 600
-w 95
+x 280
+y 575
+w 85
 h 20
 
 beginGroup
@@ -520,9 +520,9 @@ beginObjectProperties
 major 4
 minor 0
 release 0
-x 270
-y 600
-w 95
+x 280
+y 575
+w 85
 h 20
 fgColor index 25
 bgColor index 3
@@ -547,7 +547,7 @@ major 4
 minor 1
 release 0
 x 175
-y 600
+y 575
 w 90
 h 20
 font "arial-bold-r-12.0"
@@ -566,7 +566,7 @@ major 4
 minor 0
 release 0
 x 15
-y 660
+y 710
 w 115
 h 25
 fgColor index 20
@@ -581,5 +581,121 @@ offLabel "Reset"
 3d
 useEnumNumeric
 font "arial-bold-r-12.0"
+endObjectProperties
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 280
+y 600
+w 85
+h 20
+
+beginGroup
+
+# (Menu Button)
+object activeMenuButtonClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 280
+y 600
+w 85
+h 20
+fgColor index 25
+bgColor index 3
+inconsistentColor index 0
+topShadowColor index 1
+botShadowColor index 11
+controlPv "$(P)$(R)EnableCounter1"
+indicatorPv "$(P)$(R)EnableCounter1_RBV"
+font "arial-bold-r-12.0"
+endObjectProperties
+
+endGroup
+
+visMin "0"
+visMax "1"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 175
+y 600
+w 90
+h 20
+font "arial-bold-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "Counter 1"
+}
+endObjectProperties
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 280
+y 625
+w 85
+h 20
+
+beginGroup
+
+# (Menu Button)
+object activeMenuButtonClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 280
+y 625
+w 85
+h 20
+fgColor index 25
+bgColor index 3
+inconsistentColor index 0
+topShadowColor index 1
+botShadowColor index 11
+controlPv "$(P)$(R)ContinuousRW"
+indicatorPv "$(P)$(R)ContinuousRW_RBV"
+font "arial-bold-r-12.0"
+endObjectProperties
+
+endGroup
+
+visMin "0"
+visMax "1"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 175
+y 625
+w 100
+h 20
+font "arial-bold-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "Continuous RW "
+}
 endObjectProperties
 

@@ -356,6 +356,14 @@ int echo_request(int socket_fd)
 			    strcpy(strResp, "0");
             if(!strncmp(cmdName,"GETSOFTWAREVERSION",MAXLINE))
                 strcpy(strResp, "2.2");
+
+            if(!strncmp(cmdName,"CONTINUOUSRW",MAXLINE))
+                strcpy(strResp, "1");
+
+            if(!strncmp(cmdName,"ENABLECOUNTER1",MAXLINE))
+                strcpy(strResp, "0");
+
+
 /*
             if(!strncmp(cmdName,"THSTART",MAXLINE))
                 strcpy(strResp, "2.0");

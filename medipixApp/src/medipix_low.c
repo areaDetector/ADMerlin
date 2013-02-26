@@ -3,6 +3,11 @@
  * 
  * Matthew Pearson
  * Nov 2011
+ *
+ * NOTE - this code is no longer in use but kept for reference.
+ *
+ * The replacement for this code is implemented in the section of medipixDetector.cpp that is commented
+ * "Labview communications primitives" - but note that all socket communication is deferred to ASYN
  */
 
 #include <stdio.h>

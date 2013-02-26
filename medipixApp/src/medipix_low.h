@@ -46,7 +46,8 @@ extern int mpxDisconnect(void);
 #define MPX_OK 0    			/*Ok*/
 #define MPX_ERR 1               /*Unknown Error*/
 #define MPX_ERR_CMD 2   		/*Command not known.*/
-#define MPX_ERR_PARAM 3 		/*Param out of range.*/
+#define MPX_ERR_PARAM 3         /*Param out of range.*/
+#define MPX_ERR_BUSY 4          /*The controller is busy and not accepting commands */
 #define MPX_ERR_CONN 100  		/*Not connected to detector.*/
 #define MPX_ERR_WRITE 101 		/*Error writing to socket.*/
 #define MPX_ERR_READ 102 		/*Error reading from socket.*/
@@ -64,6 +65,8 @@ extern int mpxDisconnect(void);
 #define MPXVAR_TRIGGERSTOP 				"TRIGGERSTOP"
 #define MPXVAR_NUMFRAMESPERTRIGGER 		"NUMFRAMESPERTRIGGER"
 #define MPXVAR_COUNTERDEPTH		 		"COUNTERDEPTH"
+#define MPXVAR_ENABLECOUNTER1           "ENABLECOUNTER1"
+#define MPXVAR_CONTINUOUSRW             "CONTINUOUSRW"
 // variables Threshold Scan Control
 #define MPXVAR_THSSCAN 					"THSCAN"
 #define MPXVAR_THWINDOWMODE 			"THWINDOWMODE"
