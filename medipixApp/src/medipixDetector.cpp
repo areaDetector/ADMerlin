@@ -1226,6 +1226,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
     char strVal[MPX_MAXLINE];
 	int function = pasynUser->reason;
 	int adstatus;
+	int counter1Enabled;
 	int imageMode, imagesToAcquire;
 	asynStatus status = asynSuccess;
 	const char *functionName = "writeInt32";
@@ -1269,6 +1270,10 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
                 imagesRemaining = -1;
                 break;
             }
+
+            status = getIntegerParam(medipixEnableCounter1, &counter1Enabled);
+            if(counter1Enabled == 1 && imagesRemaining > 0)
+                imagesRemaining *= 2;
 
             epicsSnprintf(strVal, MPX_MAXLINE, "%d", imagesToAcquire);
             this->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal, Labview_DEFAULT_TIMEOUT);
