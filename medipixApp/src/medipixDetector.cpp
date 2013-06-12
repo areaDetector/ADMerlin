@@ -974,7 +974,7 @@ void medipixDetector::medipixTask()
 	NDArray *pImage;
 	epicsTimeStamp startTime;
 	const char *functionName = "medipixTask";
-	int dims[2];
+	size_t dims[2];
 	int arrayCallbacks;
 	int nread;
 	char *bigBuff;
@@ -1052,9 +1052,12 @@ void medipixDetector::medipixTask()
             imageCounter++;
             setIntegerParam(NDArrayCounter, imageCounter);
 
+            int idim;
             /* Get an image buffer from the pool */
-            getIntegerParam(ADMaxSizeX, &dims[0]);
-            getIntegerParam(ADMaxSizeY, &dims[1]);
+            getIntegerParam(ADMaxSizeX, &idim);
+            dims[0] = idim;
+            getIntegerParam(ADMaxSizeY, &idim);
+            dims[1] = idim;
             if(header == MPXDataHeader12)
             {
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_FLOW,
@@ -1064,7 +1067,7 @@ void medipixDetector::medipixTask()
 
                 // copy the data into NDArray, switching to little endien and Inverting in the Y axis
                 epicsUInt16 *pData, *pSrc;
-                int x,y;
+                size_t x,y;
                 for ( y = 0; y < dims[1]; y++)
                 {
                     for (   x = 0,
@@ -1086,7 +1089,7 @@ void medipixDetector::medipixTask()
 				pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
 
 				epicsUInt32 *pData, *pSrc;
-                int x,y;
+                size_t x,y;
                 for ( y = 0; y < dims[1]; y++)
                 {
                     for (   x = 0,
@@ -1520,7 +1523,7 @@ medipixDetector::medipixDetector(const char *portName,
 {
 	int status = asynSuccess;
 	const char *functionName = "medipixDetector";
-	int dims[2];
+	size_t dims[2];
 
 	startingUp = 1;
     strcpy(LabviewCommandPortName, LabviewCommandPort);
