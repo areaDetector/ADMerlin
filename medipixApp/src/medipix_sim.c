@@ -533,7 +533,7 @@ int produce_data(int data_fd)
 	            else
 	            {
 	                printf("preparing profile data\n");
-                    sprintf((data + HEADER_LEN), "%dP,%-252s",Depth,buf2);
+                    sprintf((data + HEADER_LEN), "P%d,%-252s",Depth,buf2);
 
 	                uint64_t* profileData = (uint64_t*) data + headersLength;
 
