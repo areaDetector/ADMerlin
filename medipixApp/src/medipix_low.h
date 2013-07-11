@@ -27,11 +27,14 @@ extern int mpxDisconnect(void);
 #define MPX_DATA_ACQ_HDR "HDR"
 #define MPX_DATA_12 "12B"
 #define MPX_DATA_24 "24B"
+#define MPX_PROFILE_12 "12P"
+#define MPX_PROFILE_24 "24P"
 #define MPX_MSG_LEN_DIGITS 10
 #define MPX_MSG_DATATYPE_LEN 3
 
 #define MPX_MAXLINE 256
 #define MPX_IMG_HDR_LEN 256
+#define MPX_PROFILE_LEN 256 * 4   // 64 bit
 #define MPX_ACQUISITION_HEADER_LEN 2044
 
 #define MPX_X_SIZE 256
@@ -84,6 +87,14 @@ extern int mpxDisconnect(void);
 #define MPXCMD_THSCAN                   "THSCAN"
 #define MPXCMD_SOFTWARETRIGGER          "SWTRIGGER"
 #define MPXCMD_RESET                    "RESET"
+#define MPXCMD_PROFILECONTROL           "PROFILES"
+#define MPXCMD_PROFILES                 "PROFILES"
+
+// Bits in the PROFILES selection mask
+#define MPXPROFILES_IMAGE               1
+#define MPXPROFILES_XPROFILE            2
+#define MPXPROFILES_YPROFILE            4
+#define MPXPROFILES_SUM                 8
 
 
 #endif /* MPX_LOW_H */

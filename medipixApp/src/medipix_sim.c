@@ -27,6 +27,8 @@
 #define MAXLINE 256
 #define MAXDATA 256*256*2*2 // 256 X by 256 Y by 2 bytes per pixel * 2 for 24 bit depth (= 32 bits data)
 #define DATAHEADERLEN 252
+#define MPX_PROFILE_LEN 256 * 4
+#define MPX_SUM_LEN 4
 #define CMDLEN 4
 #define HEADER_LEN 15 // this includes 2 commas + the header and length fields
 
@@ -379,7 +381,8 @@ int echo_request(int socket_fd)
 		else if (!strncmp(cmdType, "CMD", 3))
 		{
             if (!strncmp(cmdName, "STARTACQUISITION", 16)
-                    || !strncmp(cmdName, "THSTART", 16))
+                    || !strncmp(cmdName, "THSTART", 16)
+                    || !strncmp(cmdName, "PROFILES", 16))
             {
                 if(!strncmp(cmdName, "THSTART", 16))
                     frames_to_send = 7;
@@ -390,7 +393,16 @@ int echo_request(int socket_fd)
                 /*signal data thread to send some data back.*/
                 printf("***signalling data thread.\n");
                 pthread_mutex_lock(&do_data_mutex);
-                do_data = 1;
+                if(!strncmp(cmdName, "PROFILES", 16))
+                {
+                    // use do_data = 2 to indicate a profiles request
+                    do_data = 2;
+                }
+                else
+                {
+                    // use do_data = 1 to indicate an image request
+                    do_data = 1;
+                }
                 pthread_cond_signal(&do_data_cond);
                 pthread_mutex_unlock(&do_data_mutex);
                 printf("***data thread singnalled.\n");
@@ -441,7 +453,8 @@ int produce_data(int data_fd)
 	// frame = header (including comma) + data frame type (3 chars) +
 	//		comma + data frame header + image data
 	int frameSize24 = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA;
-	int frameSize12 = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA/2;
+    int frameSize12 = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA/2;
+    int frameSizeProfile = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MPX_PROFILE_LEN *2 + MPX_SUM_LEN;
 
     char data[frameSize24];
 	unsigned int i,j;
@@ -466,9 +479,9 @@ int produce_data(int data_fd)
 
 		//printf("MAXDATA: %d\n", MAXDATA);
 
-		if ((do_data == 1) && (data_exit == 0))
+		if ((do_data > 0) && (data_exit == 0))
 		{
-
+		    printf("starting frame sending with do_data = %d\n", do_data);
 
 			// send a silly acquisition header
 			if (write(data_fd, "MPX,0000000433,HDR,dummy acquisition header.0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789END",
@@ -491,6 +504,11 @@ int produce_data(int data_fd)
 	            struct tm *current;
 	            int thisFrameSize = Depth==12 ? frameSize12 : frameSize24;
 
+	            if(do_data == 2)
+	            {
+	                thisFrameSize = frameSizeProfile;
+	            }
+
 	            now = time(0); //current time in C representation
 	            current = localtime(&now);
 
@@ -498,16 +516,33 @@ int produce_data(int data_fd)
 
 	            // ??? getting spurious one byte garbage - so adding 1 to length of data packet ???
 	            snprintf(data, HEADER_LEN,"MPX,%010u,", thisFrameSize - HEADER_LEN+1);
-	            sprintf(buf2, "%4d,1,%s.007,1.5E-2,6.0,8.01E2,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0XEND",
+	            sprintf(buf2, "%4d,1,%s.007,1.5E-2,6.0,8.01E2,1,2,3,4,5,6,7,8,9,10,1,2,3,4,5,6,7,8,1,20,21,22,23,24,25,00014",
 	        			i,timebuf);
-		    	sprintf((data + HEADER_LEN), "%dB,%-252s",Depth,buf2);
 
-		    	// create dummy data
-		    	for (j = headersLength; j < MAXDATA/(24/Depth) +headersLength; j++)
-		    	{
-		    		data[j] = rand() % 255;
-		    	}
+	            if(do_data == 1)
+	            {
+	                printf("preparing image data\n");
+                    sprintf((data + HEADER_LEN), "%dB,%-252s",Depth,buf2);
 
+                    // create dummy data
+                    for (j = headersLength; j < MAXDATA/(24/Depth) +headersLength; j++)
+                    {
+                        data[j] = rand() % 255;
+                    }
+	            }
+	            else
+	            {
+	                printf("preparing profile data\n");
+                    sprintf((data + HEADER_LEN), "%dP,%-252s",Depth,buf2);
+
+	                uint64_t* profileData = (uint64_t*) data + headersLength;
+
+                    // create dummy data
+                    for (j = 0; j <  256 * 2; j++)
+                    {
+                        profileData[j] = j;
+                    }
+	            }
                 // write an image
                 if (write(data_fd, data, thisFrameSize) <= 0)
                 {

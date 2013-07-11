@@ -9,6 +9,8 @@
 #% macro, PORT,     Asyn port
 #% macro, ADDR,     Asyn Address
 #% macro, TIMEOUT,  Asyn communications timeout
+#% macro, XSIZE,    Maximum size of X histograms
+#% macro, YSIZE,    Maximum size of Y histograms
 
 # This associates the template with an edm screen
 # % gui, $(PORT), edmtab, medipixDetector.edl, P=$(P),R=$(R)
@@ -363,8 +365,6 @@ record(mbbi,"$(P)$(R)CounterDepth_RBV") {
    field(SCAN, "I/O Intr")
 }
 
-############### TODO ##############################################################
-
 # Counter depth - number of bits per pixel
 # % autosave 2 
 ##  gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
@@ -387,7 +387,7 @@ record(bi,"$(P)$(R)EnableCounter1_RBV") {
     field(SCAN, "I/O Intr")
 }
 
-# Counter depth - number of bits per pixel
+# Counter depth - continuous RW feature
 # % autosave 2 
 ##  gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
 record(bo,"$(P)$(R)ContinuousRW") {
@@ -409,7 +409,57 @@ record(bi,"$(P)$(R)ContinuousRW_RBV") {
     field(SCAN, "I/O Intr")
 }
 
-############### END OF TODO ##############################################################
+
+##########################################################################
+# Records specific to XBPM (manchester university)
+##########################################################################
+
+# Profiles feature - control what data is sent when the profiles command is 
+# executed
+# % autosave 2 
+##  gdatag, pv, rw, $(PORT)_medipix, ProfileControl, Set ProfileControl
+record(mbbo,"$(P)$(R)ProfileControl") {
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))PROFILECONTROL")
+    field(DESC,"Profile Control")
+    field(ZRVL,"01")
+    field(ZRST,"Image")
+    field(ONVL,"14")
+    field(ONST,"Profiles")
+}
+
+##  gdatag, pv, ro, $(PORT)_medipix, ProfileControl_RBV, Read ProfileControl
+record(mbbi,"$(P)$(R)ProfileControl_RBV") {
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))PROFILECONTROL")
+    field(DESC,"Profile Control")
+    field(ZRVL,"01")
+    field(ZRST,"Image")
+    field(ONVL,"14")
+    field(ONST,"Profiles")
+   field(SCAN, "I/O Intr")
+}
+
+# % gdatag, array, ro, $(PORT)_medipix, ProfileAverageX_RBV, Readback for ProfileAverageX
+record(waveform, "$(P)$(R)ProfileAverageX_RBV")
+{
+   field(DTYP, "asynInt32ArrayIn")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))PROFILE_AVERAGE_X")
+   field(FTVL, "ULONG")
+   field(NELM, "$(XSIZE=256)")
+   field(SCAN, "I/O Intr")
+}
+
+# % gdatag, array, ro, $(PORT)_medipix, ProfileAverageY_RBV, Readback for ProfileAverageY
+record(waveform, "$(P)$(R)ProfileAverageY_RBV")
+{
+   field(DTYP, "asynInt32ArrayIn")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))PROFILE_AVERAGE_Y")
+   field(FTVL, "ULONG")
+   field(NELM, "$(YSIZE=256)")
+   field(SCAN, "I/O Intr")
+}
 
 ##########################################################################
 # Disable records from ADBase etc. that we do not use for medipix
