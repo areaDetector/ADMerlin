@@ -39,7 +39,8 @@
 
 #include "medipix_low.h"
 
-#define ASYN_TRACE_MPX      0x0100
+#define ASYN_TRACE_MPX          0x0100
+#define ASYN_TRACE_MPX_VERBOSE  0x0200
 #define MAX(a,b) a>b ? a : b
 
 /** Messages to/from Labview command channel */
@@ -150,7 +151,7 @@ protected:
     int medipixProfileX;
     int medipixProfileY;
 
-#define LAST_medipix_PARAM medipixProfileControl
+#define LAST_medipix_PARAM medipixProfileY
 
 private:
     /* These are the methods that are new to this class */
@@ -1017,6 +1018,54 @@ inline void endian_swap(uint64_t& x)
             | (((x) & 0xFF00000000000000LL) << 0x38));
 }
 
+/** memory dump of data for diagnostics
+ */
+void dumpData(char* sdata, int size)
+{
+    int w = 20;  // width
+    int b = 10;  // break at points in row
+    unsigned char* data = (unsigned char*)sdata;
+
+    printf("\nData String - %s\n", data);
+    for (int i = 0; i < size; i += w)
+    {
+        printf("%08d", i);
+        for (int c = 0; c < w; c++)
+        {
+            if(c%b==0)
+            {
+                printf("  ");
+            }
+            if (c + i > size)
+            {
+                printf(" ");
+            }
+            else
+            {
+                char t = data[i + c];
+                if (t < 0x20 || t > 0x7e)
+                {
+                    t = '.';
+                }
+                printf("%c", t);
+            }
+        }
+        for (int c = 0; c < w; c++)
+        {
+            if(c%b==0)
+            {
+                printf("  ");
+            }
+            if (c + i <= size)
+            {
+                printf("%02x ", data[i + c]);
+            }
+        }
+        printf("\n");
+    }
+    printf("\n\n");
+}
+
 /** This thread controls acquisition, reads image files to get the image data, and
  * does the callbacks to send it to higher layers
  * It is totally decoupled from the command thread and simply waits for data
@@ -1090,6 +1139,12 @@ void medipixDetector::medipixTask()
         asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                 "\nReceived image frame of %d bytes\n", nread);
 
+        if (pasynTrace->getTraceMask((pasynUserSelf))
+                & (ASYN_TRACE_MPX_VERBOSE))
+        {
+            dumpData(bigBuff, nread);
+        }
+
         medipixDataHeader header = parseDataHeader(bigBuff);
         if (header != MPXAcquisitionHeader)
         {
@@ -1118,14 +1173,22 @@ void medipixDetector::medipixTask()
             profileDims[0] = MAX(dims[0], dims[1]);
             profileDims[1] = 2;
 
-            if (header == MPXDataHeader12)
+            if (header == MPXAcquisitionHeader)
+            {
+                // this is an acquisition header
+                strncpy(aquisitionHeader, bigBuff, MPX_ACQUISITION_HEADER_LEN);
+                aquisitionHeader[MPX_ACQUISITION_HEADER_LEN] = 0;
+            }
+            else if (header == MPXDataHeader12)
             {
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating a 12bit Array\n");
 
                 pImage = this->pNDArrayPool->alloc(2, dims, NDUInt16, 0, NULL);
+                parseDataFrame(pImage, bigBuff, header);
 
-                // copy the data into NDArray, switching to little endien and Inverting in the Y axis
+                // copy the data into NDArray, switching to little endien and
+                // Inverting in the Y axis
                 epicsUInt16 *pData, *pSrc;
                 size_t x, y;
                 for (y = 0; y < dims[1]; y++)
@@ -1146,6 +1209,7 @@ void medipixDetector::medipixTask()
                         "Creating a 24bit Array\n");
 
                 pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
+                parseDataFrame(pImage, bigBuff, header);
 
                 epicsUInt32 *pData, *pSrc;
                 size_t x, y;
@@ -1167,87 +1231,13 @@ void medipixDetector::medipixTask()
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating an Array for Profile Type %d\n", header);
 
-                // for profiles we do a max dim * 2 array to hold both x and y profile
-                // this is for review, is it useful?
-                // Todo an alternative is to send 2 arrays one for each dim and
-                // attribute them accordingly
+                // for profiles we do a max dim * 2 array to hold both x
+                // and y profile
                 pImage = this->pNDArrayPool->alloc(2, profileDims, NDUInt32, 0,
                         NULL);
-
-                epicsUInt32 *pData, *pSrc;
-                size_t x, y;
-                for (y = 0; y < 2; y++)
-                {
-                    for (x = 0, pData = (epicsUInt32 *) pImage->pData
-                            + y * dims[0], pSrc = (epicsUInt32 *) (bigBuff
-                            + MPX_IMG_HDR_LEN) + (dims[1] - y) * dims[0];
-                            x < dims[0]; x++, pData++, pSrc++)
-                    {
-                        // Todo 64bit conversion as per epics waveforms below
-                    }
-                }
-            }
-            else
-            {
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                        "Unknown header type %d\n", header);
-            }
-
-            // Now parse the rest of the header
-            if (header == MPXAcquisitionHeader)
-            {
-                // this is an acquisition header
-                strncpy(aquisitionHeader, bigBuff, MPX_ACQUISITION_HEADER_LEN);
-                aquisitionHeader[MPX_ACQUISITION_HEADER_LEN] = 0;
-
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-                        "Acquisition Header:\n%s\n\n", aquisitionHeader);
-            }
-            else if (header == MPXDataHeader12 || header == MPXDataHeader24)
-            {
-                // parse the header and apply attributes to the NDArray
                 parseDataFrame(pImage, bigBuff, header);
 
-                /* Put the frame number and time stamp into the buffer */
-                pImage->uniqueId = imageCounter;
-                pImage->timeStamp = startTime.secPastEpoch
-                        + startTime.nsec / 1.e9;
-
-                // string attributes are global in HDF5 plugin so the most recent acquisition header is
-                // applied to all files
-                pImage->pAttributeList->add("Acquisition Header", "",
-                        NDAttrString, aquisitionHeader);
-
-                /* Get any attributes that have been defined for this driver */
-                this->getAttributes(pImage->pAttributeList);
-
-                /* Call the NDArray callback */
-                /* Must release the lock here, or we can get into a deadlock, because we can
-                 * block on the plugin lock, and the plugin can be calling us */
-                this->unlock();
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-                        "%s:%s: calling NDArray callback\n", driverName,
-                        functionName);
-                doCallbacksGenericPointer(pImage, NDArrayData, 0);
-                this->lock();
-                /* Free the image buffer */
-                pImage->release();
-            }
-            else if (header == MPXProfileHeader12
-                    || header == MPXProfileHeader24)
-            {
-                // parse the header and apply attributes to the NDArray
-                parseDataFrame(pImage, bigBuff, header);
-
-                // currently we only support all profiles or all images with 32bit
-                // data
-                if (header == MPXProfileHeader24)
-                {
-                    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                            "%s:%s: PROFILES not supported in 24bit mode\n",
-                            driverName, functionName);
-                }
-                else if (profileMask
+                if (profileMask
                         != (MPXPROFILES_XPROFILE | MPXPROFILES_YPROFILE
                                 | MPXPROFILES_SUM))
                 {
@@ -1258,6 +1248,7 @@ void medipixDetector::medipixTask()
                 else
                 {
                     epicsUInt32 *pData;
+                    epicsUInt32 *pWaveForm;
                     uint64_t *pSrc;
                     size_t x, y;
 
@@ -1265,35 +1256,75 @@ void medipixDetector::medipixTask()
                             "%s:%s: reading PROFILES data%d\n", driverName,
                             functionName, profileMask);
 
-//                    for (x = 0, pData = (epicsUInt32 *) profileX, pSrc =
-//                            (uint64_t *) ((bigBuff + MPX_IMG_HDR_LEN));
-//                            x < dims[0]; x++, pData++, pSrc++)
-//                    {
-//                        printf("%d ", x);
-//                        endian_swap(*pSrc);
-//                        *pData = (epicsUInt32) *pSrc;
-//                    }
-//                    printf("###\n");
-//                    for (y = 0, pData = (epicsUInt32 *) profileY, pSrc =
-//                            (uint64_t *) ((bigBuff + MPX_IMG_HDR_LEN
-//                                    + MPX_PROFILE_LEN)); y < dims[1];
-//                            y++, pData++, pSrc++)
-//                    {
-//                        printf("%d ", y);
-//                        endian_swap(*pSrc);
-//                        *pData = (epicsUInt32) *pSrc;
-//                    }
-//                    printf("###\n");
+                    // Copy the X,Y profile data into the (size * 2) NDArray
+                    // and into the X,Y waveforms
+                    pData = (epicsUInt32*) pImage->pData;
+                    for (x = 0, pWaveForm = (epicsUInt32 *) profileX, pSrc =
+                            (uint64_t *) ((bigBuff + MPX_IMG_HDR_LEN));
+                            x < dims[0]; x++, pWaveForm++, pSrc++, pData++)
+                    {
+                        //printf("%llu ", *pSrc);
+                        endian_swap(*pSrc);
+                        *pWaveForm = (epicsUInt32) *pSrc;
+                        *pData = (epicsUInt32) *pSrc;
+                    }
+                    for (y = dims[1] - 1, pWaveForm = (epicsUInt32 *) profileY, pSrc =
+                            (uint64_t *) ((bigBuff + MPX_IMG_HDR_LEN
+                                    + MPX_PROFILE_LEN)); y <= 0;
+                            y++, pWaveForm++, pSrc++, pData++)
+                    {
+                        endian_swap(*pSrc);
+                        *pWaveForm = (epicsUInt32) *pSrc;
+                        *pData = (epicsUInt32) *pSrc;
+                    }
 
-                    //doCallbacksInt32Array(profileY, dims[1], medipixProfileY, 0);
-                    //doCallbacksInt32Array(profileX, dims[0], medipixProfileX, 0);
-                    int ytmp[40], xtmp[40];
-                    printf("callbacks y\n");
-                    doCallbacksInt32Array(ytmp, 20, medipixProfileY, 0);
-                    printf("callbacks x\n");
-                    doCallbacksInt32Array(xtmp, 20, medipixProfileX, 0);
-                    printf("callbacks done\n");
+                    doCallbacksInt32Array(profileY, dims[1], medipixProfileY,
+                            0);
+                    doCallbacksInt32Array(profileX, dims[0], medipixProfileX,
+                            0);
                 }
+            }
+            else
+            {
+                asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+                        "Unknown header type %d\n", header);
+            }
+
+            // for Data frames - complete the NDAttributes, pass the NDArray on
+            if (header == MPXDataHeader12 || header == MPXDataHeader24
+                    || header == MPXProfileHeader12
+                    || header == MPXProfileHeader24)
+            {
+                // Put the frame number and time stamp into the buffer
+                pImage->uniqueId = imageCounter;
+                pImage->timeStamp = startTime.secPastEpoch
+                        + startTime.nsec / 1.e9;
+
+                // string attributes are global in HDF5 plugin so the most recent
+                // acquisition header is applied to all files
+                pImage->pAttributeList->add("Acquisition Header", "",
+                        NDAttrString, aquisitionHeader);
+
+                /* Get any attributes that have been defined for this driver */
+                this->getAttributes(pImage->pAttributeList);
+
+                // Call the NDArray callback
+                // Must release the lock here, to avoid a deadlock: we can
+                // block on the plugin lock, and the plugin can be calling us
+                this->unlock();
+                if (header == MPXDataHeader12 || header == MPXDataHeader24)
+                {
+                    doCallbacksGenericPointer(pImage, NDArrayData, 0);
+                }
+                else
+                {
+                    // address 1 on the port is used for profiles
+                    doCallbacksGenericPointer(pImage, NDArrayData, 1);
+                }
+                this->lock();
+
+                /* Free the image buffer */
+                pImage->release();
             }
         }
 
@@ -1318,7 +1349,7 @@ void medipixDetector::medipixTask()
         callParamCallbacks();
     }
     // release the image buffer (in reality this does not get called
-    // I need a thread shutdown signal)
+    // We need a thread shutdown signal)
     free(bigBuff);
 }
 
@@ -1337,14 +1368,14 @@ void medipixDetector::medipixStatus()
     int status = 0;
     int statusCode;
 
-    // let the startup script complete before attempting I/O
+// let the startup script complete before attempting I/O
     epicsThreadSleep(4);
     startingUp = 0;
 
     this->lock();
 
-    // make sure important grouped variables are set to agree with
-    // IOCs auto saved values
+// make sure important grouped variables are set to agree with
+// IOCs auto saved values
     setAcquireParams();
     updateThresholdScanParms();
     getThreshold();
@@ -1352,7 +1383,7 @@ void medipixDetector::medipixStatus()
     result = mpxGet(MPXVAR_GETSOFTWAREVERSION, Labview_DEFAULT_TIMEOUT);
     statusCode = atoi(this->fromLabviewValue);
 
-    // initial status
+// initial status
     setIntegerParam(ADStatus, ADStatusIdle);
 
     this->unlock();
@@ -1393,8 +1424,8 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
     if (function == medipixReset)
     {
         mpxCommand(MPXCMD_RESET, Labview_DEFAULT_TIMEOUT);
-        // I cannot successfully reconnect to the server after a reset
-        // the only solution found so far is to restart the ioc
+// I cannot successfully reconnect to the server after a reset
+// the only solution found so far is to restart the ioc
         exit(0);
     }
     else if (function == medipixSoftwareTrigger)
@@ -1437,7 +1468,6 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
             this->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal,
                     Labview_DEFAULT_TIMEOUT);
 
-            printf("##### profile mask is %d\n", profileMaskParm);
             if (profileMaskParm & MPXPROFILES_IMAGE == MPXPROFILES_IMAGE)
             {
                 mpxCommand(MPXCMD_STARTACQUISITION, Labview_DEFAULT_TIMEOUT);
@@ -1495,8 +1525,8 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
     }
     else
     {
-        // function numbers are assigned sequentially via createParam in the constructor and hence
-        // any function numbers lower than our first function is handled by a (the) super class
+// function numbers are assigned sequentially via createParam in the constructor and hence
+// any function numbers lower than our first function is handled by a (the) super class
         if (function < FIRST_medipix_PARAM)
             status = ADDriver::writeInt32(pasynUser, value);
     }
@@ -1610,7 +1640,7 @@ asynStatus medipixDetector::writeOctet(asynUser *pasynUser, const char *value,
 
     if (function == NDFilePath)
     {
-        // not required for medipix
+// not required for medipix
     }
     else
     {
@@ -1689,9 +1719,13 @@ medipixDetector::medipixDetector(const char *portName,
         int priority, int stackSize)
 
 :
-        ADDriver(portName, 1, NUM_medipix_PARAMS, maxBuffers, maxMemory, 0, 0, /* No interfaces beyond those set in ADDriver.cpp */
-        ASYN_CANBLOCK, 1, /* ASYN_CANBLOCK=1, ASYN_MULTIDEVICE=0, autoConnect=1 */
-        priority, stackSize),
+        ADDriver(portName, 1, NUM_medipix_PARAMS, maxBuffers, maxMemory,
+                asynInt32ArrayMask | asynFloat64ArrayMask
+                        | asynGenericPointerMask | asynInt16ArrayMask,
+                asynInt32ArrayMask | asynFloat64ArrayMask
+                        | asynGenericPointerMask | asynInt16ArrayMask,
+                ASYN_CANBLOCK, 1, /* ASYN_CANBLOCK=1, ASYN_MULTIDEVICE=0, autoConnect=1 */
+                priority, stackSize),
         imagesRemaining(0)
 
 {
@@ -1709,8 +1743,8 @@ medipixDetector::medipixDetector(const char *portName,
     /* Allocate the raw buffer we use for flat fields. */
     this->pFlatField = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
 
-    // medipix is upside down by area detector standards
-    // this does not work - I need to invert using my own memory copy function
+// medipix is upside down by area detector standards
+// this does not work - I need to invert using my own memory copy function
     this->ADReverseY = 1;
 
     /* Connect to Labview */
@@ -1753,15 +1787,13 @@ medipixDetector::medipixDetector(const char *portName,
     createParam(medipixContinuousRWString, asynParamInt32,
             &medipixContinuousRW);
 
-    // XBPM Specific parameters
+// XBPM Specific parameters
     createParam(medipixProfileControlString, asynParamInt32,
             &medipixProfileControl);
     int res = createParam(medipixProfileXString, asynParamInt32Array,
             &medipixProfileX);
-    printf("### create profile X returned %d\n", res);
     res = createParam(medipixProfileYString, asynParamInt32Array,
             &medipixProfileY);
-    printf("### create profile Y returned %d\n", res);
 
     /* Set some default values for parameters */
     status = setStringParam(ADManufacturer, "Medipix Consortium");
@@ -1779,15 +1811,13 @@ medipixDetector::medipixDetector(const char *portName,
     status |= setIntegerParam(ADTriggerMode, TMInternal);
     status |= setIntegerParam(medipixProfileControl, MPXPROFILES_IMAGE);
 
-    // attempt to clear the spurious error on startup (failed - not sure where this is coming from?)
-    //      Medipix1TestFileName devAsynOctet: writeIt requested 0 but sent 10780660 bytes
+// attempt to clear the spurious error on startup (failed - not sure where this is coming from?)
+//      Medipix1TestFileName devAsynOctet: writeIt requested 0 but sent 10780660 bytes
     status |= setStringParam(NDFileName, "image.bmp");
 
-    // allocate space for the waveforms
+// allocate space for the waveforms
     this->profileX = (int*) malloc(maxSizeX * sizeof(int));
     this->profileY = (int*) malloc(maxSizeY * sizeof(int));
-    printf("### allocated X profile size %d at mem 0x%x\n",
-            maxSizeX * sizeof(int), this->profileX);
 
     if (status)
     {

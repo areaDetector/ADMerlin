@@ -58,7 +58,9 @@ class medipix(_ADBase):
             'maxSizeY, maxBuffers, maxMemory)'
         print 'medipixDetectorConfig("%(PORT)s", "%(LABVIEW_CMD_PORT)s", "%(LABVIEW_DATA_PORT)s", ' \
             '%(XSIZE)d, %(YSIZE)d, %(BUFFERS)d, %(MEMORY)d)' % self.__dict__
-        print 'asynSetTraceMask MPX1 0 0x101'
+        
+        print 'asynSetTraceMask MPX1 0 0x101'  # less verbose
+        #print 'asynSetTraceMask MPX1 0 0x301' # most verbose
 
 #def medipix_sim(**kwargs):
 #    return simDetector(2500, 2000, **kwargs)
