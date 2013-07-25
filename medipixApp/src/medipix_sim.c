@@ -21,13 +21,14 @@
 #include <errno.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <stdint.h>
 
 #include <time.h>
 
 #define MAXLINE 256
 #define MAXDATA 256*256*2*2 // 256 X by 256 Y by 2 bytes per pixel * 2 for 24 bit depth (= 32 bits data)
 #define DATAHEADERLEN 252
-#define MPX_PROFILE_LEN 256 * 4
+#define MPX_PROFILE_LEN 256 * 8
 #define MPX_SUM_LEN 4
 #define CMDLEN 4
 #define HEADER_LEN 15 // this includes 2 commas + the header and length fields
@@ -440,6 +441,18 @@ int echo_request(int socket_fd)
     return EXIT_SUCCESS;
 }
 
+void endian_swap(uint64_t* x)
+{
+    *x =     ((((*x) & 0x00000000000000FFLL) << 0x38)
+            | (((*x) & 0x000000000000FF00LL) << 0x28)
+            | (((*x) & 0x0000000000FF0000LL) << 0x18)
+            | (((*x) & 0x00000000FF000000LL) << 0x08)
+            | (((*x) & 0x000000FF00000000LL) >> 0x08)
+            | (((*x) & 0x0000FF0000000000LL) >> 0x18)
+            | (((*x) & 0x00FF000000000000LL) >> 0x28)
+            | (((*x) & 0xFF00000000000000LL) >> 0x38));
+}
+
 /**
  * Produce simulation data when we start acquisition. 
  */
@@ -450,9 +463,9 @@ int produce_data(int data_fd)
 
     // frame = header (including comma) + data frame type (3 chars) +
     //		comma + data frame header + image data
-    int frameSize24 = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA;
-    int frameSize12 = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN + MAXDATA / 2;
-    int frameSizeProfile = HEADER_LEN + CMDLEN + 1 + DATAHEADERLEN
+    int frameSize24 = HEADER_LEN + CMDLEN + DATAHEADERLEN + MAXDATA;
+    int frameSize12 = HEADER_LEN + CMDLEN + DATAHEADERLEN + MAXDATA / 2;
+    int frameSizeProfile = HEADER_LEN + CMDLEN + DATAHEADERLEN
             + MPX_PROFILE_LEN * 2+ MPX_SUM_LEN;
 
     char data[frameSize24];
@@ -524,6 +537,8 @@ int produce_data(int data_fd)
 
                 if (do_data == 1)
                 {
+                    static int offset = 0;
+
                     printf("preparing image data\n");
                     sprintf((data + HEADER_LEN), "%dB,%-251s", Depth, buf2);
 
@@ -531,8 +546,9 @@ int produce_data(int data_fd)
                     for (j = headersLength;
                             j < MAXDATA / (24 / Depth) + headersLength; j++)
                     {
-                        data[j] = j / 20 % 255;
+                        data[j] = (j+offset) / 20 % 255;
                     }
+                    offset += 20;
                 }
                 else
                 {
@@ -544,7 +560,8 @@ int produce_data(int data_fd)
                     // create dummy data
                     for (j = 0; j < 256 * 2; j++)
                     {
-                        profileData[j] = (uint64_t) j;
+                        profileData[j] = (uint64_t)j;
+                        //endian_swap(&profileData[j]);
                     }
                 }
                 // write an image

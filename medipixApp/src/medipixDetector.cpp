@@ -1008,14 +1008,14 @@ inline void endian_swap(unsigned int& x)
 
 inline void endian_swap(uint64_t& x)
 {
-    x = ((((x) & 0x00000000000000FFLL) >> 0x38)
-            | (((x) & 0x000000000000FF00LL) >> 0x28)
-            | (((x) & 0x0000000000FF0000LL) >> 0x18)
-            | (((x) & 0x00000000FF000000LL) >> 0x08)
-            | (((x) & 0x000000FF00000000LL) << 0x08)
-            | (((x) & 0x0000FF0000000000LL) << 0x18)
-            | (((x) & 0x00FF000000000000LL) << 0x28)
-            | (((x) & 0xFF00000000000000LL) << 0x38));
+    x =      ((((x) & 0x00000000000000FFLL) << 0x38)
+            | (((x) & 0x000000000000FF00LL) << 0x28)
+            | (((x) & 0x0000000000FF0000LL) << 0x18)
+            | (((x) & 0x00000000FF000000LL) << 0x08)
+            | (((x) & 0x000000FF00000000LL) >> 0x08)
+            | (((x) & 0x0000FF0000000000LL) >> 0x18)
+            | (((x) & 0x00FF000000000000LL) >> 0x28)
+            | (((x) & 0xFF00000000000000LL) >> 0x38));
 }
 
 /** memory dump of data for diagnostics
@@ -1188,7 +1188,7 @@ void medipixDetector::medipixTask()
                 parseDataFrame(pImage, bigBuff, header);
 
                 // copy the data into NDArray, switching to little endien and
-                // Inverting in the Y axis
+                // Inverting in the Y axis (medipix origin is at bottom left)
                 epicsUInt16 *pData, *pSrc;
                 size_t x, y;
                 for (y = 0; y < dims[1]; y++)
@@ -1250,7 +1250,8 @@ void medipixDetector::medipixTask()
                     epicsUInt32 *pData;
                     epicsUInt32 *pWaveForm;
                     uint64_t *pSrc;
-                    size_t x, y;
+                    size_t x;
+                    int y;
 
                     asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                             "%s:%s: reading PROFILES data%d\n", driverName,
@@ -1264,16 +1265,18 @@ void medipixDetector::medipixTask()
                             x < dims[0]; x++, pWaveForm++, pSrc++, pData++)
                     {
                         //printf("%llu ", *pSrc);
-                        endian_swap(*pSrc);
+                        //endian_swap(*pSrc);
                         *pWaveForm = (epicsUInt32) *pSrc;
                         *pData = (epicsUInt32) *pSrc;
                     }
+                    // Invert the Y profile (medipix origin is at bottom left)
                     for (y = dims[1] - 1, pWaveForm = (epicsUInt32 *) profileY, pSrc =
                             (uint64_t *) ((bigBuff + MPX_IMG_HDR_LEN
-                                    + MPX_PROFILE_LEN)); y <= 0;
-                            y++, pWaveForm++, pSrc++, pData++)
+                                    + MPX_PROFILE_LEN)); y >= 0;
+                            y--, pWaveForm++, pSrc++, pData++)
                     {
-                        endian_swap(*pSrc);
+                        //printf("%d-%llu ", y, *pSrc);
+                        //endian_swap(*pSrc);
                         *pWaveForm = (epicsUInt32) *pSrc;
                         *pData = (epicsUInt32) *pSrc;
                     }
@@ -1319,7 +1322,10 @@ void medipixDetector::medipixTask()
                 else
                 {
                     // address 1 on the port is used for profiles
-                    doCallbacksGenericPointer(pImage, NDArrayData, 1);
+                    // TODO use of port 1 is not working in NDPluginBase so
+                    // currently reverting to use the same address
+                    // (e.g. setting Medipix1:ROI:NDArrayAddress has no effect
+                    doCallbacksGenericPointer(pImage, NDArrayData, 0);
                 }
                 this->lock();
 
