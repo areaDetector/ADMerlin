@@ -19,7 +19,7 @@ WORK=/dls_sw/work/R3.14.11/support
 
 ASYN =         $(SUPPORT)/asyn/4-21
 AUTOSAVE=       $(SUPPORT)/autosave/5-0
-AREA_DETECTOR = $(SUPPORT)/areaDetector/1-9dls4
+AREADETECTOR = $(SUPPORT)/areaDetector/1-9dls4
 FFMPEG=         $(SUPPORT)/ffmpegServer/1-16-2
 
 
