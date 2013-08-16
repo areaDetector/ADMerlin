@@ -7,11 +7,11 @@ include $(TOP)/configure/CONFIG_APP
 # Set this when you only want to compile this application
 # for a subset of the cross-compiled target architectures
 # that Base is built for.
-#CROSS_COMPILER_TARGET_ARCHS = vxWorks-ppc604_long
+CROSS_COMPILER_TARGET_ARCHS =
 
 # To restrict the build to a list *without* the host arch,
 # redefine BUILD_ARCHS here, to included only those archs to build
-BUILD_ARCHS = linux-x86
+#BUILD_ARCHS = linux-x86
 
 # Set this when your IOC and the host use different paths
 # to access the application. This will be needed to boot
