@@ -1,7 +1,6 @@
 #!/bin/env dls-python2.6
 
 from pkg_resources import require
-from epics import caput
 require("cothread")
 from cothread.catools import *
 import cothread

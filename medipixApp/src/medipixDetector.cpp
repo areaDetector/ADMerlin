@@ -7,7 +7,7 @@
  * Author: Giles Knap
  *         Diamond Light Source Ltd.
  *
- * Created:  Jan 06 2011
+ * Created:  Jan 06 2012
  *
 
  * Original Source from pilatusDetector by Mark Rivers
@@ -77,6 +77,7 @@ typedef enum
     MPXDataHeaderNone,
     MPXDataHeader12,
     MPXDataHeader24,
+    MPXGenericImageHeader,
     MPXProfileHeader12,
     MPXProfileHeader24,
     MPXAcquisitionHeader,
@@ -160,9 +161,14 @@ private:
     asynStatus setAcquireParams();
     asynStatus getThreshold();
     asynStatus updateThresholdScanParms();
-    void parseDataFrame(NDArray* pImage, const char* header,
+    void parseDataFrame(NDAttributeList* pAttr, const char* header,
+            medipixDataHeader headerType, size_t *xsize, size_t *ysize,
+            int* pixelSize);
+    void parseMqDataFrame(NDArray* pImage, const char* header,
             medipixDataHeader headerType);
     medipixDataHeader parseDataHeader(const char* header);
+    NDArray* copyToNDArray16(size_t *dims, char *buffer);
+    NDArray* copyToNDArray32(size_t *dims, char *buffer);
 
     /* The labview communication primitives */
     asynStatus mpxGet(char* valueId, double timeout);
@@ -869,8 +875,7 @@ static void medipixTaskC(void *drvPvt)
     pPvt->medipixTask();
 }
 
-// returns true if the header is a data header
-// parses the data header and adds appropriate attributes to pImage
+// parses the start of the data header and returns its type
 medipixDataHeader medipixDetector::parseDataHeader(const char* header)
 {
     char buff[MPX_MSG_DATATYPE_LEN];
@@ -882,6 +887,8 @@ medipixDataHeader medipixDetector::parseDataHeader(const char* header)
         headerType = MPXDataHeader12;
     else if (!strncmp(buff, MPX_DATA_24, MPX_MSG_DATATYPE_LEN))
         headerType = MPXDataHeader24;
+    if (!strncmp(buff, MPX_GENERIC_IMAGE, MPX_MSG_DATATYPE_LEN))
+        headerType = MPXGenericImageHeader;
     if (!strncmp(buff, MPX_PROFILE_12, MPX_MSG_DATATYPE_LEN))
         headerType = MPXProfileHeader12;
     else if (!strncmp(buff, MPX_PROFILE_24, MPX_MSG_DATATYPE_LEN))
@@ -894,10 +901,13 @@ medipixDataHeader medipixDetector::parseDataHeader(const char* header)
     return headerType;
 }
 
-// returns true if the header is a data header
+// Data Frame Header Parser for original Frames of type 12B and 24B
+// Also parses generic Frames of type IMG (originally developed for UoM XBPM
+//    on B21)
 // parses the data header and adds appropriate attributes to pImage
-void medipixDetector::parseDataFrame(NDArray* pImage, const char* header,
-        medipixDataHeader headerType)
+void medipixDetector::parseDataFrame(NDAttributeList* pAttr, const char* header,
+        medipixDataHeader headerType, size_t *xsize, size_t *ysize,
+        int* pixelSize)
 {
     char buff[MPX_IMG_HDR_LEN + 1];
     unsigned long lVal;
@@ -921,13 +931,13 @@ void medipixDetector::parseDataFrame(NDArray* pImage, const char* header,
     if (tok != NULL)
     {
         iVal = atoi(tok);
-        pImage->pAttributeList->add("Frame Number", "", NDAttrInt32, &iVal);
+        pAttr->add("Frame Number", "", NDAttrInt32, &iVal);
     }
     tok = strtok(NULL, ",");
     if (tok != NULL)
     {
         iVal = atoi(tok);
-        pImage->pAttributeList->add("Counter Number", "", NDAttrInt32, &iVal);
+        pAttr->add("Counter Number", "", NDAttrInt32, &iVal);
     }
     tok = strtok(NULL, ",");
     if (tok != NULL)
@@ -948,28 +958,68 @@ void medipixDetector::parseDataFrame(NDArray* pImage, const char* header,
         lVal = (unsigned long) rawtime;
         msecs = 0;
 
-        pImage->pAttributeList->add("Start Time UTC seconds", "", NDAttrUInt32,
-                &lVal);
-        pImage->pAttributeList->add("Start Time millisecs", "", NDAttrUInt32,
-                &msecs);
+        pAttr->add("Start Time UTC seconds", "", NDAttrUInt32, &lVal);
+        pAttr->add("Start Time millisecs", "", NDAttrUInt32, &msecs);
     }
     tok = strtok(NULL, ",");
     if (tok != NULL)
     {
         dVal = atof(tok);
-        pImage->pAttributeList->add("Duration", "", NDAttrFloat64, &dVal);
+        pAttr->add("Duration", "", NDAttrFloat64, &dVal);
+    }
+    if (headerType == MPXGenericImageHeader)
+    {
+        tok = strtok(NULL, ",");
+        if (tok != NULL)
+        {
+            iVal = atoi(tok);
+            pAttr->add("X Offset", "", NDAttrInt32, &iVal);
+        }
+        tok = strtok(NULL, ",");
+        if (tok != NULL)
+        {
+            iVal = atoi(tok);
+            pAttr->add("Y Offset", "", NDAttrInt32, &iVal);
+        }
+        tok = strtok(NULL, ",");
+        if (tok != NULL)
+        {
+            iVal = atoi(tok);
+            *xsize = iVal;
+            pAttr->add("X Size", "", NDAttrInt32, &iVal);
+        }
+        tok = strtok(NULL, ",");
+        if (tok != NULL)
+        {
+            iVal = atoi(tok);
+            *ysize = iVal;
+            pAttr->add("Y Size", "", NDAttrInt32, &iVal);
+        }
+        tok = strtok(NULL, ",");
+        if (tok != NULL)
+        {
+            iVal = atoi(tok);
+            pAttr->add("Pixel Depth", "", NDAttrInt32, &iVal);
+        }
+        tok = strtok(NULL, ",");
+        if (tok != NULL)
+        {
+            iVal = atoi(tok);
+            *pixelSize = iVal;
+            pAttr->add("Pixel Size", "", NDAttrInt32, &iVal);
+        }
     }
     tok = strtok(NULL, ",");
     if (tok != NULL)
     {
         dVal = atof(tok);
-        pImage->pAttributeList->add("Threshold 0", "", NDAttrFloat64, &dVal);
+        pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
     }
     tok = strtok(NULL, ",");
     if (tok != NULL)
     {
         dVal = atof(tok);
-        pImage->pAttributeList->add("Threshold 1", "", NDAttrFloat64, &dVal);
+        pAttr->add("Threshold 1", "", NDAttrFloat64, &dVal);
     }
     for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
     {
@@ -979,17 +1029,25 @@ void medipixDetector::parseDataFrame(NDArray* pImage, const char* header,
             iVal = atoi(tok);
             sprintf(dacName, "DAC %03d", dacNum);
             printf("dac %d = %d, ", dacNum, iVal);
-            pImage->pAttributeList->add(dacName, "", NDAttrInt32, &iVal);
+            pAttr->add(dacName, "", NDAttrInt32, &iVal);
         }
     }
-    printf("\n");
     tok = strtok(NULL, ",");
     if (tok != NULL)
     {
         iVal = atoi(tok);
         profileMask = iVal;
-        pImage->pAttributeList->add("Profile Mask", "", NDAttrInt32, &iVal);
+        pAttr->add("Profile Mask", "", NDAttrInt32, &iVal);
     }
+}
+
+// Data Frame Header Parser for frames from Merlin Quad
+// (This data format intended to extend to future products)
+// parses the data header and adds appropriate attributes to pImage
+void medipixDetector::parseMqDataFrame(NDArray* pImage, const char* header,
+        medipixDataHeader headerType)
+{
+    // TODO
 }
 
 /** helper functions for endian conversion
@@ -1008,7 +1066,7 @@ inline void endian_swap(unsigned int& x)
 
 inline void endian_swap(uint64_t& x)
 {
-    x =      ((((x) & 0x00000000000000FFLL) << 0x38)
+    x = ((((x) & 0x00000000000000FFLL) << 0x38)
             | (((x) & 0x000000000000FF00LL) << 0x28)
             | (((x) & 0x0000000000FF0000LL) << 0x18)
             | (((x) & 0x00000000FF000000LL) << 0x08)
@@ -1024,7 +1082,7 @@ void dumpData(char* sdata, int size)
 {
     int w = 20;  // width
     int b = 10;  // break at points in row
-    unsigned char* data = (unsigned char*)sdata;
+    unsigned char* data = (unsigned char*) sdata;
 
     printf("\nData String - %s\n", data);
     for (int i = 0; i < size; i += w)
@@ -1032,7 +1090,7 @@ void dumpData(char* sdata, int size)
         printf("%08d", i);
         for (int c = 0; c < w; c++)
         {
-            if(c%b==0)
+            if (c % b == 0)
             {
                 printf("  ");
             }
@@ -1052,7 +1110,7 @@ void dumpData(char* sdata, int size)
         }
         for (int c = 0; c < w; c++)
         {
-            if(c%b==0)
+            if (c % b == 0)
             {
                 printf("  ");
             }
@@ -1064,6 +1122,78 @@ void dumpData(char* sdata, int size)
         printf("\n");
     }
     printf("\n\n");
+}
+
+/** Helper function to copy a 16 bit buffer into an NDArray
+ *
+ */
+NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer)
+{
+    // copy the data into NDArray, switching to little endien and
+    // Inverting in the Y axis (medipix origin is at bottom left)
+    epicsUInt16 *pData, *pSrc;
+    size_t x, y;
+
+    NDArray* pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
+
+    if (pImage == NULL)
+    {
+        asynPrint(this->pasynLabViewData, ASYN_TRACE_ERROR,
+                "%s:%s: unable to allocate NDArray from pool\n", driverName,
+                "copyToNDArray16");
+        setStringParam(ADStatusMessage,
+                "Error: run out of buffers in detector driver");
+    }
+    else
+    {
+        for (y = 0; y < dims[1]; y++)
+        {
+            for (x = 0, pData = (epicsUInt16 *) pImage->pData + y * dims[0], pSrc =
+                    (epicsUInt16 *) (buffer + MPX_IMG_HDR_LEN)
+                            + (dims[1] - y) * dims[0]; x < dims[0];
+                    x++, pData++, pSrc++)
+            {
+                *pData = *pSrc;
+                //endian_swap(*pData);
+            }
+        }
+    }
+    return pImage;
+}
+
+/** Helper function to copy a 32 bit buffer into an NDArray
+ *
+ */
+NDArray* medipixDetector::copyToNDArray32(size_t* dims, char* buffer)
+{
+    epicsUInt32 *pData, *pSrc;
+    size_t x, y;
+
+    NDArray* pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
+
+    if (pImage == NULL)
+    {
+        asynPrint(this->pasynLabViewData, ASYN_TRACE_ERROR,
+                "%s:%s: unable to allocate NDArray from pool\n", driverName,
+                "copyToNDArray32");
+        setStringParam(ADStatusMessage,
+                "Error: run out of buffers in detector driver");
+    }
+    else
+    {
+        for (y = 0; y < dims[1]; y++)
+        {
+            for (x = 0, pData = (epicsUInt32 *) pImage->pData + y * dims[0], pSrc =
+                    (epicsUInt32 *) (buffer + MPX_IMG_HDR_LEN)
+                            + (dims[1] - y) * dims[0]; x < dims[0];
+                    x++, pData++, pSrc++)
+            {
+                *pData = *pSrc;
+                //endian_swap(*pData);
+            }
+        }
+    }
+    return pImage;
 }
 
 /** This thread controls acquisition, reads image files to get the image data, and
@@ -1080,13 +1210,15 @@ void medipixDetector::medipixTask()
     NDArray *pImage;
     epicsTimeStamp startTime;
     const char *functionName = "medipixTask";
-    size_t dims[2];
+    size_t dims[2], dummy;
     size_t profileDims[2];
     int arrayCallbacks;
+    int dummy2;
     int nread;
     char *bigBuff;
     char aquisitionHeader[MPX_ACQUISITION_HEADER_LEN + 1];
     int triggerMode;
+    NDAttributeList *imageAttr = new NDAttributeList();
 
     // do not enter this thread until the IOC is initialised. This is because we are getting blocks of
     // data on the data channel at startup after we have had a buffer overrun
@@ -1184,46 +1316,46 @@ void medipixDetector::medipixTask()
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating a 12bit Array\n");
 
-                pImage = this->pNDArrayPool->alloc(2, dims, NDUInt16, 0, NULL);
-                parseDataFrame(pImage, bigBuff, header);
-
-                // copy the data into NDArray, switching to little endien and
-                // Inverting in the Y axis (medipix origin is at bottom left)
-                epicsUInt16 *pData, *pSrc;
-                size_t x, y;
-                for (y = 0; y < dims[1]; y++)
-                {
-                    for (x = 0, pData = (epicsUInt16 *) pImage->pData
-                            + y * dims[0], pSrc = (epicsUInt16 *) (bigBuff
-                            + MPX_IMG_HDR_LEN) + (dims[1] - y) * dims[0];
-                            x < dims[0]; x++, pData++, pSrc++)
-                    {
-                        *pData = *pSrc;
-                        endian_swap(*pData);
-                    }
-                }
+                pImage = copyToNDArray16(dims, bigBuff);
+                if (pImage == NULL)
+                    continue;
+                parseDataFrame(pImage->pAttributeList, bigBuff, header, &dummy,
+                        &dummy, &dummy2);
             }
             else if (header == MPXDataHeader24)
             {
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating a 24bit Array\n");
 
-                pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
-                parseDataFrame(pImage, bigBuff, header);
+                pImage = copyToNDArray32(dims, bigBuff);
+                if (pImage == NULL)
+                    continue;
+                parseDataFrame(pImage->pAttributeList, bigBuff, header, &dummy,
+                        &dummy, &dummy2);
+            }
+            else if (header == MPXGenericImageHeader)
+            {
+                int pixelSize;
+                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
+                        "Creating a generic Image NDArray\n");
 
-                epicsUInt32 *pData, *pSrc;
-                size_t x, y;
-                for (y = 0; y < dims[1]; y++)
+                // Parse the header and use the information to determine the
+                // size of the NDArray
+                imageAttr->clear();
+                parseDataFrame(imageAttr, bigBuff, header, &(dims[0]),
+                        &(dims[1]), &pixelSize);
+                pImage = NULL;
+                if(pixelSize == 16)
                 {
-                    for (x = 0, pData = (epicsUInt32 *) pImage->pData
-                            + y * dims[0], pSrc = (epicsUInt32 *) (bigBuff
-                            + MPX_IMG_HDR_LEN) + (dims[1] - y) * dims[0];
-                            x < dims[0]; x++, pData++, pSrc++)
-                    {
-                        *pData = *pSrc;
-                        endian_swap(*pData);
-                    }
+                    pImage = copyToNDArray16(dims, bigBuff);
                 }
+                else if(pixelSize == 32)
+                {
+                    pImage = copyToNDArray32(dims, bigBuff);
+                }
+                if (pImage == NULL)
+                    continue;
+                imageAttr->copy(pImage->pAttributeList);
             }
             else if (header == MPXProfileHeader12
                     || header == MPXProfileHeader24)
@@ -1235,7 +1367,19 @@ void medipixDetector::medipixTask()
                 // and y profile
                 pImage = this->pNDArrayPool->alloc(2, profileDims, NDUInt32, 0,
                         NULL);
-                parseDataFrame(pImage, bigBuff, header);
+
+                if (pImage == NULL)
+                {
+                    asynPrint(this->pasynLabViewData, ASYN_TRACE_ERROR,
+                            "%s:%s: unable to allocate NDArray from pool\n", driverName,
+                            "copyToNDArray32");
+                    setStringParam(ADStatusMessage,
+                            "Error: run out of buffers in detector driver");
+                    continue;
+                }
+
+                parseDataFrame(pImage->pAttributeList, bigBuff, header, &dummy,
+                        &dummy, &dummy2);
 
                 if (profileMask
                         != (MPXPROFILES_XPROFILE | MPXPROFILES_YPROFILE

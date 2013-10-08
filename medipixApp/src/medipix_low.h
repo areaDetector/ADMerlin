@@ -27,8 +27,10 @@ extern int mpxDisconnect(void);
 #define MPX_DATA_ACQ_HDR "HDR"
 #define MPX_DATA_12 "12B"
 #define MPX_DATA_24 "24B"
+#define MPX_GENERIC_IMAGE "IMG"
 #define MPX_PROFILE_12 "P12"
 #define MPX_PROFILE_24 "P24"
+#define MPX_GENERIC_PROFILE "PRF"
 #define MPX_MSG_LEN_DIGITS 10
 #define MPX_MSG_DATATYPE_LEN 3
 
