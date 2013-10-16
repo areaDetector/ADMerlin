@@ -40,6 +40,7 @@ USR_INCLUDES += -I$(AREA_DETECTOR)/ADApp/cbfSrc
 DBD += medipix.dbd
 
 medipixDetector_SRCS += medipixDetector.cpp
+medipixDetector_SRCS += mpxConnection.cpp
 
 medipixDetector_LIBS += cbfad
 

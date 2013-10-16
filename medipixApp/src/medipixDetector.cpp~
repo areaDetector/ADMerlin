@@ -7,7 +7,7 @@
  * Author: Giles Knap
  *         Diamond Light Source Ltd.
  *
- * Created:  Jan 06 2012
+ * Created:  Jan 06 2011
  *
 
  * Original Source from pilatusDetector by Mark Rivers
@@ -37,93 +37,594 @@
 
 #include "ADDriver.h"
 
-#include "mpxConnection.h"
-#include "medipixDetector.h"
+#include "medipix_low.h"
 
+#define ASYN_TRACE_MPX          0x0100
+#define ASYN_TRACE_MPX_VERBOSE  0x0200
 #define MAX(a,b) a>b ? a : b
 
+/** Messages to/from Labview command channel */
+#define MAX_MESSAGE_SIZE 256 
+#define MAX_FILENAME_LEN 256
+#define MAX_BAD_PIXELS 100
+/** Time to poll when reading from Labview */
+#define ASYN_POLL_TIME .01 
+#define Labview_DEFAULT_TIMEOUT 2.0
+/** Time between checking to see if image file is complete */
+#define FILE_READ_DELAY .01
 
-void medipixDetector::fromLabViewStr(const char *str)
+/** Trigger modes */
+typedef enum
 {
-    setStringParam(ADStringFromServer, str);
+    TMInternal,
+    TMExternalEnable,
+    TMExternalTriggerHigh,
+    TMExternalTriggerLow,
+    TMExternalTriggerRising,
+    TMSoftwareTrigger
+} medipixTriggerMode;/** Trigger modes */
+
+/** Medipix Individual Trigger types */
+
+#define TMTrigInternal  "0"
+#define TMTrigRising 	"1"
+#define TMTrigFalling   "2"
+#define TMTrigSoftware  "3"
+
+/** data header types */
+typedef enum
+{
+    MPXDataHeaderNone,
+    MPXDataHeader12,
+    MPXDataHeader24,
+    MPXProfileHeader12,
+    MPXProfileHeader24,
+    MPXAcquisitionHeader,
+    MPXUnknownHeader
+} medipixDataHeader;
+
+static const char *driverName = "medipixDetector";
+
+/** ASYN PARAMETER NAMES **/
+
+#define medipixDelayTimeString              "DELAY_TIME"
+#define medipixThreshold0String             "THRESHOLD0"
+#define medipixThreshold1String             "THRESHOLD1"
+#define medipixOperatingEnergyString        "OPERATINGENERGY"
+
+#define medipixThresholdApplyString         "THRESHOLD_APPLY"
+#define medipixThresholdAutoApplyString     "THRESHOLD_AUTO_APPLY"
+#define medipixArmedString                  "ARMED"
+
+#define medipixmedpixThresholdScanString    "THRESHOLDSCAN"
+#define medipixStartThresholdScanString	    "THRESHOLDSTART"
+#define medipixStopThresholdScanString	    "THRESHOLDSTOP"
+#define medipixStepThresholdScanString	    "THRESHOLDSTEP"
+#define medipixStartThresholdScanningString	"STARTTHRESHOLDSCANNING"
+#define medipixCounterDepthString	        "COUNTERDEPTH"
+#define medipixResetString                  "RESET"
+#define medipixSoftwareTriggerString        "SOFTWARETRIGGER"
+#define medipixEnableCounter1String         "ENABLECOUNTER1"
+#define medipixContinuousRWString           "CONTINUOUSRW"
+#define medipixProfileControlString         "PROFILECONTROL"
+#define medipixProfileXString               "PROFILE_AVERAGE_X"
+#define medipixProfileYString               "PROFILE_AVERAGE_Y"
+
+/** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
+class medipixDetector: public ADDriver
+{
+public:
+    medipixDetector(const char *portName, const char *LabviewCmdPort,
+            const char *LabviewDataPort, int maxSizeX, int maxSizeY,
+            int maxBuffers, size_t maxMemory, int priority, int stackSize);
+
+    /* These are the methods that we override from ADDriver */
+    virtual asynStatus writeInt32(asynUser *pasynUser, epicsInt32 value);
+    virtual asynStatus writeFloat64(asynUser *pasynUser, epicsFloat64 value);
+    virtual asynStatus writeOctet(asynUser *pasynUser, const char *value,
+            size_t nChars, size_t *nActual);
+    void report(FILE *fp, int details);
+    void medipixTask(); /* This should be private but is called from C so must be public */
+    void medipixStatus(); /* This should be private but is called from C so must be public */
+
+protected:
+    int medipixDelayTime;
+#define FIRST_medipix_PARAM medipixDelayTime
+    int medipixThreshold0;
+    int medipixThreshold1;
+    int medipixOperatingEnergy;
+    int medipixThresholdApply;
+    int medipixThresholdAutoApply;
+    int medipixArmed;
+    int medipixThresholdScan;
+    int medipixStartThresholdScan;
+    int medipixStopThresholdScan;
+    int medipixStepThresholdScan;
+    int medipixStartThresholdScanning;
+    int medipixTvxVersion;
+    int medipixCounterDepth;
+    int medipixSoftwareTrigger;
+    int medipixReset;
+    int medipixEnableCounter1;
+    int medipixContinuousRW;
+    int medipixProfileControl;
+    int medipixProfileX;
+    int medipixProfileY;
+
+#define LAST_medipix_PARAM medipixProfileY
+
+private:
+    /* These are the methods that are new to this class */
+    void abortAcquisition();
+    asynStatus setModeCommands(int function);
+    asynStatus setAcquireParams();
+    asynStatus getThreshold();
+    asynStatus updateThresholdScanParms();
+    void parseDataFrame(NDArray* pImage, const char* header,
+            medipixDataHeader headerType);
+    medipixDataHeader parseDataHeader(const char* header);
+
+    /* The labview communication primitives */
+    asynStatus mpxGet(char* valueId, double timeout);
+    asynStatus mpxSet(char* valueId, char* value, double timeout);
+    asynStatus mpxCommand(char* commandId, double timeout);
+    asynStatus mpxWrite(double timeout);
+    asynStatus mpxReadCmd(char* cmdType, char* cmdName, double timeout);
+    asynStatus mpxWriteRead(char* cmdType, char* cmdName, double timeout);
+    asynStatus mpxRead(asynUser* pasynUser, char* bodyBuf, int bufSize,
+            int* bytesRead, double timeout);
+
+    /* Our data */
+    int imagesRemaining;
+    NDArray *pFlatField;
+    int multipleFileNumber;
+    asynUser *pasynLabViewCmd;
+    asynUser *pasynLabViewData;
+    double averageFlatField;
+    int profileMask;
+
+    int *profileX;
+    int *profileY;
+
+    bool startingUp;  // used to avoid very chatty initialisation
+
+    /* input and output from the labView controller     */
+    char toLabview[MPX_MAXLINE];
+    char fromLabview[MPX_MAXLINE];
+    char fromLabviewHeader[MPX_MAXLINE];
+    char fromLabviewBody[MPX_MAXLINE];
+    char fromLabviewValue[MPX_MAXLINE];
+    int fromLabviewError;
+
+    char LabviewCommandPortName[20];
+    char LabviewDataPortName[20];
+};
+
+#define NUM_medipix_PARAMS (&LAST_medipix_PARAM - &FIRST_medipix_PARAM + 1)
+
+// #######################################################################################
+// ##################### Labview communications primitives ###############################
+// #######################################################################################
+
+asynStatus medipixDetector::mpxSet(char* valueId, char* value, double timeout)
+{
+    int buff_len = 0;
+    int msg_len = 0;
+    asynStatus status;
+    char *tok = NULL;
+
+    // default to this error for any following parsing issues
+    fromLabviewError = MPX_ERR_UNEXPECTED;
+
+    if ((valueId == NULL))
+        return asynError;
+
+    // Build up command to be sent.
+    // length is header + length specifier (10 decimal digits) + "SET" + length of variable name + 3 commas
+    buff_len = strlen(MPX_HEADER) + MPX_MSG_LEN_DIGITS + strlen(MPX_SET)
+            + strlen(value) + strlen(valueId) + 4;
+    if (buff_len > MPX_MAXLINE)
+        return asynError;
+
+    // the message length specifier contains the count of characters including the ',' after itself
+    // i.e. total length minus the header length (including 1 comma)
+    msg_len = buff_len - MPX_MSG_LEN_DIGITS - strlen(MPX_HEADER) - 1;
+
+    sprintf(toLabview, "%s,%010u,%s,%s,%s", MPX_HEADER, msg_len, MPX_SET,
+            valueId, value);
+
+    if ((status = mpxWriteRead(MPX_SET, valueId, timeout)) != asynSuccess)
+    {
+        return status;
+    }
+
+    // items in the response are comma delimited
+    tok = strtok(fromLabviewBody, ",");
+    tok = strtok(NULL, ",");
+
+    // 3rd Item is Error Number
+    tok = strtok(NULL, ",");
+    if (tok == NULL)
+        return asynError;
+    fromLabviewError = atoi(tok);
+
+    if (fromLabviewError != MPX_OK)
+        return asynError;
+
+    return asynSuccess;
 }
 
-void medipixDetector::toLabViewStr(const char *str)
+asynStatus medipixDetector::mpxCommand(char* commandId, double timeout)
 {
-    setStringParam(ADStringToServer, str);
+    int buff_len = 0;
+    int msg_len = 0;
+    asynStatus status;
+    char *tok = NULL;
+
+    // default to this error for any following parsing issues
+    fromLabviewError = MPX_ERR_UNEXPECTED;
+
+    if ((commandId == NULL))
+        return asynError;
+
+    // Build up command to be sent.
+    // length is header + length specifier (10 decimal digits) + "SET" + length of variable name + 3 commas
+    buff_len = strlen(MPX_HEADER) + MPX_MSG_LEN_DIGITS + strlen(MPX_CMD)
+            + strlen(commandId) + 3;
+    if (buff_len > MPX_MAXLINE)
+        return asynError;
+
+    // the message length specifier contains the count of characters including the ',' after itself
+    // i.e. total length minus the header length (including 1 comma)
+    msg_len = buff_len - MPX_MSG_LEN_DIGITS - strlen(MPX_HEADER) - 1;
+
+    sprintf(toLabview, "%s,%010u,%s,%s", MPX_HEADER, msg_len, MPX_CMD,
+            commandId);
+
+    if ((status = mpxWriteRead(MPX_CMD, commandId, timeout)) != asynSuccess)
+    {
+        return status;
+    }
+
+    // items in the response are comma delimited
+    tok = strtok(fromLabviewBody, ",");
+    tok = strtok(NULL, ",");
+
+    // 3rd Item is Error Number
+    tok = strtok(NULL, ",");
+    if (tok == NULL)
+        return asynError;
+    fromLabviewError = atoi(tok);
+
+    if (fromLabviewError != MPX_OK)
+        return asynError;
+    return asynSuccess;
 }
 
-/** Helper function to copy a 16 bit buffer into an NDArray
+/**
+ * Get the specified named value from Labview
+ */
+asynStatus medipixDetector::mpxGet(char* valueId, double timeout)
+{
+    int buff_len = 0;
+    int msg_len = 0;
+    asynStatus status;
+    char *tok = NULL;
+
+    // default to this error for any following parsing issues
+    fromLabviewError = MPX_ERR_UNEXPECTED;
+
+    if ((valueId == NULL))
+    {
+        return asynError;
+    }
+
+    // Build up command to be sent.
+    // length is header + length specifier (10 decimal digits) + "GET" + length of variable name + 3 commas
+    buff_len = strlen(MPX_HEADER) + MPX_MSG_LEN_DIGITS + strlen(MPX_GET)
+            + strlen(valueId) + 3;
+    if (buff_len > MPX_MAXLINE)
+    {
+        return asynError;
+    }
+    // the message length specifier contains the count of characters including the ',' after itself
+    // i.e. total length minus the header length (including 1 comma)
+    msg_len = buff_len - MPX_MSG_LEN_DIGITS - strlen(MPX_HEADER) - 1;
+
+    sprintf(toLabview, "%s,%010u,%s,%s", MPX_HEADER, msg_len, MPX_GET, valueId);
+
+    if ((status = mpxWriteRead(MPX_GET, valueId, timeout)) != asynSuccess)
+    {
+        return status;
+    }
+
+    // items in the response are comma delimited
+    tok = strtok(fromLabviewBody, ",");
+    tok = strtok(NULL, ",");
+
+    // 3rd Item is Value
+    tok = strtok(NULL, ",");
+    if (tok == NULL)
+        return asynError;
+
+    strncpy(fromLabviewValue, tok, MPX_MAXLINE);
+
+    // 4th Item is Error Number
+    tok = strtok(NULL, ",");
+    if (tok == NULL)
+        return asynError;
+    fromLabviewError = atoi(tok);
+
+    if (fromLabviewError != MPX_OK)
+        return asynError;
+
+    return asynSuccess;
+}
+
+/**
+ * Send a request to labview
+ */
+asynStatus medipixDetector::mpxWrite(double timeout)
+{
+    char *functionName = "mpxWrite";
+    size_t nwrite;
+    asynStatus status;
+
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX, "mpxWrite: Request: %s\n",
+            toLabview);
+
+    // pasynOctetSyncIO->flush(this->pasynLabViewCmd);
+    status = pasynOctetSyncIO->write(this->pasynLabViewCmd, this->toLabview,
+            strlen(this->toLabview), timeout, &nwrite);
+    // make sure buffers are written out for short messages
+    // pasynOctetSyncIO->flush(this->pasynLabViewCmd);
+
+    if (status)
+        asynPrint(this->pasynLabViewCmd, ASYN_TRACE_ERROR,
+                "%s:%s, status=%d, sent\n%s\n", driverName, functionName,
+                status, this->toLabview);
+
+    setStringParam(ADStringToServer, this->toLabview);
+
+    return asynSuccess;
+}
+
+/**
+ * Reads in a raw MPX frame from a pasynOctetSyncIO handle
+ *
+ * This function skips any leading data, looking for the pattern
+ * MPX,0000000000,
+ *
+ * Where
+ * 		0000000000 = the no. of bytes in body of the
+ * 			frame in decimal (inclusive of comma after 000000000)
+ * Reads the rest of the body into the passed bodyBuf
  *
  */
-NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer)
+asynStatus medipixDetector::mpxRead(asynUser* pasynUser, char* bodyBuf,
+        int bufSize, int* bytesRead, double timeout)
 {
-    // copy the data into NDArray, switching to little endien and
-    // Inverting in the Y axis (medipix origin is at bottom left)
-    epicsUInt16 *pData, *pSrc;
-    size_t x, y;
+    size_t nread = 0;
+    asynStatus status = asynSuccess;
+    int eomReason;
+    const char *functionName = "mpxRead";
+    int headerSize = strlen(MPX_HEADER) + MPX_MSG_LEN_DIGITS + 2;
+    int mpxLen = strlen(MPX_HEADER);
+    int bodySize;
+    int readCount = 0;
+    int leadingJunk = 0;
+    int headerChar = 0;
 
-    NDArray* pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
+    char headerStr[] = MPX_HEADER;
+    char* tok;
+    char header[MPX_MAXLINE];
 
-    if (pImage == NULL)
+    // default to this error for any following parsing issues
+    fromLabviewError = MPX_ERR_UNEXPECTED;
+    // clear previous contents of buffer in case of error
+    bodyBuf[0] = 0;
+    *bytesRead = 0;
+
+    // look for MPX in the stream, throw away any preceding data
+    // this is to re-synch with server after an error or reboot
+    while (headerChar < mpxLen)
     {
-        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s:%s: unable to allocate NDArray from pool\n", driverName,
-                "copyToNDArray16");
-        setStringParam(ADStatusMessage,
-                "Error: run out of buffers in detector driver");
+        status = pasynOctetSyncIO->read(pasynUser, header + headerChar, 1,
+                timeout, &nread, &eomReason);
+        if (status != asynSuccess)
+            return status;
+
+        if (header[headerChar] == headerStr[headerChar])
+        {
+            headerChar++;
+        }
+        else
+        {
+            leadingJunk++;
+            headerChar = 0;
+        }
+    }
+
+    if (leadingJunk > 0)
+    {
+        asynPrint(pasynUser, ASYN_TRACE_ERROR,
+                "%s:%s, status=%d %d bytes of leading garbage discarded before header %s \n",
+                driverName, functionName, status, leadingJunk,
+                this->fromLabview);
+    }
+
+    // read the rest of the header block including message length
+    readCount = 0;
+    do
+    {
+        status = pasynOctetSyncIO->read(pasynUser, header + mpxLen + readCount,
+                (headerSize - mpxLen) - readCount, timeout, &nread, &eomReason);
+        if (status == asynSuccess)
+            readCount += nread;
+    } while (nread != 0 && readCount < (headerSize - mpxLen)
+            && status == asynSuccess);
+
+    if (status != asynSuccess)
+    {
+        asynPrint(pasynUser, ASYN_TRACE_ERROR,
+                "%s:%s, timeout=%f, status=%d received %d bytes\n%s\n",
+                driverName, functionName, timeout, status, readCount,
+                this->fromLabview);
     }
     else
     {
-        for (y = 0; y < dims[1]; y++)
+        if (readCount != (headerSize - mpxLen))
+            return asynError;
+
+        // terminate the response for string handling
+        header[readCount + mpxLen] = (char) NULL;
+        strncpy(fromLabviewHeader, header, MPX_MAXLINE);
+
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
+                "mpxRead: Response Header: %s\n", header);
+
+        // parse the header
+        tok = strtok(header, ","); // this first element already verified above
+
+        tok = strtok(NULL, ",");
+        if (tok == NULL)
+            return asynError;
+
+        // subtract one from bodySize since we already read the 1st comma
+        bodySize = atoi(tok) - 1;
+
+        if (bodySize == 0 || bodySize >= bufSize)
+            return asynError;
+
+        // now read the rest of the message (the body)
+        readCount = 0;
+        do
         {
-            for (x = 0, pData = (epicsUInt16 *) pImage->pData + y * dims[0], pSrc =
-                    (epicsUInt16 *) (buffer + MPX_IMG_HDR_LEN)
-                            + (dims[1] - y) * dims[0]; x < dims[0];
-                    x++, pData++, pSrc++)
-            {
-                *pData = *pSrc;
-                //endian_swap(*pData);
-            }
+            status = pasynOctetSyncIO->read(pasynUser, bodyBuf + readCount,
+                    bodySize - readCount, timeout, &nread, &eomReason);
+            if (status == asynSuccess)
+                readCount += nread;
+        } while (nread != 0 && readCount < bodySize && status == asynSuccess);
+
+        if (readCount < bodySize)
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR,
+                    "%s:%s, timeout=%f, status=%d received %d bytes in MPX command body, expected %d\n",
+                    driverName, functionName, timeout, status, readCount,
+                    bodySize);
+            fromLabviewError = MPX_ERR_LEN;
+            return status = asynSuccess ? asynError : status;
         }
+
+        *bytesRead = readCount;
     }
-    return pImage;
+
+    fromLabviewError = MPX_OK;
+    return status;
 }
 
-/** Helper function to copy a 32 bit buffer into an NDArray
- *
+/**
+ * Reads in the MPX command header and body from labview
+ * verifies the header and places the body in this->fromLabviewBody
+ * for parsing by the caller
  */
-NDArray* medipixDetector::copyToNDArray32(size_t* dims, char* buffer)
+asynStatus medipixDetector::mpxReadCmd(char* cmdType, char* cmdName,
+        double timeout)
 {
-    epicsUInt32 *pData, *pSrc;
-    size_t x, y;
+    static const char *functionName = "mpxReadCmd";
+    int nread = 0;
+    asynStatus status = asynSuccess;
+    char buff[MPX_MAXLINE];
+    char* tok;
 
-    NDArray* pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
+    // default to this error for any following parsing issues
+    fromLabviewError = MPX_ERR_UNEXPECTED;
+    // clear out previous values for the member variables for response text
+    fromLabview[0] = 0;
+    fromLabviewBody[0] = 0;
+    fromLabviewHeader[0] = 0;
+    fromLabviewValue[0] = 0;
 
-    if (pImage == NULL)
+    // repeat read of responses until correct response is received or no more
+    // data is available - this approach re-syncs client and server after an error or reboot
+    // at either end
+    while (status == asynSuccess)
     {
-        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                "%s:%s: unable to allocate NDArray from pool\n", driverName,
-                "copyToNDArray32");
-        setStringParam(ADStatusMessage,
-                "Error: run out of buffers in detector driver");
-    }
-    else
-    {
-        for (y = 0; y < dims[1]; y++)
+        status = mpxRead(this->pasynLabViewCmd, buff, MPX_MAXLINE, &nread,
+                timeout);
+
+        if (status == asynSuccess)
         {
-            for (x = 0, pData = (epicsUInt32 *) pImage->pData + y * dims[0], pSrc =
-                    (epicsUInt32 *) (buffer + MPX_IMG_HDR_LEN)
-                            + (dims[1] - y) * dims[0]; x < dims[0];
-                    x++, pData++, pSrc++)
+            // terminate the response for string handling
+            buff[nread] = (char) NULL;
+            // update the member variables with relevant parts of the response
+            strncpy(fromLabviewBody, buff, MPX_MAXLINE);
+            strncpy(fromLabview, fromLabviewHeader, MPX_MAXLINE);
+            strncat(fromLabview, fromLabviewBody, MPX_MAXLINE);
+            // Set output string so it can get back to EPICS
+            setStringParam(ADStringFromServer, this->fromLabview);
+
+            // items in the response are comma delimited -
+            // 1st item is the command type
+            tok = strtok(buff, ",");
+            if (!(tok == NULL || strncmp(cmdType, tok, MPX_MAXLINE)))
             {
-                *pData = *pSrc;
-                //endian_swap(*pData);
+                // 2nd item is command (or variable) name which should be echoed back
+                tok = strtok(NULL, ",");
+                if (!(tok == NULL || strncmp(cmdName, tok, MPX_MAXLINE)))
+                    break; // success - exit the while loop
             }
         }
+
+        // if we get here then the expected response was not received
+        // report an error and retry
+
+        asynPrint(this->pasynLabViewCmd, ASYN_TRACE_ERROR,
+                "%s:%s error, status=%d unexpected response from labview: '%s%s'\n",
+                driverName, functionName, status, fromLabviewHeader,
+                fromLabviewBody);
+
+        fromLabviewHeader[0] = 0; // clear for consistent error reporting
+        fromLabviewBody[0] = 0;
+        fromLabview[0] = 0;
     }
-    return pImage;
+
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
+            "mpxReadCmd: Full Response: %s\n", fromLabview);
+
+    fromLabviewError = MPX_OK;
+    return status;
 }
+
+asynStatus medipixDetector::mpxWriteRead(char* cmdType, char* cmdName,
+        double timeout)
+{
+    asynStatus status;
+
+    // this->lock(); // make sure commands from different threads are not interleaved
+    // removed above because I do not believe you can nest locks and the following unlock
+    // would therefore free the AsynPort Thread when called from WriteInt32 for example
+
+    if ((status = mpxWrite(timeout)) != asynSuccess)
+    {
+        return status;
+    }
+
+    if ((status = mpxReadCmd(cmdType, cmdName, timeout)) != asynSuccess)
+    {
+        return status;
+    }
+
+    // removed - see above comment
+    // this->unlock();
+
+    return asynSuccess;
+}
+
+// #######################################################################################
+// ##################### END OF Labview communications primitives ########################
+// #######################################################################################
+
 asynStatus medipixDetector::setModeCommands(int function)
 {
     asynStatus status;
@@ -140,8 +641,7 @@ asynStatus medipixDetector::setModeCommands(int function)
             setIntegerParam(medipixEnableCounter1, counter1Enabled);
         }
         epicsSnprintf(value, MPX_MAXLINE, "%d", counter1Enabled);
-        cmdConnection->mpxSet(MPXVAR_ENABLECOUNTER1, value,
-                Labview_DEFAULT_TIMEOUT);
+        this->mpxSet(MPXVAR_ENABLECOUNTER1, value, Labview_DEFAULT_TIMEOUT);
     }
 
     if (function == medipixContinuousRW)
@@ -154,25 +654,20 @@ asynStatus medipixDetector::setModeCommands(int function)
             setIntegerParam(medipixContinuousRW, continuousEnabled);
         }
         epicsSnprintf(value, MPX_MAXLINE, "%d", continuousEnabled);
-        cmdConnection->mpxSet(MPXVAR_CONTINUOUSRW, value,
-                Labview_DEFAULT_TIMEOUT);
+        this->mpxSet(MPXVAR_CONTINUOUSRW, value, Labview_DEFAULT_TIMEOUT);
     }
 
     epicsThreadSleep(.01);
 
     // now get the values again from the device -- it may reset them to consistent values
     // (presently only one of medipixContinuousRW or medipixEnableCounter1 can be set at a time)
-    status = cmdConnection->mpxGet(MPXVAR_ENABLECOUNTER1,
-            Labview_DEFAULT_TIMEOUT);
+    status = mpxGet(MPXVAR_ENABLECOUNTER1, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setIntegerParam(medipixEnableCounter1,
-                atoi(cmdConnection->fromLabviewValue));
+        setIntegerParam(medipixEnableCounter1, atoi(fromLabviewValue));
 
-    status = cmdConnection->mpxGet(MPXVAR_CONTINUOUSRW,
-            Labview_DEFAULT_TIMEOUT);
+    status = mpxGet(MPXVAR_CONTINUOUSRW, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setIntegerParam(medipixContinuousRW,
-                atoi(cmdConnection->fromLabviewValue));
+        setIntegerParam(medipixContinuousRW, atoi(fromLabviewValue));
 
     return (asynSuccess);
 }
@@ -232,16 +727,13 @@ asynStatus medipixDetector::setAcquireParams()
 
     // set the values enmasse - an attempt to fix the strange GUI updates caused by slow comms (failed)
     epicsSnprintf(value, MPX_MAXLINE, "%d", numExposures);
-    cmdConnection->mpxSet(MPXVAR_NUMFRAMESPERTRIGGER, value,
-            Labview_DEFAULT_TIMEOUT);
+    this->mpxSet(MPXVAR_NUMFRAMESPERTRIGGER, value, Labview_DEFAULT_TIMEOUT);
     epicsSnprintf(value, MPX_MAXLINE, "%d", counterDepth);
-    cmdConnection->mpxSet(MPXVAR_COUNTERDEPTH, value, Labview_DEFAULT_TIMEOUT);
+    this->mpxSet(MPXVAR_COUNTERDEPTH, value, Labview_DEFAULT_TIMEOUT);
     epicsSnprintf(value, MPX_MAXLINE, "%f", acquireTime * 1000); // translated into millisec
-    cmdConnection->mpxSet(MPXVAR_ACQUISITIONTIME, value,
-            Labview_DEFAULT_TIMEOUT);
+    this->mpxSet(MPXVAR_ACQUISITIONTIME, value, Labview_DEFAULT_TIMEOUT);
     epicsSnprintf(value, MPX_MAXLINE, "%f", acquirePeriod * 1000); // translated into millisec
-    cmdConnection->mpxSet(MPXVAR_ACQUISITIONPERIOD, value,
-            Labview_DEFAULT_TIMEOUT);
+    this->mpxSet(MPXVAR_ACQUISITIONPERIOD, value, Labview_DEFAULT_TIMEOUT);
 
     status = getIntegerParam(ADTriggerMode, &triggerMode);
     if (status != asynSuccess)
@@ -252,47 +744,45 @@ asynStatus medipixDetector::setAcquireParams()
     switch (triggerMode)
     {
     case TMInternal:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigInternal,
+        this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigInternal,
                 Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
+        this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
                 Labview_DEFAULT_TIMEOUT);
         break;
     case TMExternalEnable:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
+        this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
                 Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigFalling,
+        this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigFalling,
                 Labview_DEFAULT_TIMEOUT);
         break;
     case TMExternalTriggerLow:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigFalling,
+        this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigFalling,
                 Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
+        this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
                 Labview_DEFAULT_TIMEOUT);
         break;
     case TMExternalTriggerHigh:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
+        this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
                 Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
+        this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
                 Labview_DEFAULT_TIMEOUT);
         break;
     case TMExternalTriggerRising:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
+        this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
                 Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigRising,
-                Labview_DEFAULT_TIMEOUT);
+        this->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigRising, Labview_DEFAULT_TIMEOUT);
         break;
     case TMSoftwareTrigger:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigSoftware,
+        this->mpxSet(MPXVAR_TRIGGERSTART, TMTrigSoftware,
                 Labview_DEFAULT_TIMEOUT);
         break;
     }
 
     // read the acquire period back from the server so that it can insert
     // the readback time if necessary
-    cmdConnection->mpxGet(MPXVAR_ACQUISITIONPERIOD, Labview_DEFAULT_TIMEOUT);
+    this->mpxGet(MPXVAR_ACQUISITIONPERIOD, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(ADAcquirePeriod,
-                atof(cmdConnection->fromLabviewValue) / 1000); // translated into secs
+        setDoubleParam(ADAcquirePeriod, atof(fromLabviewValue) / 1000); // translated into secs
 
     return (asynSuccess);
 
@@ -306,19 +796,15 @@ asynStatus medipixDetector::getThreshold()
         return asynSuccess;
 
     /* Read back the actual setting, in case we are out of bounds.*/
-    status = cmdConnection->mpxGet(MPXVAR_THRESHOLD0, Labview_DEFAULT_TIMEOUT);
+    status = mpxGet(MPXVAR_THRESHOLD0, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold0,
-                atof(cmdConnection->fromLabviewValue));
-    status = cmdConnection->mpxGet(MPXVAR_THRESHOLD1, Labview_DEFAULT_TIMEOUT);
+        setDoubleParam(medipixThreshold0, atof(fromLabviewValue));
+    status = mpxGet(MPXVAR_THRESHOLD1, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold1,
-                atof(cmdConnection->fromLabviewValue));
-    status = cmdConnection->mpxGet(MPXVAR_OPERATINGENERGY,
-            Labview_DEFAULT_TIMEOUT);
+        setDoubleParam(medipixThreshold1, atof(fromLabviewValue));
+    status = mpxGet(MPXVAR_OPERATINGENERGY, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixOperatingEnergy,
-                atof(cmdConnection->fromLabviewValue));
+        setDoubleParam(medipixOperatingEnergy, atof(fromLabviewValue));
 
     callParamCallbacks();
 
@@ -341,45 +827,37 @@ asynStatus medipixDetector::updateThresholdScanParms()
     getIntegerParam(medipixThresholdScan, &thresholdScan);
 
     epicsSnprintf(valueStr, MPX_MAXLINE, "%f", start);
-    status = cmdConnection->mpxSet(MPXVAR_THSTART, valueStr,
-            Labview_DEFAULT_TIMEOUT);
+    status = mpxSet(MPXVAR_THSTART, valueStr, Labview_DEFAULT_TIMEOUT);
 
     if (status == asynSuccess)
     {
         epicsSnprintf(valueStr, MPX_MAXLINE, "%f", stop);
-        status = cmdConnection->mpxSet(MPXVAR_THSTOP, valueStr,
-                Labview_DEFAULT_TIMEOUT);
+        status = mpxSet(MPXVAR_THSTOP, valueStr, Labview_DEFAULT_TIMEOUT);
     }
     if (status == asynSuccess)
     {
         epicsSnprintf(valueStr, MPX_MAXLINE, "%f", step);
-        status = cmdConnection->mpxSet(MPXVAR_THSTEP, valueStr,
-                Labview_DEFAULT_TIMEOUT);
+        status = mpxSet(MPXVAR_THSTEP, valueStr, Labview_DEFAULT_TIMEOUT);
     }
     if (status == asynSuccess)
     {
         epicsSnprintf(valueStr, MPX_MAXLINE, "%d", thresholdScan);
-        status = cmdConnection->mpxSet(MPXVAR_THSSCAN, valueStr,
-                Labview_DEFAULT_TIMEOUT);
+        status = mpxSet(MPXVAR_THSSCAN, valueStr, Labview_DEFAULT_TIMEOUT);
     }
 
     /* Read back the actual setting, in case we are out of bounds.*/
-    status = cmdConnection->mpxGet(MPXVAR_THSTART, Labview_DEFAULT_TIMEOUT);
+    status = mpxGet(MPXVAR_THSTART, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixStartThresholdScan,
-                atof(cmdConnection->fromLabviewValue));
-    status = cmdConnection->mpxGet(MPXVAR_THSTEP, Labview_DEFAULT_TIMEOUT);
+        setDoubleParam(medipixStartThresholdScan, atof(fromLabviewValue));
+    status = mpxGet(MPXVAR_THSTEP, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixStepThresholdScan,
-                atof(cmdConnection->fromLabviewValue));
-    status = cmdConnection->mpxGet(MPXVAR_THSTOP, Labview_DEFAULT_TIMEOUT);
+        setDoubleParam(medipixStepThresholdScan, atof(fromLabviewValue));
+    status = mpxGet(MPXVAR_THSTOP, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixStopThresholdScan,
-                atof(cmdConnection->fromLabviewValue));
-    status = cmdConnection->mpxGet(MPXVAR_THSSCAN, Labview_DEFAULT_TIMEOUT);
+        setDoubleParam(medipixStopThresholdScan, atof(fromLabviewValue));
+    status = mpxGet(MPXVAR_THSSCAN, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setIntegerParam(medipixThresholdScan,
-                atoi(cmdConnection->fromLabviewValue));
+        setIntegerParam(medipixThresholdScan, atoi(fromLabviewValue));
 
     return status;
 }
@@ -389,6 +867,203 @@ static void medipixTaskC(void *drvPvt)
     medipixDetector *pPvt = (medipixDetector *) drvPvt;
 
     pPvt->medipixTask();
+}
+
+// returns true if the header is a data header
+// parses the data header and adds appropriate attributes to pImage
+medipixDataHeader medipixDetector::parseDataHeader(const char* header)
+{
+    char buff[MPX_MSG_DATATYPE_LEN];
+    medipixDataHeader headerType = MPXUnknownHeader;
+
+    strncpy(buff, header, MPX_MSG_DATATYPE_LEN);
+
+    if (!strncmp(buff, MPX_DATA_12, MPX_MSG_DATATYPE_LEN))
+        headerType = MPXDataHeader12;
+    else if (!strncmp(buff, MPX_DATA_24, MPX_MSG_DATATYPE_LEN))
+        headerType = MPXDataHeader24;
+    if (!strncmp(buff, MPX_PROFILE_12, MPX_MSG_DATATYPE_LEN))
+        headerType = MPXProfileHeader12;
+    else if (!strncmp(buff, MPX_PROFILE_24, MPX_MSG_DATATYPE_LEN))
+        headerType = MPXProfileHeader24;
+    else if (!strncmp(buff, MPX_DATA_ACQ_HDR, MPX_MSG_DATATYPE_LEN))
+        headerType = MPXAcquisitionHeader;
+
+    printf("header type is %s\n", buff);
+
+    return headerType;
+}
+
+// returns true if the header is a data header
+// parses the data header and adds appropriate attributes to pImage
+void medipixDetector::parseDataFrame(NDArray* pImage, const char* header,
+        medipixDataHeader headerType)
+{
+    char buff[MPX_IMG_HDR_LEN + 1];
+    unsigned long lVal;
+    double dVal;
+    int iVal, dacNum;
+    char dacName[10];
+    char* tok;
+
+    // initialise member variables that should be set during this parse
+    profileMask = 0;
+
+    // make a copy since strtok is destructive
+    strncpy(buff, header, MPX_IMG_HDR_LEN);
+    buff[MPX_IMG_HDR_LEN + 1] = 0;
+
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
+            buff);
+
+    tok = strtok(buff, ",");
+    tok = strtok(NULL, ",");  // skip the (HDR already parsed)
+    if (tok != NULL)
+    {
+        iVal = atoi(tok);
+        pImage->pAttributeList->add("Frame Number", "", NDAttrInt32, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        iVal = atoi(tok);
+        pImage->pAttributeList->add("Counter Number", "", NDAttrInt32, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        time_t rawtime;
+        unsigned long msecs;
+
+        // Covert string representation to EPICS Time and store in attributes as
+        // a unsigned long
+        // format is 2012-02-01 11:26:00.000
+
+        /*
+         * NOTE it has been decided that this driver will provide a timestamp and will ignore the value
+         * passed from medipix - this is because the FPGA does not have access to a clock while processing
+         * and hence all frames in a given acquisition are reported as starting at the same microsecond
+         **/
+        rawtime = time(NULL);
+        lVal = (unsigned long) rawtime;
+        msecs = 0;
+
+        pImage->pAttributeList->add("Start Time UTC seconds", "", NDAttrUInt32,
+                &lVal);
+        pImage->pAttributeList->add("Start Time millisecs", "", NDAttrUInt32,
+                &msecs);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        dVal = atof(tok);
+        pImage->pAttributeList->add("Duration", "", NDAttrFloat64, &dVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        dVal = atof(tok);
+        pImage->pAttributeList->add("Threshold 0", "", NDAttrFloat64, &dVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        dVal = atof(tok);
+        pImage->pAttributeList->add("Threshold 1", "", NDAttrFloat64, &dVal);
+    }
+    for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
+    {
+        tok = strtok(NULL, ",");
+        if (tok != NULL)
+        {
+            iVal = atoi(tok);
+            sprintf(dacName, "DAC %03d", dacNum);
+            printf("dac %d = %d, ", dacNum, iVal);
+            pImage->pAttributeList->add(dacName, "", NDAttrInt32, &iVal);
+        }
+    }
+    printf("\n");
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        iVal = atoi(tok);
+        profileMask = iVal;
+        pImage->pAttributeList->add("Profile Mask", "", NDAttrInt32, &iVal);
+    }
+}
+
+/** helper functions for endian conversion
+ *
+ */
+inline void endian_swap(unsigned short& x)
+{
+    x = (x >> 8) | (x << 8);
+}
+
+inline void endian_swap(unsigned int& x)
+{
+    x = (x >> 24) | ((x << 8) & 0x00FF0000) | ((x >> 8) & 0x0000FF00)
+            | (x << 24);
+}
+
+inline void endian_swap(uint64_t& x)
+{
+    x =      ((((x) & 0x00000000000000FFLL) << 0x38)
+            | (((x) & 0x000000000000FF00LL) << 0x28)
+            | (((x) & 0x0000000000FF0000LL) << 0x18)
+            | (((x) & 0x00000000FF000000LL) << 0x08)
+            | (((x) & 0x000000FF00000000LL) >> 0x08)
+            | (((x) & 0x0000FF0000000000LL) >> 0x18)
+            | (((x) & 0x00FF000000000000LL) >> 0x28)
+            | (((x) & 0xFF00000000000000LL) >> 0x38));
+}
+
+/** memory dump of data for diagnostics
+ */
+void dumpData(char* sdata, int size)
+{
+    int w = 20;  // width
+    int b = 10;  // break at points in row
+    unsigned char* data = (unsigned char*)sdata;
+
+    printf("\nData String - %s\n", data);
+    for (int i = 0; i < size; i += w)
+    {
+        printf("%08d", i);
+        for (int c = 0; c < w; c++)
+        {
+            if(c%b==0)
+            {
+                printf("  ");
+            }
+            if (c + i > size)
+            {
+                printf(" ");
+            }
+            else
+            {
+                char t = data[i + c];
+                if (t < 0x20 || t > 0x7e)
+                {
+                    t = '.';
+                }
+                printf("%c", t);
+            }
+        }
+        for (int c = 0; c < w; c++)
+        {
+            if(c%b==0)
+            {
+                printf("  ");
+            }
+            if (c + i <= size)
+            {
+                printf("%02x ", data[i + c]);
+            }
+        }
+        printf("\n");
+    }
+    printf("\n\n");
 }
 
 /** This thread controls acquisition, reads image files to get the image data, and
@@ -405,15 +1080,13 @@ void medipixDetector::medipixTask()
     NDArray *pImage;
     epicsTimeStamp startTime;
     const char *functionName = "medipixTask";
-    size_t dims[2], dummy;
+    size_t dims[2];
     size_t profileDims[2];
     int arrayCallbacks;
-    int dummy2;
     int nread;
     char *bigBuff;
     char aquisitionHeader[MPX_ACQUISITION_HEADER_LEN + 1];
     int triggerMode;
-    NDAttributeList *imageAttr = new NDAttributeList();
 
     // do not enter this thread until the IOC is initialised. This is because we are getting blocks of
     // data on the data channel at startup after we have had a buffer overrun
@@ -441,8 +1114,8 @@ void medipixDetector::medipixTask()
         this->unlock();
 
         // wait for the next data frame packet - this function spends most of its time here
-        status = cmdConnection->mpxRead(this->pasynLabViewData, bigBuff,
-                MPX_IMG_FRAME_LEN24, &nread, 10);
+        status = mpxRead(this->pasynLabViewData, bigBuff, MPX_IMG_FRAME_LEN24,
+                &nread, 10);
         this->lock();
 
         /* If there was an error jump to bottom of loop */
@@ -469,10 +1142,10 @@ void medipixDetector::medipixTask()
         if (pasynTrace->getTraceMask((pasynUserSelf))
                 & (ASYN_TRACE_MPX_VERBOSE))
         {
-            dataConnection->dumpData(bigBuff, nread);
+            dumpData(bigBuff, nread);
         }
 
-        medipixDataHeader header = dataConnection->parseDataHeader(bigBuff);
+        medipixDataHeader header = parseDataHeader(bigBuff);
         if (header != MPXAcquisitionHeader)
         {
             getIntegerParam(ADNumImagesCounter, &numImagesCounter);
@@ -511,46 +1184,46 @@ void medipixDetector::medipixTask()
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating a 12bit Array\n");
 
-                pImage = copyToNDArray16(dims, bigBuff);
-                if (pImage == NULL)
-                    continue;
-                dataConnection->parseDataFrame(pImage->pAttributeList, bigBuff,
-                        header, &dummy, &dummy, &dummy2, &dummy2);
+                pImage = this->pNDArrayPool->alloc(2, dims, NDUInt16, 0, NULL);
+                parseDataFrame(pImage, bigBuff, header);
+
+                // copy the data into NDArray, switching to little endien and
+                // Inverting in the Y axis (medipix origin is at bottom left)
+                epicsUInt16 *pData, *pSrc;
+                size_t x, y;
+                for (y = 0; y < dims[1]; y++)
+                {
+                    for (x = 0, pData = (epicsUInt16 *) pImage->pData
+                            + y * dims[0], pSrc = (epicsUInt16 *) (bigBuff
+                            + MPX_IMG_HDR_LEN) + (dims[1] - y) * dims[0];
+                            x < dims[0]; x++, pData++, pSrc++)
+                    {
+                        *pData = *pSrc;
+                        endian_swap(*pData);
+                    }
+                }
             }
             else if (header == MPXDataHeader24)
             {
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating a 24bit Array\n");
 
-                pImage = copyToNDArray32(dims, bigBuff);
-                if (pImage == NULL)
-                    continue;
-                dataConnection->parseDataFrame(pImage->pAttributeList, bigBuff,
-                        header, &dummy, &dummy, &dummy2, &dummy2);
-            }
-            else if (header == MPXGenericImageHeader)
-            {
-                int pixelSize;
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-                        "Creating a generic Image NDArray\n");
+                pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
+                parseDataFrame(pImage, bigBuff, header);
 
-                // Parse the header and use the information to determine the
-                // size of the NDArray
-                imageAttr->clear();
-                dataConnection->parseDataFrame(imageAttr, bigBuff, header,
-                        &(dims[0]), &(dims[1]), &pixelSize, &dummy2);
-                pImage = NULL;
-                if (pixelSize == 16)
+                epicsUInt32 *pData, *pSrc;
+                size_t x, y;
+                for (y = 0; y < dims[1]; y++)
                 {
-                    pImage = copyToNDArray16(dims, bigBuff);
+                    for (x = 0, pData = (epicsUInt32 *) pImage->pData
+                            + y * dims[0], pSrc = (epicsUInt32 *) (bigBuff
+                            + MPX_IMG_HDR_LEN) + (dims[1] - y) * dims[0];
+                            x < dims[0]; x++, pData++, pSrc++)
+                    {
+                        *pData = *pSrc;
+                        endian_swap(*pData);
+                    }
                 }
-                else if (pixelSize == 32)
-                {
-                    pImage = copyToNDArray32(dims, bigBuff);
-                }
-                if (pImage == NULL)
-                    continue;
-                imageAttr->copy(pImage->pAttributeList);
             }
             else if (header == MPXProfileHeader12
                     || header == MPXProfileHeader24)
@@ -562,21 +1235,7 @@ void medipixDetector::medipixTask()
                 // and y profile
                 pImage = this->pNDArrayPool->alloc(2, profileDims, NDUInt32, 0,
                         NULL);
-
-                if (pImage == NULL)
-                {
-                    asynPrint(this->pasynLabViewData, ASYN_TRACE_ERROR,
-                            "%s:%s: unable to allocate NDArray from pool\n",
-                            driverName, "copyToNDArray32");
-                    setStringParam(ADStatusMessage,
-                            "Error: run out of buffers in detector driver");
-                    continue;
-                }
-
-                int profileMask = 0;
-
-                dataConnection->parseDataFrame(pImage->pAttributeList, bigBuff,
-                        header, &dummy, &dummy, &dummy2, &profileMask);
+                parseDataFrame(pImage, bigBuff, header);
 
                 if (profileMask
                         != (MPXPROFILES_XPROFILE | MPXPROFILES_YPROFILE
@@ -665,7 +1324,7 @@ void medipixDetector::medipixTask()
                     // address 1 on the port is used for profiles
                     // TODO use of port 1 is not working in NDPluginBase so
                     // currently reverting to use the same address
-                    // (i.e. setting Medipix1:ROI:NDArrayAddress has no effect
+                    // (e.g. setting Medipix1:ROI:NDArrayAddress has no effect
                     doCallbacksGenericPointer(pImage, NDArrayData, 0);
                 }
                 this->lock();
@@ -727,9 +1386,8 @@ void medipixDetector::medipixStatus()
     updateThresholdScanParms();
     getThreshold();
 
-    result = cmdConnection->mpxGet(MPXVAR_GETSOFTWAREVERSION,
-            Labview_DEFAULT_TIMEOUT);
-    statusCode = atoi(cmdConnection->fromLabviewValue);
+    result = mpxGet(MPXVAR_GETSOFTWAREVERSION, Labview_DEFAULT_TIMEOUT);
+    statusCode = atoi(this->fromLabviewValue);
 
 // initial status
     setIntegerParam(ADStatus, ADStatusIdle);
@@ -771,15 +1429,14 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 
     if (function == medipixReset)
     {
-        cmdConnection->mpxCommand(MPXCMD_RESET, Labview_DEFAULT_TIMEOUT);
+        mpxCommand(MPXCMD_RESET, Labview_DEFAULT_TIMEOUT);
 // I cannot successfully reconnect to the server after a reset
 // the only solution found so far is to restart the ioc
         exit(0);
     }
     else if (function == medipixSoftwareTrigger)
     {
-        cmdConnection->mpxCommand(MPXCMD_SOFTWARETRIGGER,
-                Labview_DEFAULT_TIMEOUT);
+        mpxCommand(MPXCMD_SOFTWARETRIGGER, Labview_DEFAULT_TIMEOUT);
     }
     else if (function == ADAcquire)
     {
@@ -814,25 +1471,22 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
                 imagesRemaining *= 2;
 
             epicsSnprintf(strVal, MPX_MAXLINE, "%d", imagesToAcquire);
-            cmdConnection->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal,
+            this->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal,
                     Labview_DEFAULT_TIMEOUT);
 
             if (profileMaskParm & MPXPROFILES_IMAGE == MPXPROFILES_IMAGE)
             {
-                cmdConnection->mpxCommand(MPXCMD_STARTACQUISITION,
-                        Labview_DEFAULT_TIMEOUT);
+                mpxCommand(MPXCMD_STARTACQUISITION, Labview_DEFAULT_TIMEOUT);
             }
             else
             {
-                cmdConnection->mpxCommand(MPXCMD_PROFILES,
-                        Labview_DEFAULT_TIMEOUT);
+                mpxCommand(MPXCMD_PROFILES, Labview_DEFAULT_TIMEOUT);
             }
         }
         if (!value && (adstatus == ADStatusAcquire))
         {
             setIntegerParam(ADStatus, ADStatusIdle);
-            cmdConnection->mpxCommand(MPXCMD_STOPACQUISITION,
-                    Labview_DEFAULT_TIMEOUT);
+            mpxCommand(MPXCMD_STOPACQUISITION, Labview_DEFAULT_TIMEOUT);
         }
     }
     else if (function == medipixStartThresholdScanning)
@@ -851,8 +1505,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
             setIntegerParam(ADNumImagesCounter, 0);
             setStringParam(ADStatusMessage, "Performing Threshold Scan...");
             setIntegerParam(ADNumImages, 1); // internally Merlin does this so we set EPICS PV to match
-            status = cmdConnection->mpxCommand(MPXCMD_THSCAN,
-                    Labview_DEFAULT_TIMEOUT);
+            status = mpxCommand(MPXCMD_THSCAN, Labview_DEFAULT_TIMEOUT);
         }
     }
     else if ((function == ADTriggerMode) || (function == ADNumImages)
@@ -873,8 +1526,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
     else if (function == medipixProfileControl)
     {
         epicsSnprintf(strVal, MPX_MAXLINE, "%d", value);
-        cmdConnection->mpxSet(MPXCMD_PROFILECONTROL, strVal,
-                Labview_DEFAULT_TIMEOUT);
+        mpxSet(MPXCMD_PROFILECONTROL, strVal, Labview_DEFAULT_TIMEOUT);
         setIntegerParam(medipixProfileControl, value);
     }
     else
@@ -922,21 +1574,19 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
     if (function == medipixThreshold0)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
-        status = cmdConnection->mpxSet(MPXVAR_THRESHOLD0, value_str,
-                Labview_DEFAULT_TIMEOUT);
+        status = mpxSet(MPXVAR_THRESHOLD0, value_str, Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
     else if (function == medipixThreshold1)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
-        status = cmdConnection->mpxSet(MPXVAR_THRESHOLD1, value_str,
-                Labview_DEFAULT_TIMEOUT);
+        status = mpxSet(MPXVAR_THRESHOLD1, value_str, Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
     else if (function == medipixOperatingEnergy)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
-        status = cmdConnection->mpxSet(MPXVAR_OPERATINGENERGY, value_str,
+        status = mpxSet(MPXVAR_OPERATINGENERGY, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
@@ -1101,7 +1751,7 @@ medipixDetector::medipixDetector(const char *portName,
 
 // medipix is upside down by area detector standards
 // this does not work - I need to invert using my own memory copy function
-    // this->ADReverseY = 1;
+    this->ADReverseY = 1;
 
     /* Connect to Labview */
     status = pasynOctetSyncIO->connect(LabviewCommandPort, 0,
@@ -1109,10 +1759,7 @@ medipixDetector::medipixDetector(const char *portName,
     status = pasynOctetSyncIO->connect(LabviewDataPort, 0,
             &this->pasynLabViewData, NULL);
 
-    cmdConnection = new mpxConnection(pasynUserSelf, pasynLabViewCmd, this);
-    dataConnection = new mpxConnection(pasynUserSelf, pasynLabViewData, this);
-
-    cmdConnection->mpxCommand(MPXCMD_STOPACQUISITION, Labview_DEFAULT_TIMEOUT);
+    mpxCommand(MPXCMD_STOPACQUISITION, Labview_DEFAULT_TIMEOUT);
 
     createParam(medipixDelayTimeString, asynParamFloat64, &medipixDelayTime);
     createParam(medipixThreshold0String, asynParamFloat64, &medipixThreshold0);
