@@ -1,1 +1,1 @@
-./iocs/example/bin/linux-x86/stexample-gui $@
+./iocs/merlin/bin/linux-x86/stmerlin-gui $@

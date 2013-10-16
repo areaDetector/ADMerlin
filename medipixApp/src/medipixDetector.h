@@ -18,6 +18,14 @@
 /** Time between checking to see if image file is complete */
 #define FILE_READ_DELAY .01
 
+/** Detector Types */
+typedef enum
+{
+    Merlin,
+    MedipixXBPM,
+    UomXBPM
+} medipixDetectorType;
+
 /** Trigger modes */
 typedef enum
 {
@@ -69,7 +77,8 @@ class medipixDetector: public ADDriver
 public:
     medipixDetector(const char *portName, const char *LabviewCmdPort,
             const char *LabviewDataPort, int maxSizeX, int maxSizeY,
-            int maxBuffers, size_t maxMemory, int priority, int stackSize);
+            int detectorType, int maxBuffers, size_t maxMemory, int priority,
+            int stackSize);
 
     /* These are the methods that we override from ADDriver */
     virtual asynStatus writeInt32(asynUser *pasynUser, epicsInt32 value);
@@ -119,6 +128,9 @@ private:
 
     NDArray* copyToNDArray16(size_t *dims, char *buffer);
     NDArray* copyToNDArray32(size_t *dims, char *buffer);
+    inline void endian_swap(unsigned short& x);
+    inline void endian_swap(unsigned int& x);
+    inline void endian_swap(uint64_t& x);
 
     /* Our data */
     int imagesRemaining;
@@ -136,14 +148,14 @@ private:
     char LabviewCommandPortName[20];
     char LabviewDataPortName[20];
 
+    medipixDetectorType detType;
+
     mpxConnection *cmdConnection;
     mpxConnection *dataConnection;
 };
 
 #define NUM_medipix_PARAMS (&LAST_medipix_PARAM - &FIRST_medipix_PARAM + 1)
 
-
 static const char *driverName = "medipixDetector";
-
 
 #endif /* MEDIPIXDETECTOR_H_ */

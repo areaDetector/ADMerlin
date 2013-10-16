@@ -45,19 +45,25 @@
 /** helper functions for endian conversion
  *
  */
-inline void endian_swap(unsigned short& x)
+inline void medipixDetector::endian_swap(unsigned short& x)
 {
+    if(detType != Merlin)
+        return;
     x = (x >> 8) | (x << 8);
 }
 
-inline void endian_swap(unsigned int& x)
+inline void medipixDetector::endian_swap(unsigned int& x)
 {
+    if(detType != Merlin)
+        return;
     x = (x >> 24) | ((x << 8) & 0x00FF0000) | ((x >> 8) & 0x0000FF00)
             | (x << 24);
 }
 
-inline void endian_swap(uint64_t& x)
+inline void medipixDetector::endian_swap(uint64_t& x)
 {
+    if(detType != Merlin)
+        return;
     x = ((((x) & 0x00000000000000FFLL) << 0x38)
             | (((x) & 0x000000000000FF00LL) << 0x28)
             | (((x) & 0x0000000000FF0000LL) << 0x18)
@@ -67,7 +73,6 @@ inline void endian_swap(uint64_t& x)
             | (((x) & 0x00FF000000000000LL) >> 0x28)
             | (((x) & 0xFF00000000000000LL) >> 0x38));
 }
-
 
 void medipixDetector::fromLabViewStr(const char *str)
 {
@@ -468,7 +473,7 @@ void medipixDetector::medipixTask()
 
         // wait for the next data frame packet - this function spends most of its time here
         status = cmdConnection->mpxRead(this->pasynLabViewData, bigBuff,
-                MPX_IMG_FRAME_LEN24, &nread, 10);
+        MPX_IMG_FRAME_LEN24, &nread, 10);
         this->lock();
 
         /* If there was an error jump to bottom of loop */
@@ -1071,11 +1076,11 @@ void medipixDetector::report(FILE *fp, int details)
 
 extern "C" int medipixDetectorConfig(const char *portName,
         const char *LabviewCommandPort, const char *LabviewDataPort,
-        int maxSizeX, int maxSizeY, int maxBuffers, size_t maxMemory,
-        int priority, int stackSize)
+        int maxSizeX, int maxSizeY, int maxBuffers, int detectorType,
+        size_t maxMemory, int priority, int stackSize)
 {
     new medipixDetector(portName, LabviewCommandPort, LabviewDataPort, maxSizeX,
-            maxSizeY, maxBuffers, maxMemory, priority, stackSize);
+            maxSizeY, detectorType, maxBuffers, maxMemory, priority, stackSize);
     return (asynSuccess);
 }
 
@@ -1097,7 +1102,7 @@ extern "C" int medipixDetectorConfig(const char *portName,
  */
 medipixDetector::medipixDetector(const char *portName,
         const char *LabviewCommandPort, const char *LabviewDataPort,
-        int maxSizeX, int maxSizeY, int maxBuffers, size_t maxMemory,
+        int maxSizeX, int maxSizeY, int detectorType, int maxBuffers, size_t maxMemory,
         int priority, int stackSize)
 
 :
@@ -1118,6 +1123,8 @@ medipixDetector::medipixDetector(const char *portName,
     startingUp = 1;
     strcpy(LabviewCommandPortName, LabviewCommandPort);
     strcpy(LabviewDataPortName, LabviewDataPort);
+
+    detType = (medipixDetectorType) detectorType;
 
     /* Allocate the raw buffer we use to read image files.  Only do this once */
     dims[0] = maxSizeX;
@@ -1246,26 +1253,28 @@ static const iocshArg medipixDetectorConfigArg3 =
 static const iocshArg medipixDetectorConfigArg4 =
 { "maxSizeY", iocshArgInt };
 static const iocshArg medipixDetectorConfigArg5 =
-{ "maxBuffers", iocshArgInt };
+{ "detectorType", iocshArgInt };
 static const iocshArg medipixDetectorConfigArg6 =
-{ "maxMemory", iocshArgInt };
+{ "maxBuffers", iocshArgInt };
 static const iocshArg medipixDetectorConfigArg7 =
-{ "priority", iocshArgInt };
+{ "maxMemory", iocshArgInt };
 static const iocshArg medipixDetectorConfigArg8 =
+{ "priority", iocshArgInt };
+static const iocshArg medipixDetectorConfigArg9 =
 { "stackSize", iocshArgInt };
 static const iocshArg * const medipixDetectorConfigArgs[] =
 { &medipixDetectorConfigArg0, &medipixDetectorConfigArg1,
         &medipixDetectorConfigArg2, &medipixDetectorConfigArg3,
         &medipixDetectorConfigArg4, &medipixDetectorConfigArg5,
         &medipixDetectorConfigArg6, &medipixDetectorConfigArg7,
-        &medipixDetectorConfigArg8 };
+        &medipixDetectorConfigArg8, &medipixDetectorConfigArg9 };
 static const iocshFuncDef configmedipixDetector =
 { "medipixDetectorConfig", 8, medipixDetectorConfigArgs };
 static void configmedipixDetectorCallFunc(const iocshArgBuf *args)
 {
     medipixDetectorConfig(args[0].sval, args[1].sval, args[2].sval,
             args[3].ival, args[4].ival, args[5].ival, args[6].ival,
-            args[7].ival, args[8].ival);
+            args[7].ival, args[8].ival, args[9].ival);
 }
 
 static void medipixDetectorRegister(void)
