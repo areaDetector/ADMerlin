@@ -79,7 +79,7 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
     char* tok;
 
     // initialise member variables that should be set during this parse
-    profileMask = 0;
+    *profileMask = 0;
 
     // make a copy since strtok is destructive
     strncpy(buff, header, MPX_IMG_HDR_LEN);
@@ -625,32 +625,6 @@ asynStatus mpxConnection::mpxWriteRead(char* cmdType, char* cmdName,
 // #######################################################################################
 // ##################### Helper functions                         ########################
 // #######################################################################################
-
-/** helper functions for endian conversion
- *
- */
-inline void endian_swap(unsigned short& x)
-{
-    x = (x >> 8) | (x << 8);
-}
-
-inline void endian_swap(unsigned int& x)
-{
-    x = (x >> 24) | ((x << 8) & 0x00FF0000) | ((x >> 8) & 0x0000FF00)
-            | (x << 24);
-}
-
-inline void endian_swap(uint64_t& x)
-{
-    x = ((((x) & 0x00000000000000FFLL) << 0x38)
-            | (((x) & 0x000000000000FF00LL) << 0x28)
-            | (((x) & 0x0000000000FF0000LL) << 0x18)
-            | (((x) & 0x00000000FF000000LL) << 0x08)
-            | (((x) & 0x000000FF00000000LL) >> 0x08)
-            | (((x) & 0x0000FF0000000000LL) >> 0x18)
-            | (((x) & 0x00FF000000000000LL) >> 0x28)
-            | (((x) & 0xFF00000000000000LL) >> 0x38));
-}
 
 /** memory dump of data for diagnostics
  */

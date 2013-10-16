@@ -42,6 +42,32 @@
 
 #define MAX(a,b) a>b ? a : b
 
+/** helper functions for endian conversion
+ *
+ */
+inline void endian_swap(unsigned short& x)
+{
+    x = (x >> 8) | (x << 8);
+}
+
+inline void endian_swap(unsigned int& x)
+{
+    x = (x >> 24) | ((x << 8) & 0x00FF0000) | ((x >> 8) & 0x0000FF00)
+            | (x << 24);
+}
+
+inline void endian_swap(uint64_t& x)
+{
+    x = ((((x) & 0x00000000000000FFLL) << 0x38)
+            | (((x) & 0x000000000000FF00LL) << 0x28)
+            | (((x) & 0x0000000000FF0000LL) << 0x18)
+            | (((x) & 0x00000000FF000000LL) << 0x08)
+            | (((x) & 0x000000FF00000000LL) >> 0x08)
+            | (((x) & 0x0000FF0000000000LL) >> 0x18)
+            | (((x) & 0x00FF000000000000LL) >> 0x28)
+            | (((x) & 0xFF00000000000000LL) >> 0x38));
+}
+
 
 void medipixDetector::fromLabViewStr(const char *str)
 {
@@ -63,7 +89,7 @@ NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer)
     epicsUInt16 *pData, *pSrc;
     size_t x, y;
 
-    NDArray* pImage = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
+    NDArray* pImage = this->pNDArrayPool->alloc(2, dims, NDUInt16, 0, NULL);
 
     if (pImage == NULL)
     {
@@ -83,7 +109,7 @@ NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer)
                     x++, pData++, pSrc++)
             {
                 *pData = *pSrc;
-                //endian_swap(*pData);
+                endian_swap(*pData);
             }
         }
     }
@@ -118,7 +144,7 @@ NDArray* medipixDetector::copyToNDArray32(size_t* dims, char* buffer)
                     x++, pData++, pSrc++)
             {
                 *pData = *pSrc;
-                //endian_swap(*pData);
+                endian_swap(*pData);
             }
         }
     }
@@ -606,7 +632,7 @@ void medipixDetector::medipixTask()
                             x < dims[0]; x++, pWaveForm++, pSrc++, pData++)
                     {
                         //printf("%llu ", *pSrc);
-                        //endian_swap(*pSrc);
+                        endian_swap(*pSrc);
                         *pWaveForm = (epicsUInt32) *pSrc;
                         *pData = (epicsUInt32) *pSrc;
                     }
@@ -617,7 +643,7 @@ void medipixDetector::medipixTask()
                             y--, pWaveForm++, pSrc++, pData++)
                     {
                         //printf("%d-%llu ", y, *pSrc);
-                        //endian_swap(*pSrc);
+                        endian_swap(*pSrc);
                         *pWaveForm = (epicsUInt32) *pSrc;
                         *pData = (epicsUInt32) *pSrc;
                     }
