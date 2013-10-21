@@ -18,12 +18,12 @@
 /** Time between checking to see if image file is complete */
 #define FILE_READ_DELAY .01
 
+#define DIMS 2
+
 /** Detector Types */
 typedef enum
 {
-    Merlin,
-    MedipixXBPM,
-    UomXBPM
+    Merlin, MedipixXBPM, UomXBPM
 } medipixDetectorType;
 
 /** Trigger modes */
@@ -125,12 +125,16 @@ private:
     asynStatus setAcquireParams();
     asynStatus getThreshold();
     asynStatus updateThresholdScanParms();
+    asynStatus setROI();
 
+    NDArray* copyProfileToNDArray32(size_t *dims, char *buffer,
+            int profileMask);
     NDArray* copyToNDArray16(size_t *dims, char *buffer);
     NDArray* copyToNDArray32(size_t *dims, char *buffer);
     inline void endian_swap(unsigned short& x);
     inline void endian_swap(unsigned int& x);
     inline void endian_swap(uint64_t& x);
+    unsigned int maxSize[2];
 
     /* Our data */
     int imagesRemaining;

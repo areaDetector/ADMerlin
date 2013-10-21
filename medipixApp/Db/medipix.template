@@ -498,38 +498,38 @@ record(longin, "$(P)$(R)BinY_RBV")
 {
     field(DISA, "1")
 }
-record(longout, "$(P)$(R)MinX")
-{
-    field(DISA, "1")
-}
-record(longin, "$(P)$(R)MinX_RBV")
-{
-    field(DISA, "1")
-}
-record(longout, "$(P)$(R)MinY")
-{
-    field(DISA, "1")
-}
-record(longin, "$(P)$(R)MinY_RBV")
-{
-    field(DISA, "1")
-}
-record(longout, "$(P)$(R)SizeX")
-{
-    field(DISA, "1")
-}
-record(longin, "$(P)$(R)SizeX_RBV")
-{
-    field(DISA, "1")
-}
-record(longout, "$(P)$(R)SizeY")
-{
-    field(DISA, "1")
-}
-record(longin, "$(P)$(R)SizeY_RBV")
-{
-    field(DISA, "1")
-}
+# record(longout, "$(P)$(R)MinX")
+# {
+#     field(DISA, "1")
+# }
+# record(longin, "$(P)$(R)MinX_RBV")
+# {
+#     field(DISA, "1")
+# }
+# record(longout, "$(P)$(R)MinY")
+# {
+#     field(DISA, "1")
+# }
+# record(longin, "$(P)$(R)MinY_RBV")
+# {
+#     field(DISA, "1")
+# }
+# record(longout, "$(P)$(R)SizeX")
+# {
+#     field(DISA, "1")
+# }
+# record(longin, "$(P)$(R)SizeX_RBV")
+# {
+#     field(DISA, "1")
+# }
+# record(longout, "$(P)$(R)SizeY")
+# {
+#     field(DISA, "1")
+# }
+# record(longin, "$(P)$(R)SizeY_RBV")
+# {
+#     field(DISA, "1")
+# }
 record(bo, "$(P)$(R)ReverseX")
 {
     field(DISA, "1")

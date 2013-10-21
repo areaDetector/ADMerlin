@@ -36,7 +36,6 @@ extern int mpxDisconnect(void);
 
 #define MPX_MAXLINE 256
 #define MPX_IMG_HDR_LEN 256
-#define MPX_PROFILE_LEN 256 * 4   // 64 bit
 #define MPX_ACQUISITION_HEADER_LEN 2044
 
 #define MPX_X_SIZE 256
@@ -46,6 +45,7 @@ extern int mpxDisconnect(void);
 // size of buffer for image frame body including leading comma
 #define MPX_IMG_FRAME_LEN MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES + MPX_MSG_DATATYPE_LEN + 2
 #define MPX_IMG_FRAME_LEN24 MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES * 2 + MPX_MSG_DATATYPE_LEN + 2 // 32 bit pixels in 12 bit mode
+#define MAX_BUFF_UOM 2630000
 
 // error definitions
 #define MPX_OK 0    			/*Ok*/
@@ -72,6 +72,7 @@ extern int mpxDisconnect(void);
 #define MPXVAR_COUNTERDEPTH		 		"COUNTERDEPTH"
 #define MPXVAR_ENABLECOUNTER1           "ENABLECOUNTER1"
 #define MPXVAR_CONTINUOUSRW             "CONTINUOUSRW"
+#define MPXVAR_ROI                      "ROI"
 // variables Threshold Scan Control
 #define MPXVAR_THSSCAN 					"THSCAN"
 #define MPXVAR_THWINDOWMODE 			"THWINDOWMODE"

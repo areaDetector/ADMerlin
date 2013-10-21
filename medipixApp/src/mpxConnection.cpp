@@ -58,7 +58,7 @@ medipixDataHeader mpxConnection::parseDataHeader(const char* header)
     else if (!strncmp(buff, MPX_DATA_ACQ_HDR, MPX_MSG_DATATYPE_LEN))
         headerType = MPXAcquisitionHeader;
 
-    printf("header type is %s\n", buff);
+    asynPrint(this->parentUser, ASYN_TRACE_MPX, "header type is %s\n", buff);
 
     return headerType;
 }
@@ -191,7 +191,7 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
         {
             iVal = atoi(tok);
             sprintf(dacName, "DAC %03d", dacNum);
-            printf("dac %d = %d, ", dacNum, iVal);
+            asynPrint(this->parentUser, ASYN_TRACE_MPX, "dac %d = %d, ", dacNum, iVal);
             pAttr->add(dacName, "", NDAttrInt32, &iVal);
         }
     }
