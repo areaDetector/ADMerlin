@@ -37,6 +37,16 @@ typedef enum
     TMSoftwareTrigger
 } medipixTriggerMode;/** Trigger modes */
 
+/** Enumeration of image collection modes */
+typedef enum
+{
+    MPXImageSingle,      /**< Collect a single image per Acquire command */
+    MPXImageMultiple,    /**< Collect ADNumImages images per Acquire command */
+    MPXImageContinuous,  /**< Collect images continuously until Acquire is set to 0 */
+    MPXThresholdScan,
+    MPXBackgroundCalibrate
+} MPXImageMode_t;
+
 /** Medipix Individual Trigger types */
 
 #define TMTrigInternal  "0"
@@ -65,9 +75,15 @@ typedef enum
 #define medipixSoftwareTriggerString        "SOFTWARETRIGGER"
 #define medipixEnableCounter1String         "ENABLECOUNTER1"
 #define medipixContinuousRWString           "CONTINUOUSRW"
+
+// Medipix XBPM SPECIFIC
 #define medipixProfileControlString         "PROFILECONTROL"
 #define medipixProfileXString               "PROFILE_AVERAGE_X"
 #define medipixProfileYString               "PROFILE_AVERAGE_Y"
+
+// UoM BPM SPECIFIC
+#define medipixEnableBackgroundCorrString   "ENABLEBACKGROUNDCORR"
+#define medipixEnableImageSumString         "ENABLESUMAVERAGE"
 
 class mpxConnection;
 
@@ -105,7 +121,6 @@ protected:
     int medipixStartThresholdScan;
     int medipixStopThresholdScan;
     int medipixStepThresholdScan;
-    int medipixStartThresholdScanning;
     int medipixTvxVersion;
     int medipixCounterDepth;
     int medipixSoftwareTrigger;
@@ -115,8 +130,10 @@ protected:
     int medipixProfileControl;
     int medipixProfileX;
     int medipixProfileY;
+    int medipixEnableBackgroundCorr;
+    int medipixEnableImageSum;
 
-#define LAST_medipix_PARAM medipixProfileY
+#define LAST_medipix_PARAM medipixEnableImageSum
 
 private:
     /* These are the methods that are new to this class */

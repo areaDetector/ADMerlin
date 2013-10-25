@@ -66,6 +66,46 @@ record(mbbi, "$(P)$(R)FileFormat_RBV")
     field(ONVL, "1")
 }
 
+###################################################################
+#  These records control the acquisition mode                     # 
+###################################################################
+# % gdatag, mbbinary, rw, $(PORT)_ADBase, ImageMode, Set ImageMode
+# % autosave 2 
+record(mbbo, "$(P)$(R)ImageMode")
+{
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))IMAGE_MODE")
+   field(ZRST, "Single")
+   field(ZRVL, "0")
+   field(ONST, "Multiple")
+   field(ONVL, "1")
+   field(TWST, "Continuous")
+   field(TWVL, "2")
+   field(THST, "Threshold")
+   field(THVL, "3")
+   field(FRST, "Background")
+   field(FRVL, "4")
+   field(VAL,  "2")
+}
+
+# % gdatag, mbbinary, ro, $(PORT)_ADBase, ImageMode_RBV, Readback for ImageMode
+record(mbbi, "$(P)$(R)ImageMode_RBV")
+{
+   field(DTYP, "asynInt32")
+   field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))IMAGE_MODE")
+   field(ZRST, "Single")
+   field(ZRVL, "0")
+   field(ONST, "Multiple")
+   field(ONVL, "1")
+   field(TWST, "Continuous")
+   field(TWVL, "2")
+   field(THST, "Threshold")
+   field(THVL, "3")
+   field(FRST, "Background")
+   field(FRVL, "4")
+   field(SCAN, "I/O Intr")
+}
 
 ##########################################################################
 # Medipix specific fields 
@@ -246,7 +286,7 @@ record(ai, "$(P)$(R)StepThresholdScan_RBV")
     field(SCAN, "I/O Intr")
 }
 
-# execute Threshold Scan 
+# Set which Threshold to Scan 
 ##  gdatag, pv, rw, $(PORT)_medipix, ThresholdScan, Set ThresholdScan
 record(longout, "$(P)$(R)ThresholdScan") {
    field(PINI, "YES")
@@ -261,31 +301,6 @@ record(longin, "$(P)$(R)ThresholdScan_RBV") {
    field(DTYP, "asynInt32")
    field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))THRESHOLDSCAN")
    field(DESC, "ThresholdScan")
-   field(SCAN, "I/O Intr")
-}
-
-###################################################################
-#  threshold scan start and stop 
-###################################################################
-##  gdatag, pv, rw, $(PORT)_ADBase, StartThresholdScanning, Set StartThresholdScanning
-record(busy, "$(P)$(R)StartThresholdScanning") {
-   field(DTYP, "asynInt32")
-   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))STARTTHRESHOLDSCANNING")
-   field(ZNAM, "Done")
-   field(ONAM, "StartThresholdScanning")
-   field(VAL,  "0")
-}
-
-# This makes the component icon reflect the status
-# % gui, $(PORT), status
-##  gdatag, binary, ro, $(PORT)_ADBase, StartThresholdScanning_RBV, Readback for StartThresholdScanning
-record(bi, "$(P)$(R)StartThresholdScanning_RBV") {
-   field(DTYP, "asynInt32")
-   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))STARTTHRESHOLDSCANNING")
-   field(ZNAM, "Done")
-   field(ZSV,  "NO_ALARM")
-   field(ONAM, "Scanning")
-   field(OSV,  "MINOR")
    field(SCAN, "I/O Intr")
 }
 
@@ -365,7 +380,7 @@ record(mbbi,"$(P)$(R)CounterDepth_RBV") {
    field(SCAN, "I/O Intr")
 }
 
-# Counter depth - number of bits per pixel
+# Enable Counter 1
 # % autosave 2 
 ##  gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
 record(bo,"$(P)$(R)EnableCounter1") {
@@ -459,6 +474,88 @@ record(waveform, "$(P)$(R)ProfileAverageY_RBV")
    field(FTVL, "ULONG")
    field(NELM, "$(YSIZE=256)")
    field(SCAN, "I/O Intr")
+}
+
+# Set number of backgound images to average 
+##  gdatag, pv, rw, $(PORT)_medipix, BackgoundCount, Set BackgoundCount
+record(longout, "$(P)$(R)BackgoundCount") {
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))BACKGROUNDCOUNT")
+   field(DESC, "Backgound Correction Image Count")
+   field(VAL, "0")
+}
+
+##  gdatag, pv, ro, $(PORT)_medipix, BackgoundCount_RBV, Readback for BackgoundCount
+record(longin, "$(P)$(R)BackgoundCount_RBV") {
+   field(DTYP, "asynInt32")
+   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))BACKGROUNDCOUNT")
+   field(DESC, "Backgound Correction Image Count")
+   field(SCAN, "I/O Intr")
+}
+
+# Enable Background Correction
+# % autosave 2 
+##  gdatag, pv, rw, $(PORT)_medipix, EnableBackgroundCorrection, Set EnableBackgroundCorrection
+record(bo,"$(P)$(R)EnableBackgroundCorrection") {
+    field(PINI, "YES")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ENABLEBACKGROUNDCORR")
+    field(DESC,"Enable Background Correction")
+    field(ZNAM,"Disabled")
+    field(ONAM,"Enabled")
+}
+
+##  gdatag, pv, ro, $(PORT)_medipix, EnableBackgroundCorrection_RBV, Read EnableBackgroundCorrection
+record(bi,"$(P)$(R)EnableBackgroundCorrection_RBV") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ENABLEBACKGROUNDCORR")
+    field(DESC,"Enable Background Correction")
+    field(ZNAM,"Disabled")
+    field(ONAM,"Enabled")
+    field(SCAN, "I/O Intr")
+}
+
+
+# Set number of images to sum 
+##  gdatag, pv, rw, $(PORT)_medipix, SumCount, Set SumCount
+record(longout, "$(P)$(R)SumCount") {
+   field(PINI, "YES")
+   field(DTYP, "asynInt32")
+   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))SUMCOUNT")
+   field(DESC, "Summing Image Count")
+   field(VAL, "1")
+}
+
+##  gdatag, pv, ro, $(PORT)_medipix, SumCount_RBV, Readback for SumCount
+record(longin, "$(P)$(R)SumCount_RBV") {
+   field(DTYP, "asynInt32")
+   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))SUMCOUNT")
+   field(DESC, "Summinf Image Count")
+   field(SCAN, "I/O Intr")
+}
+
+
+# Enable Summed Image averaging
+# % autosave 2 
+##  gdatag, pv, rw, $(PORT)_medipix, EnableSumAverage, Set EnableSumAverage
+record(bo,"$(P)$(R)EnableSumAverage") {
+    field(PINI, "YES")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ENABLESUMAVERAGE")
+    field(DESC,"Enable summed image averaging")
+    field(ZNAM,"Disabled")
+    field(ONAM,"Enabled")
+}
+
+##  gdatag, pv, ro, $(PORT)_medipix, EnableSumAverage_RBV, Read EnableSumAverage
+record(bi,"$(P)$(R)EnableSumAverage_RBV") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ENABLESUMAVERAGE")
+    field(DESC,"Enable summed image averaging")
+    field(ZNAM,"Disabled")
+    field(ONAM,"Enabled")
+    field(SCAN, "I/O Intr")
 }
 
 ##########################################################################

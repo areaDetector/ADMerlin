@@ -45,7 +45,7 @@ extern int mpxDisconnect(void);
 // size of buffer for image frame body including leading comma
 #define MPX_IMG_FRAME_LEN MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES + MPX_MSG_DATATYPE_LEN + 2
 #define MPX_IMG_FRAME_LEN24 MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES * 2 + MPX_MSG_DATATYPE_LEN + 2 // 32 bit pixels in 12 bit mode
-#define MAX_BUFF_UOM 2630000
+#define MAX_BUFF_UOM 5300000
 
 // error definitions
 #define MPX_OK 0    			/*Ok*/
@@ -73,6 +73,11 @@ extern int mpxDisconnect(void);
 #define MPXVAR_ENABLECOUNTER1           "ENABLECOUNTER1"
 #define MPXVAR_CONTINUOUSRW             "CONTINUOUSRW"
 #define MPXVAR_ROI                      "ROI"
+#define MPXVAR_ENABLEBACKROUNDCORR      "BCKGRNDCORRECTION"
+#define MPXVAR_BACKGROUNDCOUNT          "BCKGRND"
+#define MPXVAR_ENABLEIMAGEAVERAGE       "IMGAVERAGE"
+#define MPXVAR_IMAGESTOSUM              "IMAGESTOSUM"
+
 // variables Threshold Scan Control
 #define MPXVAR_THSSCAN 					"THSCAN"
 #define MPXVAR_THWINDOWMODE 			"THWINDOWMODE"
@@ -92,6 +97,8 @@ extern int mpxDisconnect(void);
 #define MPXCMD_RESET                    "RESET"
 #define MPXCMD_PROFILECONTROL           "PROFILES"
 #define MPXCMD_PROFILES                 "PROFILES"
+#define MPXCMD_BACKGROUNDACQUIRE        "BCKGRND"
+
 
 // Bits in the PROFILES selection mask
 #define MPXPROFILES_IMAGE               1

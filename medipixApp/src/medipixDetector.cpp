@@ -214,8 +214,12 @@ void medipixDetector::medipixTask()
                 imageAttr->clear();
                 pImage = NULL;
 
-                dataConnection->parseDataFrame(imageAttr, bigBuff, header,
-                        &dummy, &dummy, &dummy2, &profileMask);
+                if(header == MPXGenericProfileHeader)
+                    dataConnection->parseDataFrame(imageAttr, bigBuff, header,
+                            &(dims[0]), &(dims[1]), &dummy2, &profileMask);
+                else
+                    dataConnection->parseDataFrame(imageAttr, bigBuff, header,
+                            &dummy, &dummy, &dummy2, &profileMask);
 
                 if (profileMask
                         != (MPXPROFILES_XPROFILE | MPXPROFILES_YPROFILE
@@ -375,11 +379,15 @@ NDArray* medipixDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
     NDArray* pImage = this->pNDArrayPool->alloc(2, profileDims, NDUInt32, 0,
             NULL);
 
+    asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
+            "%s:%s: Creating profile waveforms xsize %d. ysize %d\n", driverName,
+            "copyProfileToNDArray32", dims[0], dims[1]);
+
     if (pImage == NULL)
     {
         asynPrint(this->pasynLabViewData, ASYN_TRACE_ERROR,
                 "%s:%s: unable to allocate NDArray from pool\n", driverName,
-                "copyToNDArray32");
+                "copyProfileToNDArray32");
         setStringParam(ADStatusMessage,
                 "Error: run out of buffers in detector driver");
     }
@@ -608,6 +616,26 @@ asynStatus medipixDetector::setAcquireParams()
     // avoid chatty startup which keeps setting these values
     if (startingUp)
         return asynSuccess;
+
+    if(detType == MedipixXBPM || detType == UomXBPM)
+    {
+        int exposures, val;
+
+        getIntegerParam(ADNumExposures, &exposures);
+        epicsSnprintf(value, MPX_MAXLINE, "%d", exposures);
+        cmdConnection->mpxSet(MPXVAR_IMAGESTOSUM, value,
+                Labview_DEFAULT_TIMEOUT);
+
+        getIntegerParam(medipixEnableBackgroundCorr, &val);
+        epicsSnprintf(value, MPX_MAXLINE, "%d", val);
+        cmdConnection->mpxSet(MPXVAR_ENABLEBACKROUNDCORR, value,
+                Labview_DEFAULT_TIMEOUT);
+
+        getIntegerParam(medipixEnableImageSum, &val);
+        epicsSnprintf(value, MPX_MAXLINE, "%d", val);
+        cmdConnection->mpxSet(MPXVAR_ENABLEIMAGEAVERAGE, value,
+                Labview_DEFAULT_TIMEOUT);
+    }
 
     int numImages;
     status = getIntegerParam(ADNumImages, &numImages);
@@ -909,15 +937,29 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 
             switch (imageMode)
             {
-            case ADImageSingle:
+            case MPXImageSingle:
                 imagesRemaining = imagesToAcquire = 1;
                 break;
-            case ADImageMultiple:
+            case MPXImageMultiple:
                 imagesRemaining = imagesToAcquire;
                 break;
-            case ADImageContinuous:
+            case MPXImageContinuous:
                 imagesToAcquire = 0;
                 imagesRemaining = -1;
+                break;
+            case MPXThresholdScan:
+                double start, stop, step;
+                getDoubleParam(medipixStartThresholdScan, &start);
+                getDoubleParam(medipixStopThresholdScan, &stop);
+                getDoubleParam(medipixStepThresholdScan, &step);
+                imagesRemaining = (int) ((stop - start) / step);
+                setStringParam(ADStatusMessage, "Performing Threshold Scan...");
+                setIntegerParam(ADNumImages, 1); // internally Merlin does this so we set EPICS PV to match
+                break;
+            case MPXBackgroundCalibrate:
+                // we only get a single image back from the server for all the
+                // background images we take
+                imagesRemaining = 1;
                 break;
             }
 
@@ -925,19 +967,35 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
             if (counter1Enabled == 1 && imagesRemaining > 0)
                 imagesRemaining *= 2;
 
-            epicsSnprintf(strVal, MPX_MAXLINE, "%d", imagesToAcquire);
-            cmdConnection->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal,
-                    Labview_DEFAULT_TIMEOUT);
-
-            if (profileMaskParm & MPXPROFILES_IMAGE == MPXPROFILES_IMAGE)
+            if (imageMode == MPXThresholdScan)
             {
-                cmdConnection->mpxCommand(MPXCMD_STARTACQUISITION,
+                status = cmdConnection->mpxCommand(MPXCMD_THSCAN,
                         Labview_DEFAULT_TIMEOUT);
             }
-            else
+            else if (imageMode == MPXBackgroundCalibrate)
             {
-                cmdConnection->mpxCommand(MPXCMD_PROFILES,
+                epicsSnprintf(strVal, MPX_MAXLINE, "%d", imagesToAcquire);
+                cmdConnection->mpxSet(MPXVAR_BACKGROUNDCOUNT, strVal,
                         Labview_DEFAULT_TIMEOUT);
+                status = cmdConnection->mpxCommand(MPXCMD_BACKGROUNDACQUIRE,
+                        Labview_DEFAULT_TIMEOUT);
+            }
+            else // a standard image acquisition (or profile acquisition)
+            {
+                epicsSnprintf(strVal, MPX_MAXLINE, "%d", imagesToAcquire);
+                cmdConnection->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal,
+                        Labview_DEFAULT_TIMEOUT);
+
+                if (profileMaskParm & MPXPROFILES_IMAGE == MPXPROFILES_IMAGE)
+                {
+                    cmdConnection->mpxCommand(MPXCMD_STARTACQUISITION,
+                            Labview_DEFAULT_TIMEOUT);
+                }
+                else
+                {
+                    cmdConnection->mpxCommand(MPXCMD_PROFILES,
+                            Labview_DEFAULT_TIMEOUT);
+                }
             }
         }
         if (!value && (adstatus == ADStatusAcquire))
@@ -947,29 +1005,11 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
                     Labview_DEFAULT_TIMEOUT);
         }
     }
-    else if (function == medipixStartThresholdScanning)
-    {
-        getIntegerParam(ADStatus, &adstatus);
-        if (value && (adstatus == ADStatusIdle || adstatus == ADStatusError))
-        {
-            // calculate the number of images expected
-            double start, stop, step;
-            getDoubleParam(medipixStartThresholdScan, &start);
-            getDoubleParam(medipixStopThresholdScan, &stop);
-            getDoubleParam(medipixStepThresholdScan, &step);
-            imagesRemaining = (int) ((stop - start) / step);
-
-            setIntegerParam(ADStatus, ADStatusAcquire);
-            setIntegerParam(ADNumImagesCounter, 0);
-            setStringParam(ADStatusMessage, "Performing Threshold Scan...");
-            setIntegerParam(ADNumImages, 1); // internally Merlin does this so we set EPICS PV to match
-            status = cmdConnection->mpxCommand(MPXCMD_THSCAN,
-                    Labview_DEFAULT_TIMEOUT);
-        }
-    }
     else if ((function == ADTriggerMode) || (function == ADNumImages)
             || (function == ADNumExposures)
-            || (function == medipixCounterDepth))
+            || (function == medipixCounterDepth)
+            || (function == medipixEnableBackgroundCorr)
+            || (function == medipixEnableImageSum))
     {
         setAcquireParams();
     }
@@ -1218,9 +1258,11 @@ medipixDetector::medipixDetector(const char *portName,
     /* Allocate the raw buffer we use for flat fields. */
     this->pFlatField = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
 
-// medipix is upside down by area detector standards
-// this does not work - I need to invert using my own memory copy function
+    // medipix is upside down by area detector standards
+    // this does not work - I need to invert using my own memory copy function
     // this->ADReverseY = 1;
+    // Update: this could be made to work by calling the copy NDArray function
+    // (in base class) but perhaps more efficient to do in memory inversion alone
 
     /* Connect to Labview */
     status = pasynOctetSyncIO->connect(LabviewCommandPort, 0,
@@ -1252,8 +1294,6 @@ medipixDetector::medipixDetector(const char *portName,
             &medipixStopThresholdScan);
     createParam(medipixStepThresholdScanString, asynParamFloat64,
             &medipixStepThresholdScan);
-    createParam(medipixStartThresholdScanningString, asynParamInt32,
-            &medipixStartThresholdScanning);
     createParam(medipixCounterDepthString, asynParamInt32,
             &medipixCounterDepth);
     createParam(medipixResetString, asynParamInt32, &medipixReset);
@@ -1265,7 +1305,7 @@ medipixDetector::medipixDetector(const char *portName,
     createParam(medipixContinuousRWString, asynParamInt32,
             &medipixContinuousRW);
 
-// XBPM Specific parameters
+    // XBPM Specific parameters
     createParam(medipixProfileControlString, asynParamInt32,
             &medipixProfileControl);
     int res = createParam(medipixProfileXString, asynParamInt32Array,
@@ -1273,10 +1313,29 @@ medipixDetector::medipixDetector(const char *portName,
     res = createParam(medipixProfileYString, asynParamInt32Array,
             &medipixProfileY);
 
+    // UoM BPM specific
+    createParam(medipixEnableBackgroundCorrString, asynParamInt32,
+            &medipixEnableBackgroundCorr);
+    createParam(medipixEnableImageSumString, asynParamInt32,
+            &medipixEnableImageSum);
+
     /* Set some default values for parameters */
-    status = setStringParam(ADManufacturer, "Medipix Consortium");
-    status |= setStringParam(ADModel, "medipix");
-    status |= setIntegerParam(ADMaxSizeX, maxSizeX);
+    switch (detectorType)
+    {
+    case MedipixXBPM:
+        setStringParam(ADManufacturer, "Medipix Consortium");
+        setStringParam(ADModel, "Lancelot XBPM");
+        break;
+    case Merlin:
+        setStringParam(ADManufacturer, "Medipix Consortium");
+        setStringParam(ADModel, "Merlin");
+        break;
+    case UomXBPM:
+        setStringParam(ADManufacturer, "University of Manchester");
+        setStringParam(ADModel, "UoM XBPM");
+        break;
+    }
+    status = setIntegerParam(ADMaxSizeX, maxSizeX);
     status |= setIntegerParam(ADMaxSizeY, maxSizeY);
     status |= setIntegerParam(ADSizeX, maxSizeX);
     status |= setIntegerParam(ADSizeX, maxSizeX);

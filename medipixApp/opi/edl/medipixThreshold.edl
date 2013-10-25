@@ -3,8 +3,8 @@ beginScreenProperties
 major 4
 minor 0
 release 1
-x 382
-y 340
+x 386
+y 392
 w 403
 h 245
 font "arial-bold-r-12.0"
@@ -68,7 +68,7 @@ release 0
 x 5
 y 5
 w 90
-h 14
+h 13
 font "arial-medium-r-12.0"
 fgColor index 14
 bgColor index 5
@@ -268,54 +268,6 @@ value {
 }
 endObjectProperties
 
-# (Message Button)
-object activeMessageButtonClass
-beginObjectProperties
-major 4
-minor 0
-release 0
-x 80
-y 150
-w 90
-h 30
-fgColor index 14
-onColor index 3
-offColor index 3
-topShadowColor index 1
-botShadowColor index 11
-controlPv "$(P)$(R)StartThresholdScanning"
-pressValue "1"
-onLabel "Start"
-offLabel "Start"
-3d
-useEnumNumeric
-font "arial-bold-r-12.0"
-endObjectProperties
-
-# (Message Button)
-object activeMessageButtonClass
-beginObjectProperties
-major 4
-minor 0
-release 0
-x 220
-y 150
-w 90
-h 30
-fgColor index 14
-onColor index 3
-offColor index 3
-topShadowColor index 1
-botShadowColor index 11
-controlPv "$(P)$(R)Acquire"
-pressValue "0"
-onLabel "Stop"
-offLabel "Stop"
-3d
-useEnumNumeric
-font "arial-bold-r-12.0"
-endObjectProperties
-
 # (Textupdate)
 object TextupdateClass
 beginObjectProperties
@@ -377,5 +329,26 @@ useDisplayBg
 value {
   "Threshold Number"
 }
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 40
+y 145
+w 294
+h 26
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "To start a threshold scan choose \"Threshold\" Image "
+  "Mode on the main screen and hit start."
+}
+autoSize
 endObjectProperties
 

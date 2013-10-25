@@ -3,8 +3,8 @@ beginScreenProperties
 major 4
 minor 0
 release 1
-x 534
-y 129
+x 128
+y 181
 w 395
 h 820
 font "arial-bold-r-12.0"
@@ -485,9 +485,9 @@ major 4
 minor 2
 release 0
 x 15
-y 660
+y 580
 w 105
-h 25
+h 20
 fgColor index 14
 bgColor index 3
 topShadowColor index 1
@@ -699,113 +699,26 @@ value {
 }
 endObjectProperties
 
-# (Group)
-object activeGroupClass
-beginObjectProperties
-major 4
-minor 0
-release 0
-x 15
-y 590
-w 105
-h 20
-
-beginGroup
-
-# (Menu Button)
-object activeMenuButtonClass
-beginObjectProperties
-major 4
-minor 0
-release 0
-x 15
-y 590
-w 105
-h 20
-fgColor index 25
-bgColor index 3
-inconsistentColor index 0
-topShadowColor index 1
-botShadowColor index 11
-controlPv "$(P)$(R)ProfileControl"
-indicatorPv "$(P)$(R)ProfileControl_RBV"
-font "arial-bold-r-12.0"
-endObjectProperties
-
-endGroup
-
-visMin "0"
-visMax "1"
-endObjectProperties
-
 # (Related Display)
 object relatedDisplayClass
 beginObjectProperties
 major 4
 minor 2
 release 0
-x 90
-y 615
-w 30
-h 20
-fgColor index 43
-bgColor index 3
-topShadowColor index 1
-botShadowColor index 11
-font "arial-bold-r-12.0"
-buttonLabel "Y"
-numPvs 4
-numDsps 1
-displayFileName {
-  0 "NDPlot"
-}
-symbols {
-  0 "DATA=ProfileAverageY_RBV,TITLE=AverageY,XLABEL=Pixel,YLABEL=Counts"
-}
-endObjectProperties
-
-# (Related Display)
-object relatedDisplayClass
-beginObjectProperties
-major 4
-minor 2
-release 0
-x 60
-y 615
-w 30
-h 20
-fgColor index 43
-bgColor index 3
-topShadowColor index 1
-botShadowColor index 11
-font "arial-bold-r-12.0"
-buttonLabel "X"
-numPvs 4
-numDsps 1
-displayFileName {
-  0 "NDPlot"
-}
-symbols {
-  0 "DATA=ProfileAverageX_RBV,TITLE=AverageX,XLABEL=Pixel,YLABEL=Counts"
-}
-endObjectProperties
-
-# (Static Text)
-object activeXTextClass
-beginObjectProperties
-major 4
-minor 1
-release 0
 x 15
-y 615
-w 55
+y 625
+w 105
 h 20
-font "arial-bold-r-12.0"
 fgColor index 14
 bgColor index 3
-useDisplayBg
-value {
-  "Profile:"
+topShadowColor index 1
+botShadowColor index 11
+font "arial-bold-r-12.0"
+buttonLabel "BPM Settings"
+numPvs 4
+numDsps 1
+displayFileName {
+  0 "medipixBPM.edl"
 }
 endObjectProperties
 

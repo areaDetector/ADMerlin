@@ -191,7 +191,7 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
         {
             iVal = atoi(tok);
             sprintf(dacName, "DAC %03d", dacNum);
-            asynPrint(this->parentUser, ASYN_TRACE_MPX, "dac %d = %d, ", dacNum, iVal);
+            asynPrint(this->parentUser, ASYN_TRACE_MPX_VERBOSE, "dac %d = %d\n", dacNum, iVal);
             pAttr->add(dacName, "", NDAttrInt32, &iVal);
         }
     }
