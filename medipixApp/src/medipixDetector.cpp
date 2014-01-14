@@ -77,7 +77,23 @@ void medipixDetector::medipixTask()
     this->lock();
 
     // allocate a buffer for reading in images from labview over network
-    imagSize = (detType == UomXBPM ? MAX_BUFF_UOM : MPX_IMG_FRAME_LEN24);
+    switch(detType)
+    {
+        UomXBPM:
+            imagSize=MAX_BUFF_UOM;
+            break;
+        Merlin:
+        MedipixXBPM:
+            imagSize=MPX_IMG_FRAME_LEN24;
+            break;
+        MerlinQuad:
+            imagSize=MAX_BUFF_MERLIN_QUAD;
+            break;
+        default:
+            imagSize=MAX_BUFF_UOM;
+            break;
+    }
+
     bigBuff = (char*) calloc(imagSize, 1);
 
     /* Loop forever */
@@ -162,7 +178,7 @@ void medipixDetector::medipixTask()
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating a 12bit Array\n");
 
-                pImage = copyToNDArray16(dims, bigBuff);
+                pImage = copyToNDArray16(dims, bigBuff, MPX_IMG_HDR_LEN);
                 if (pImage == NULL)
                     continue;
                 dataConnection->parseDataFrame(pImage->pAttributeList, bigBuff,
@@ -173,7 +189,7 @@ void medipixDetector::medipixTask()
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating a 24bit Array\n");
 
-                pImage = copyToNDArray32(dims, bigBuff);
+                pImage = copyToNDArray32(dims, bigBuff, MPX_IMG_HDR_LEN);
                 if (pImage == NULL)
                     continue;
                 dataConnection->parseDataFrame(pImage->pAttributeList, bigBuff,
@@ -193,14 +209,49 @@ void medipixDetector::medipixTask()
                 pImage = NULL;
                 if (pixelSize == 16)
                 {
-                    pImage = copyToNDArray16(dims, bigBuff);
+                    pImage = copyToNDArray16(dims, bigBuff, MPX_IMG_HDR_LEN);
                 }
                 else if (pixelSize == 32)
                 {
-                    pImage = copyToNDArray32(dims, bigBuff);
+                    pImage = copyToNDArray32(dims, bigBuff, MPX_IMG_HDR_LEN);
                 }
                 if (pImage == NULL)
                     continue;
+                imageAttr->copy(pImage->pAttributeList);
+            }
+            else if (header == MPXQuadDataHeader)
+            {
+                int pixelSize;
+                int offset;
+                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
+                        "Creating a Quad Merlin Image NDArray\n");
+
+                // Parse the header and use the information to determine the
+                // size of the NDArray
+                imageAttr->clear();
+                dataConnection->parseMqDataFrame(imageAttr, bigBuff, &(dims[0]),
+                        &(dims[1]), &pixelSize, &offset);
+                pImage = NULL;
+                if (pixelSize == 16)
+                {
+                    pImage = copyToNDArray16(dims, bigBuff, offset);
+                }
+                else if (pixelSize == 32)
+                {
+                    pImage = copyToNDArray32(dims, bigBuff, offset);
+                }
+                else
+                {
+                    asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+                        "Unsupported bit depth %d\n", header);
+                    setStringParam(ADStatusMessage,
+                            "Error: Unsupported bit depth");
+                }
+
+                if (pImage == NULL)
+                {
+                    continue;
+                }
                 imageAttr->copy(pImage->pAttributeList);
             }
             else if (header == MPXProfileHeader12
@@ -214,7 +265,7 @@ void medipixDetector::medipixTask()
                 imageAttr->clear();
                 pImage = NULL;
 
-                if(header == MPXGenericProfileHeader)
+                if (header == MPXGenericProfileHeader)
                     dataConnection->parseDataFrame(imageAttr, bigBuff, header,
                             &(dims[0]), &(dims[1]), &dummy2, &profileMask);
                 else
@@ -248,7 +299,8 @@ void medipixDetector::medipixTask()
                     || header == MPXProfileHeader12
                     || header == MPXProfileHeader24
                     || header == MPXGenericImageHeader
-                    || header == MPXGenericProfileHeader)
+                    || header == MPXGenericProfileHeader
+                    || header == MPXQuadDataHeader)
             {
                 // Put the frame number and time stamp into the buffer
                 pImage->uniqueId = imageCounter;
@@ -267,7 +319,8 @@ void medipixDetector::medipixTask()
                 // Must release the lock here, to avoid a deadlock: we can
                 // block on the plugin lock, and the plugin can be calling us
                 this->unlock();
-                if (header == MPXDataHeader12 || header == MPXDataHeader24)
+                if (header == MPXDataHeader12 || header == MPXDataHeader24
+                    || header == MPXGenericImageHeader || header == MPXQuadDataHeader)
                 {
                     doCallbacksGenericPointer(pImage, NDArrayData, 0);
                 }
@@ -316,7 +369,7 @@ void medipixDetector::medipixTask()
  */
 inline void medipixDetector::endian_swap(unsigned short& x)
 {
-    if (detType == Merlin)
+    if (detType == Merlin || detType == MerlinQuad)
     {
         x = (x >> 8) | (x << 8);
     }
@@ -324,7 +377,7 @@ inline void medipixDetector::endian_swap(unsigned short& x)
 
 inline void medipixDetector::endian_swap(unsigned int& x)
 {
-    if (detType == Merlin)
+    if (detType == Merlin || detType == MerlinQuad)
     {
         x = (x >> 24) | ((x << 8) & 0x00FF0000) | ((x >> 8) & 0x0000FF00)
                 | (x << 24);
@@ -333,7 +386,7 @@ inline void medipixDetector::endian_swap(unsigned int& x)
 
 inline void medipixDetector::endian_swap(uint64_t& x)
 {
-    if (detType == Merlin)
+    if (detType == Merlin || detType == MerlinQuad)
     {
         x = ((((x) & 0x00000000000000FFLL) << 0x38)
                 | (((x) & 0x000000000000FF00LL) << 0x28)
@@ -380,8 +433,8 @@ NDArray* medipixDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
             NULL);
 
     asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-            "%s:%s: Creating profile waveforms xsize %d. ysize %d\n", driverName,
-            "copyProfileToNDArray32", dims[0], dims[1]);
+            "%s:%s: Creating profile waveforms xsize %d. ysize %d\n",
+            driverName, "copyProfileToNDArray32", dims[0], dims[1]);
 
     if (pImage == NULL)
     {
@@ -423,7 +476,7 @@ NDArray* medipixDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
 /** Helper function to copy a 16 bit buffer into an NDArray
  *
  */
-NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer)
+NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer, int offset)
 {
     // copy the data into NDArray, switching to little endien and
     // Inverting in the Y axis (medipix origin is at bottom left)
@@ -445,7 +498,7 @@ NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer)
         for (y = 0; y < dims[1]; y++)
         {
             for (x = 0, pData = (epicsUInt16 *) pImage->pData + y * dims[0], pSrc =
-                    (epicsUInt16 *) (buffer + MPX_IMG_HDR_LEN)
+                    (epicsUInt16 *) (buffer + offset)
                             + (dims[1] - y) * dims[0]; x < dims[0];
                     x++, pData++, pSrc++)
             {
@@ -460,7 +513,7 @@ NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer)
 /** Helper function to copy a 32 bit buffer into an NDArray
  *
  */
-NDArray* medipixDetector::copyToNDArray32(size_t* dims, char* buffer)
+NDArray* medipixDetector::copyToNDArray32(size_t* dims, char* buffer, int offset)
 {
     epicsUInt32 *pData, *pSrc;
     size_t x, y;
@@ -480,7 +533,7 @@ NDArray* medipixDetector::copyToNDArray32(size_t* dims, char* buffer)
         for (y = 0; y < dims[1]; y++)
         {
             for (x = 0, pData = (epicsUInt32 *) pImage->pData + y * dims[0], pSrc =
-                    (epicsUInt32 *) (buffer + MPX_IMG_HDR_LEN)
+                    (epicsUInt32 *) (buffer + offset)
                             + (dims[1] - y) * dims[0]; x < dims[0];
                     x++, pData++, pSrc++)
             {
@@ -617,7 +670,7 @@ asynStatus medipixDetector::setAcquireParams()
     if (startingUp)
         return asynSuccess;
 
-    if(detType == MedipixXBPM || detType == UomXBPM)
+    if (detType == MedipixXBPM || detType == UomXBPM)
     {
         int exposures, val;
 
@@ -1006,8 +1059,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
         }
     }
     else if ((function == ADTriggerMode) || (function == ADNumImages)
-            || (function == ADNumExposures)
-            || (function == medipixCounterDepth)
+            || (function == ADNumExposures) || (function == medipixCounterDepth)
             || (function == medipixEnableBackgroundCorr)
             || (function == medipixEnableImageSum))
     {
@@ -1334,6 +1386,11 @@ medipixDetector::medipixDetector(const char *portName,
         setStringParam(ADManufacturer, "University of Manchester");
         setStringParam(ADModel, "UoM XBPM");
         break;
+    case MerlinQuad:
+        setStringParam(ADManufacturer, "Medipix Consortium");
+        setStringParam(ADModel, "Merlin Quad");
+        break;
+
     }
     status = setIntegerParam(ADMaxSizeX, maxSizeX);
     status |= setIntegerParam(ADMaxSizeY, maxSizeY);

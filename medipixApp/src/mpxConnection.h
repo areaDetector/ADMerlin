@@ -17,6 +17,7 @@ typedef enum
     MPXProfileHeader24,
     MPXGenericProfileHeader,
     MPXAcquisitionHeader,
+    MPXQuadDataHeader,
     MPXUnknownHeader
 } medipixDataHeader;
 
@@ -53,8 +54,8 @@ public:
     void parseDataFrame(NDAttributeList* pAttr, const char* header,
             medipixDataHeader headerType, size_t *xsize, size_t *ysize,
             int* pixelSize, int* profileMask);
-    void parseMqDataFrame(NDArray* pImage, const char* header,
-            medipixDataHeader headerType);
+    void parseMqDataFrame(NDAttributeList* pAttr, const char* header,
+    		size_t *xsize, size_t *ysize, int* pixelDepth, int* offset);
 
     void dumpData(char* sdata, int size);
 

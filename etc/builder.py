@@ -45,7 +45,7 @@ class medipix(_ADBase):
         LABVIEW_DATA = Simple('port for medipix Labview data channel'),
         XSIZE = Simple('Maximum X dimension of the image', int),
         YSIZE = Simple('Maximum Y dimension of the image', int),
-        DETECTOR_TYPE = Enum ('Detector Type', ("Merlin", "Medipix_XBPM", "UoM_BPM")),
+        DETECTOR_TYPE = Enum ('Detector Type', ("Merlin", "Medipix_XBPM", "UoM_BPM", "QuadMerlin")),
         TRACING = Simple('Tracing flag - use 0x301 for verbose and 0x101 for less verbose'),
         BUFFERS = Simple('Maximum number of NDArray buffers to be created for '
             'plugin callbacks', int),
@@ -60,7 +60,7 @@ class medipix(_ADBase):
     def Initialise(self):
         print '# medipixDetectorConfig(portName, commandPort, dataPort, maxSizeX, ' \
             'maxSizeY, ,detectorType maxBuffers, maxMemory)' \
-            'detectorType: 0 = Merlin, 1 = Medipix_XBPM, 2 = UoM_BPM'
+            'detectorType: 0 = Merlin, 1 = Medipix_XBPM, 2 = UoM_BPM, 3 = Quad Merlin'
         print 'medipixDetectorConfig("%(PORT)s", "%(LABVIEW_CMD_PORT)s", "%(LABVIEW_DATA_PORT)s", ' \
             '%(XSIZE)d, %(YSIZE)d, %(DETECTOR_TYPE)d, %(BUFFERS)d, %(MEMORY)d)' % self.__dict__
         

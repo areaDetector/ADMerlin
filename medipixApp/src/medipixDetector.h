@@ -23,7 +23,7 @@
 /** Detector Types */
 typedef enum
 {
-    Merlin, MedipixXBPM, UomXBPM
+    Merlin, MedipixXBPM, UomXBPM, MerlinQuad
 } medipixDetectorType;
 
 /** Trigger modes */
@@ -146,8 +146,8 @@ private:
 
     NDArray* copyProfileToNDArray32(size_t *dims, char *buffer,
             int profileMask);
-    NDArray* copyToNDArray16(size_t *dims, char *buffer);
-    NDArray* copyToNDArray32(size_t *dims, char *buffer);
+    NDArray* copyToNDArray16(size_t *dims, char *buffer, int offset);
+    NDArray* copyToNDArray32(size_t *dims, char *buffer, int offset);
     inline void endian_swap(unsigned short& x);
     inline void endian_swap(unsigned int& x);
     inline void endian_swap(uint64_t& x);

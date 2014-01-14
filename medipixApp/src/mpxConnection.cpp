@@ -26,15 +26,6 @@ mpxConnection::mpxConnection(asynUser* parentUser, asynUser* tcpUser,
     this->parentObj = parentObj;
 }
 
-// Data Frame Header Parser for frames from Merlin Quad
-// (This data format intended to extend to future products)
-// parses the data header and adds appropriate attributes to pImage
-void mpxConnection::parseMqDataFrame(NDArray* pImage, const char* header,
-        medipixDataHeader headerType)
-{
-    // TODO
-}
-
 // parses the start of the data header and returns its type
 medipixDataHeader mpxConnection::parseDataHeader(const char* header)
 {
@@ -55,12 +46,151 @@ medipixDataHeader mpxConnection::parseDataHeader(const char* header)
         headerType = MPXProfileHeader24;
     else if (!strncmp(buff, MPX_GENERIC_PROFILE, MPX_MSG_DATATYPE_LEN))
         headerType = MPXGenericProfileHeader;
+    else if (!strncmp(buff, MPX_QUAD_DATA, MPX_MSG_DATATYPE_LEN))
+        headerType = MPXQuadDataHeader;
     else if (!strncmp(buff, MPX_DATA_ACQ_HDR, MPX_MSG_DATATYPE_LEN))
         headerType = MPXAcquisitionHeader;
 
     asynPrint(this->parentUser, ASYN_TRACE_MPX, "header type is %s\n", buff);
 
     return headerType;
+}
+
+
+// Data Frame Header Parser for frames from Merlin Quad
+// (This data format intended to extend to future products)
+// parses the data header and adds appropriate attributes to pImage
+void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
+		size_t *xsize, size_t *ysize, int* pixelDepth, int* offset)
+{
+
+    char buff[MPX_IMG_HDR_LEN + 1];
+    double dVal;
+    int iVal;
+    //int dacNum;
+    //char dacName[10];
+    char* tok;
+
+    // make a copy since strtok is destructive
+    strncpy(buff, header, MPX_IMG_HDR_LEN);
+    buff[MPX_IMG_HDR_LEN + 1] = 0;
+
+    asynPrint(this->parentUser, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
+            buff);
+
+    tok = strtok(buff, ",");
+    tok = strtok(NULL, ",");  // skip the (HDR already parsed)
+    if (tok != NULL)
+    {
+        iVal = atol(tok);
+        pAttr->add("Frame Number", "", NDAttrInt32, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+    	// this needs to be pushed up to caller since it changes depending on no. of chips
+        iVal = atoi(tok);
+        *offset = iVal;
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        iVal = atoi(tok);
+        pAttr->add("Chip Count", "", NDAttrInt8, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        iVal = atoi(tok);
+        *xsize = iVal;
+        pAttr->add("X Size", "", NDAttrInt32, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        iVal = atoi(tok);
+        *ysize = iVal;
+        pAttr->add("Y Size", "", NDAttrInt32, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+    	tok++; // skip the leading U (on this strangely represented field)
+    	iVal = atoi(tok);
+        pAttr->add("Pixel Depth", "", NDAttrInt32, &iVal);
+        *pixelDepth = iVal;
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        pAttr->add("Sensor Layout", "", NDAttrString, tok);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        iVal = strtoul(tok, NULL, 16);
+        pAttr->add("Chip Select", "", NDAttrInt8, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+    	// TODO - need to convert time to useful (numeric) format
+        pAttr->add("Time stamp", "", NDAttrInt32, 0);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        dVal = atof(tok);
+        pAttr->add("Shutter Time", "", NDAttrFloat64, &dVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        iVal = atoi(tok);
+        pAttr->add("Counter", "", NDAttrInt8, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        iVal = atoi(tok);
+        pAttr->add("Colour Mode", "", NDAttrInt8, &iVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        iVal = atoi(tok);
+        pAttr->add("Gain Mode", "", NDAttrInt8, &iVal);
+    }
+
+
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        dVal = atof(tok);
+        pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
+    }
+    tok = strtok(NULL, ",");
+    if (tok != NULL)
+    {
+        dVal = atof(tok);
+        pAttr->add("Threshold 1", "", NDAttrFloat64, &dVal);
+    }
+
+    // TODO - rest of Thresholds and DACS (need to come up with naming convention for
+    // NDAttributes in repeating DACS block
+/*
+    for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
+    {
+        tok = strtok(NULL, ",");
+        if (tok != NULL)
+        {
+            iVal = atoi(tok);
+            sprintf(dacName, "DAC %03d", dacNum);
+            asynPrint(this->parentUser, ASYN_TRACE_MPX_VERBOSE, "dac %d = %d\n", dacNum, iVal);
+            pAttr->add(dacName, "", NDAttrInt32, &iVal);
+        }
+    }
+*/
 }
 
 // Data Frame Header Parser for original Frames of type 12B and 24B
@@ -476,7 +606,12 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
     else
     {
         if (readCount != (headerSize - mpxLen))
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR,
+                    "%s:%s, Header too short\n",
+                    driverName, functionName);
             return asynError;
+        }
 
         // terminate the response for string handling
         header[readCount + mpxLen] = (char) NULL;
@@ -490,14 +625,22 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
 
         tok = strtok(NULL, ",");
         if (tok == NULL)
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR,
+                    "%s:%s, Header missing first comma\n",
+                    driverName, functionName);
             return asynError;
-
+        }
         // subtract one from bodySize since we already read the 1st comma
         bodySize = atoi(tok) - 1;
 
         if (bodySize == 0 || bodySize >= bufSize)
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR,
+                    "%s:%s, frame size %d not supported\n",
+                    driverName, functionName, bodySize);
             return asynError;
-
+        }
         // now read the rest of the message (the body)
         readCount = 0;
         do

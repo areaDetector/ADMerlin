@@ -5,8 +5,9 @@
 	<!--<medipix.medipix ADDR="1" LABVIEW_CMD="172.23.16.85:6341" LABVIEW_DATA="172.23.16.85:6342" P="Medipix1" PORT="MPX1" R="Test" TIMEOUT=".01"/>-->
 	<!--<medipix.medipix ADDR="1" BUFFERS="2000" DETECTOR_TYPE="0" LABVIEW_CMD="diamrd2404:6341" LABVIEW_DATA="diamrd2404:6342" P="Medipix1" PORT="MPX1" R="Test3" TIMEOUT=".01" XSIZE="256"/>-->
 	<!--<medipix.medipix ADDR="1" BUFFERS="2000" LABVIEW_CMD="172.23.16.25:6341" LABVIEW_DATA="172.23.16.25:6342" P="Medipix1" PORT="MPX1" R="Test" TIMEOUT=".01"/>-->
-	<medipix.medipix ADDR="1" BUFFERS="2000" LABVIEW_CMD="localhost:6341" LABVIEW_DATA="localhost:6342" P="Medipix1" PORT="MPX1" R="Test2" TIMEOUT=".01"/>
+	<!--<medipix.medipix ADDR="1" BUFFERS="2000" LABVIEW_CMD="localhost:6341" LABVIEW_DATA="localhost:6342" P="Medipix1" PORT="MPX1" R="Test2" TIMEOUT=".01"/>-->
 	<!--<medipix.medipix ADDR="1" BUFFERS="2000" LABVIEW_CMD="localhost:6343" LABVIEW_DATA="localhost:6344" MEMORY="-1" P="Medipix1" PORT="MPX1" R="Test2" TIMEOUT=".01" XSIZE="256" YSIZE="256"/>-->
+	<medipix.medipix ADDR="1" DETECTOR_TYPE="3" LABVIEW_CMD="diamrd2623:6341" LABVIEW_DATA="diamrd2623:6342" P="Medipix1" PORT="MPX1" R="Test3" TIMEOUT=".01"/>
 	<ffmpegServer.diagnosticPlugins CAM="MPX1" P="Medipix1" PORTPREFIX="Merlin1" name="Merlin"/>
 	<!--<areaDetector.NDStdArrays ADDR="0" FTVL="LONG" NDARRAY_ADDR="0" NDARRAY_PORT="MPX1" NELEMENTS="65336" P="ADALL" PORT="Merlin1.STDARRAYS" QUEUE="1000" R=":STD" TIMEOUT="50" TYPE="Int32"/>-->
 	<autosave.Autosave debug="0" iocName="medipix_example" ip="None" name="Medipix" path="/dls_sw/i16/epics/autosave" server="None" skip_1="False"/>
