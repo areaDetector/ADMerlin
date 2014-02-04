@@ -10,7 +10,7 @@
 	<medipix.medipix ADDR="1" DETECTOR_TYPE="3" LABVIEW_CMD="diamrd2815:6341" LABVIEW_DATA="diamrd2815:6342" P="Medipix1" PORT="MPX1" R="Test3" TIMEOUT=".01"/>
 	<ffmpegServer.diagnosticPlugins CAM="MPX1" P="Medipix1" PORTPREFIX="Merlin1" name="Merlin"/>
 	<!--<areaDetector.NDStdArrays ADDR="0" FTVL="LONG" NDARRAY_ADDR="0" NDARRAY_PORT="MPX1" NELEMENTS="65336" P="ADALL" PORT="Merlin1.STDARRAYS" QUEUE="1000" R=":STD" TIMEOUT="50" TYPE="Int32"/>-->
-	<autosave.Autosave debug="0" iocName="medipix_example" ip="None" name="Medipix" path="/dls_sw/i16/epics/autosave" server="None" skip_1="False"/>
+	<autosave.Autosave debug="0" iocName="medipix_example" ip="None" name="Medipix" path="/tmp/autosave" server="None" skip_1="False"/>
 	<!--<areaDetector.NDFileHDF5 ADDR="0" Enabled="1" NDARRAY_ADDR="0" NDARRAY_PORT="MPX1" P="ADALL" PORT="Merlin1.HDF5" QUEUE="2000" R=":HDF:" TIMEOUT="1"/>-->
 	<areaDetector.NDFileTIFF ADDR="0" Enabled="1" NDARRAY_ADDR="0" NDARRAY_PORT="MPX1" P="ADALL" PORT="Merlin1.TIFF" QUEUE="2000" R=":TIFF:" TIMEOUT="1"/>
 </components>
