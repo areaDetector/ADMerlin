@@ -559,6 +559,75 @@ record(bi,"$(P)$(R)EnableSumAverage_RBV") {
 }
 
 ##########################################################################
+# PVs added for the Quad Merlin
+##########################################################################
+
+# Select Mode for Quad
+# % autosave 2 
+##  gdatag, pv, rw, $(PORT)_medipix, QuadMerlinMode, Set QuadMerlinMode
+record(mbbo,"$(P)$(R)QuadMerlinMode") {
+    field(PINI, "YES")
+    field(DTYP, "asynInt32")
+    field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))QUADMERLINMODE")
+    field(DESC,"Select Merlin Mode")
+    field(ZRVL,"0")
+    field(ZRST,"12 bit")
+    field(ONVL,"1")
+    field(ONST,"24 bit")
+    field(TWVL,"2")
+    field(TWST,"Two Threshold")
+    field(THVL,"3")
+    field(THST,"Continuous RW")
+    field(FRVL,"4")
+    field(FRST,"Colour")
+    field(FVVL,"5")
+    field(FVST,"Charge Summing")
+}
+
+##  gdatag, pv, ro, $(PORT)_medipix, QuadMerlinMode_RBV, Read QuadMerlinMode_RBV
+record(mbbi,"$(P)$(R)QuadMerlinMode_RBV") {
+    field(DTYP, "asynInt32")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))QUADMERLINMODE")
+    field(DESC,"Select Merlin Mode")
+    field(ZRVL,"0")
+    field(ZRST,"12 bit")
+    field(ONVL,"1")
+    field(ONST,"24 bit")
+    field(TWVL,"2")
+    field(TWST,"Two Threshold")
+    field(THVL,"3")
+    field(THST,"Continuous RW")
+    field(FRVL,"4")
+    field(FRST,"Colour")
+    field(FVVL,"5")
+    field(FVST,"Charge Summing")
+    field(SCAN, "I/O Intr")
+}
+
+# 
+# % gdatag, array, rw, $(PORT)_medipix, SelectGui, Set SelectGui
+# % autosave 2 
+record(waveform, "$(P)$(R)SelectGui")
+{
+    field(PINI, "YES")
+    field(DTYP, "asynOctetWrite")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))SELECTGUI")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+}
+
+# % gdatag, array, rw, $(PORT)_medipix, SelectGui_RBV, Set SelectGui_RBV
+record(waveform, "$(P)$(R)SelectGui_RBV")
+{
+    field(DTYP, "asynOctetRead")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))SELECTGUI")
+    field(FTVL, "CHAR")
+    field(NELM, "256")
+    field(SCAN, "I/O Intr")
+}
+
+
+##########################################################################
 # Disable records from ADBase etc. that we do not use for medipix
 ##########################################################################
 

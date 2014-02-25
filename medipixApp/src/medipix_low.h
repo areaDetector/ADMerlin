@@ -79,6 +79,8 @@ extern int mpxDisconnect(void);
 #define MPXVAR_BACKGROUNDCOUNT          "BCKGRND"
 #define MPXVAR_ENABLEIMAGEAVERAGE       "IMGAVERAGE"
 #define MPXVAR_IMAGESTOSUM              "IMAGESTOSUM"
+#define MPXVAR_COLOURMODE               "COLOURMODE"
+#define MPXVAR_CHARGESUMMING            "CHARGESUMMING"
 
 // variables Threshold Scan Control
 #define MPXVAR_THSSCAN 					"THSCAN"

@@ -47,6 +47,18 @@ typedef enum
     MPXBackgroundCalibrate
 } MPXImageMode_t;
 
+
+/** Enumeration of merlin quad modes */
+typedef enum
+{
+    MPXQuadMode12Bit,
+    MPXQuadMode24Bit,
+    MPXQuadMode2Threshold,
+    MPXQuadModeContinuousRW,
+    MPXQuadModeColour,
+    MPXQuadModeSumming
+} MPXQuadMode_t;
+
 /** Medipix Individual Trigger types */
 
 #define TMTrigInternal  "0"
@@ -85,6 +97,10 @@ typedef enum
 #define medipixEnableBackgroundCorrString   "ENABLEBACKGROUNDCORR"
 #define medipixEnableImageSumString         "ENABLESUMAVERAGE"
 
+// Medipix Quad
+#define medipixQuadMerlinModeString         "QUADMERLINMODE"
+#define medipixSelectGuiString              "SELECTGUI"
+
 class mpxConnection;
 
 /** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
@@ -99,8 +115,8 @@ public:
     /* These are the methods that we override from ADDriver */
     virtual asynStatus writeInt32(asynUser *pasynUser, epicsInt32 value);
     virtual asynStatus writeFloat64(asynUser *pasynUser, epicsFloat64 value);
-    virtual asynStatus writeOctet(asynUser *pasynUser, const char *value,
-            size_t nChars, size_t *nActual);
+//    virtual asynStatus writeOctet(asynUser *pasynUser, const char *value,
+//            size_t nChars, size_t *nActual);
     void report(FILE *fp, int details);
     void medipixTask(); /* This should be private but is called from C so must be public */
     void medipixStatus(); /* This should be private but is called from C so must be public */
@@ -132,12 +148,15 @@ protected:
     int medipixProfileY;
     int medipixEnableBackgroundCorr;
     int medipixEnableImageSum;
+    int medipixQuadMerlinMode;
+    int medipixSelectGui;
 
-#define LAST_medipix_PARAM medipixEnableImageSum
+#define LAST_medipix_PARAM medipixSelectGui
 
 private:
     /* These are the methods that are new to this class */
     void abortAcquisition();
+    asynStatus SetQuadMode(int mode);
     asynStatus setModeCommands(int function);
     asynStatus setAcquireParams();
     asynStatus getThreshold();
@@ -160,6 +179,7 @@ private:
     asynUser *pasynLabViewCmd;
     asynUser *pasynLabViewData;
     double averageFlatField;
+    int framesPerAcquire;
 
     int *profileX;
     int *profileY;

@@ -112,7 +112,6 @@ void medipixDetector::medipixTask()
         // wait for the next data frame packet - this function spends most of its time here
         status = cmdConnection->mpxRead(this->pasynLabViewData, bigBuff,
                 imagSize, &nread, 10);
-        this->lock();
 
         /* If there was an error jump to bottom of loop */
         if (status)
@@ -127,10 +126,12 @@ void medipixDetector::medipixTask()
                 setStringParam(ADStatusMessage,
                         "Error in Labview data channel response");
                 // wait before trying again - otherwise socket error creates a tight loop
-                epicsThreadSleep(.5);
+                epicsThreadSleep(5);
             }
+            this->lock();
             continue;
         }
+        this->lock();
 
         asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                 "\nReceived image frame of %d bytes\n", nread);
@@ -149,6 +150,10 @@ void medipixDetector::medipixTask()
             setIntegerParam(ADNumImagesCounter, numImagesCounter);
             if (imagesRemaining > 0)
                 imagesRemaining--;
+
+            getIntegerParam(NDArrayCounter, &imageCounter);
+            imageCounter++;
+            setIntegerParam(NDArrayCounter, imageCounter);
         }
 
         getIntegerParam(NDArrayCallbacks, &arrayCallbacks);
@@ -156,9 +161,6 @@ void medipixDetector::medipixTask()
         if (arrayCallbacks)
         {
             getIntegerParam(medipixCounterDepth, &counterDepth);
-            getIntegerParam(NDArrayCounter, &imageCounter);
-            imageCounter++;
-            setIntegerParam(NDArrayCounter, imageCounter);
 
             int idim;
             /* Get an image buffer from the pool */
@@ -945,6 +947,72 @@ void medipixDetector::medipixStatus()
 
 }
 
+/** sets one of the 6 modes for Merlin versions since Quad Merlin
+ * these modes combine sensible combinations of 5 individual settings
+ * on the device
+ *
+ * \param[in] mode the mode number
+ */
+asynStatus medipixDetector::SetQuadMode(int mode)
+{
+    char value[MPX_MAXLINE];
+    asynStatus result = asynSuccess;
+    int bits = 12;
+    int colourMode = 0;
+    int enableCounter1 = 0;
+    int continuousRW = 0;
+    int chargeSumming = 0;
+
+    this->framesPerAcquire = 1;
+
+    switch(mode)
+    {
+    case MPXQuadMode12Bit:
+        break;
+    case MPXQuadMode24Bit:
+        bits = 24;
+        break;
+    case MPXQuadMode2Threshold:
+        enableCounter1 = 1;
+        this->framesPerAcquire = 2;
+        enableCounter1 = 2;
+        break;
+    case MPXQuadModeContinuousRW:
+        continuousRW = 1;
+        break;
+    case MPXQuadModeColour:
+        colourMode = 1;
+        enableCounter1 = 2;
+        this->framesPerAcquire = 8;
+        break;
+    case MPXQuadModeSumming:
+        chargeSumming = 1;
+        enableCounter1 = 1;
+        break;
+    default:
+        result = asynError;
+        break;
+    }
+
+    epicsSnprintf(value, MPX_MAXLINE, "%d", bits);
+    cmdConnection->mpxSet(MPXVAR_COUNTERDEPTH, value,
+            Labview_DEFAULT_TIMEOUT);
+    epicsSnprintf(value, MPX_MAXLINE, "%d", enableCounter1);
+    cmdConnection->mpxSet(MPXVAR_ENABLECOUNTER1, value,
+            Labview_DEFAULT_TIMEOUT);
+    epicsSnprintf(value, MPX_MAXLINE, "%d", continuousRW);
+    cmdConnection->mpxSet(MPXVAR_CONTINUOUSRW, value,
+            Labview_DEFAULT_TIMEOUT);
+    epicsSnprintf(value, MPX_MAXLINE, "%d", colourMode);
+    cmdConnection->mpxSet(MPXVAR_COLOURMODE, value,
+            Labview_DEFAULT_TIMEOUT);
+    epicsSnprintf(value, MPX_MAXLINE, "%d", chargeSumming);
+    cmdConnection->mpxSet(MPXVAR_CHARGESUMMING, value,
+            Labview_DEFAULT_TIMEOUT);
+
+    return result;
+}
+
 /** Called when asyn clients call pasynInt32->write().
  * This function performs actions for some parameters, including ADAcquire, ADTriggerMode, etc.
  * For all parameters it sets the value in the parameter library and calls any registered callbacks..
@@ -969,6 +1037,10 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 // the only solution found so far is to restart the ioc
         exit(0);
     }
+    else if (function == medipixQuadMerlinMode)
+    {
+        this->SetQuadMode(value);
+    }
     else if (function == medipixSoftwareTrigger)
     {
         cmdConnection->mpxCommand(MPXCMD_SOFTWARETRIGGER,
@@ -991,10 +1063,10 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
             switch (imageMode)
             {
             case MPXImageSingle:
-                imagesRemaining = imagesToAcquire = 1;
+                imagesRemaining = imagesToAcquire = framesPerAcquire;
                 break;
             case MPXImageMultiple:
-                imagesRemaining = imagesToAcquire;
+                imagesRemaining = imagesToAcquire * framesPerAcquire;
                 break;
             case MPXImageContinuous:
                 imagesToAcquire = 0;
@@ -1015,10 +1087,6 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
                 imagesRemaining = 1;
                 break;
             }
-
-            status = getIntegerParam(medipixEnableCounter1, &counter1Enabled);
-            if (counter1Enabled == 1 && imagesRemaining > 0)
-                imagesRemaining *= 2;
 
             if (imageMode == MPXThresholdScan)
             {
@@ -1099,11 +1167,11 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 
     if (status)
         asynPrint(pasynUser, ASYN_TRACE_ERROR,
-                "%s:%s: error, status=%d function=%d, value=%d\n", driverName,
+                "%s:%s: error, function=%d, status=%d, reason=%d value=%d\n",
                 functionName, status, function, value);
     else
         asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
-                "%s:%s: function=%d, value=%d\n", driverName, functionName,
+                "%s:%s: function=%d, reason=%d, value=%d\n", functionName,
                 function, value);
     return status;
 }
@@ -1184,50 +1252,6 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
     return status;
 }
 
-/** Called when asyn clients call pasynOctet->write().
- * This function performs actions for some parameters, including medipixBadPixelFile, ADFilePath, etc.
- * For all parameters it sets the value in the parameter library and calls any registered callbacks..
- * \param[in] pasynUser pasynUser structure that encodes the reason and address.
- * \param[in] value Address of the string to write.
- * \param[in] nChars Number of characters to write.
- * \param[out] nActual Number of characters actually written. */
-asynStatus medipixDetector::writeOctet(asynUser *pasynUser, const char *value,
-        size_t nChars, size_t *nActual)
-{
-    int function = pasynUser->reason;
-    asynStatus status = asynSuccess;
-    const char *functionName = "writeOctet";
-
-    return asynSuccess;
-
-    /* Set the parameter in the parameter library. */
-    status = (asynStatus) setStringParam(function, (char *) value);
-
-    if (function == NDFilePath)
-    {
-// not required for medipix
-    }
-    else
-    {
-        /* If this parameter belongs to a base class call its method */
-        if (function < FIRST_medipix_PARAM)
-            status = ADDriver::writeOctet(pasynUser, value, nChars, nActual);
-    }
-
-    /* Do callbacks so higher layers see any changes */
-    status = (asynStatus) callParamCallbacks();
-
-    if (status)
-        epicsSnprintf(pasynUser->errorMessage, pasynUser->errorMessageSize,
-                "%s:%s: status=%d, function=%d, value=%s", driverName,
-                functionName, status, function, value);
-    else
-        asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
-                "%s:%s: function=%d, value=%s\n", driverName, functionName,
-                function, value);
-    *nActual = nChars;
-    return status;
-}
 
 /** Report status of the driver.
  * Prints details about the driver if details>0.
@@ -1371,6 +1395,14 @@ medipixDetector::medipixDetector(const char *portName,
     createParam(medipixEnableImageSumString, asynParamInt32,
             &medipixEnableImageSum);
 
+    // Merlin Quad(and greater) Specific
+    createParam(medipixQuadMerlinModeString, asynParamInt32,
+            &medipixQuadMerlinMode);
+    createParam(medipixSelectGuiString, asynParamOctet,
+            &medipixSelectGui);
+
+    setStringParam(medipixSelectGui, "medipixEmbedded.edl");
+
     /* Set some default values for parameters */
     switch (detectorType)
     {
@@ -1389,6 +1421,7 @@ medipixDetector::medipixDetector(const char *portName,
     case MerlinQuad:
         setStringParam(ADManufacturer, "Medipix Consortium");
         setStringParam(ADModel, "Merlin Quad");
+        setStringParam(medipixSelectGui, "medipixQuadEmbedded.edl");
         break;
 
     }
@@ -1410,6 +1443,7 @@ medipixDetector::medipixDetector(const char *portName,
 
 // attempt to clear the spurious error on startup (failed - not sure where this is coming from?)
 //      Medipix1TestFileName devAsynOctet: writeIt requested 0 but sent 10780660 bytes
+    printf("****************************\n");
     status |= setStringParam(NDFileName, "image.bmp");
 
 // allocate space for the waveforms

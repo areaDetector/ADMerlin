@@ -70,49 +70,50 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
     //int dacNum;
     //char dacName[10];
     char* tok;
+    char* save_ptr = NULL;
 
-    // make a copy since strtok is destructive
+    // make a copy since strtok_r is destructive
     strncpy(buff, header, MPX_IMG_HDR_LEN);
     buff[MPX_IMG_HDR_LEN + 1] = 0;
 
     asynPrint(this->parentUser, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
             buff);
 
-    tok = strtok(buff, ",");
-    tok = strtok(NULL, ",");  // skip the (HDR already parsed)
+    tok = strtok_r(buff, ",", &save_ptr);
+    tok = strtok_r(NULL, ",", &save_ptr);  // skip the (HDR already parsed)
     if (tok != NULL)
     {
         iVal = atol(tok);
         pAttr->add("Frame Number", "", NDAttrInt32, &iVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
     	// this needs to be pushed up to caller since it changes depending on no. of chips
         iVal = atoi(tok);
         *offset = iVal;
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         pAttr->add("Chip Count", "", NDAttrInt8, &iVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         *xsize = iVal;
         pAttr->add("X Size", "", NDAttrInt32, &iVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         *ysize = iVal;
         pAttr->add("Y Size", "", NDAttrInt32, &iVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
     	tok++; // skip the leading U (on this strangely represented field)
@@ -120,42 +121,42 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
         pAttr->add("Pixel Depth", "", NDAttrInt32, &iVal);
         *pixelDepth = iVal;
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         pAttr->add("Sensor Layout", "", NDAttrString, tok);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = strtoul(tok, NULL, 16);
         pAttr->add("Chip Select", "", NDAttrInt8, &iVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
     	// TODO - need to convert time to useful (numeric) format
         pAttr->add("Time stamp", "", NDAttrInt32, 0);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         dVal = atof(tok);
         pAttr->add("Shutter Time", "", NDAttrFloat64, &dVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         pAttr->add("Counter", "", NDAttrInt8, &iVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         pAttr->add("Colour Mode", "", NDAttrInt8, &iVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
@@ -163,13 +164,13 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
     }
 
 
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         dVal = atof(tok);
         pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         dVal = atof(tok);
@@ -181,7 +182,7 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
 /*
     for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
     {
-        tok = strtok(NULL, ",");
+        tok = strtok_r(NULL, ",");
         if (tok != NULL)
         {
             iVal = atoi(tok);
@@ -207,31 +208,32 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
     int iVal, dacNum;
     char dacName[10];
     char* tok;
+    char* save_ptr = NULL;
 
     // initialise member variables that should be set during this parse
     *profileMask = 0;
 
-    // make a copy since strtok is destructive
+    // make a copy since strtok_r is destructive
     strncpy(buff, header, MPX_IMG_HDR_LEN);
     buff[MPX_IMG_HDR_LEN + 1] = 0;
 
     asynPrint(this->parentUser, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
             buff);
 
-    tok = strtok(buff, ",");
-    tok = strtok(NULL, ",");  // skip the (HDR already parsed)
+    tok = strtok_r(buff, ",", &save_ptr);
+    tok = strtok_r(NULL, ",", &save_ptr);  // skip the (HDR already parsed)
     if (tok != NULL)
     {
         iVal = atoi(tok);
         pAttr->add("Frame Number", "", NDAttrInt32, &iVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         pAttr->add("Counter Number", "", NDAttrInt32, &iVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         time_t rawtime;
@@ -253,7 +255,7 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
         pAttr->add("Start Time UTC seconds", "", NDAttrUInt32, &lVal);
         pAttr->add("Start Time millisecs", "", NDAttrUInt32, &msecs);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         dVal = atof(tok);
@@ -262,39 +264,39 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
     if (headerType == MPXGenericImageHeader
             || headerType == MPXGenericProfileHeader)
     {
-        tok = strtok(NULL, ",");
+        tok = strtok_r(NULL, ",", &save_ptr);
         if (tok != NULL)
         {
             iVal = atoi(tok);
             pAttr->add("X Offset", "", NDAttrInt32, &iVal);
         }
-        tok = strtok(NULL, ",");
+        tok = strtok_r(NULL, ",", &save_ptr);
         if (tok != NULL)
         {
             iVal = atoi(tok);
             pAttr->add("Y Offset", "", NDAttrInt32, &iVal);
         }
-        tok = strtok(NULL, ",");
+        tok = strtok_r(NULL, ",", &save_ptr);
         if (tok != NULL)
         {
             iVal = atoi(tok);
             *xsize = iVal;
             pAttr->add("X Size", "", NDAttrInt32, &iVal);
         }
-        tok = strtok(NULL, ",");
+        tok = strtok_r(NULL, ",", &save_ptr);
         if (tok != NULL)
         {
             iVal = atoi(tok);
             *ysize = iVal;
             pAttr->add("Y Size", "", NDAttrInt32, &iVal);
         }
-        tok = strtok(NULL, ",");
+        tok = strtok_r(NULL, ",", &save_ptr);
         if (tok != NULL)
         {
             iVal = atoi(tok);
             pAttr->add("Pixel Depth", "", NDAttrInt32, &iVal);
         }
-        tok = strtok(NULL, ",");
+        tok = strtok_r(NULL, ",", &save_ptr);
         if (tok != NULL)
         {
             iVal = atoi(tok);
@@ -302,13 +304,13 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
             pAttr->add("Pixel Size", "", NDAttrInt32, &iVal);
         }
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         dVal = atof(tok);
         pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         dVal = atof(tok);
@@ -316,7 +318,7 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
     }
     for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
     {
-        tok = strtok(NULL, ",");
+        tok = strtok_r(NULL, ",", &save_ptr);
         if (tok != NULL)
         {
             iVal = atoi(tok);
@@ -325,7 +327,7 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
             pAttr->add(dacName, "", NDAttrInt32, &iVal);
         }
     }
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
@@ -344,7 +346,7 @@ asynStatus mpxConnection::mpxSet(char* valueId, char* value, double timeout)
     int msg_len = 0;
     asynStatus status;
     char *tok = NULL;
-
+    char *save_ptr = NULL;
     // default to this error for any following parsing issues
     fromLabviewError = MPX_ERR_UNEXPECTED;
 
@@ -371,11 +373,11 @@ asynStatus mpxConnection::mpxSet(char* valueId, char* value, double timeout)
     }
 
     // items in the response are comma delimited
-    tok = strtok(fromLabviewBody, ",");
-    tok = strtok(NULL, ",");
+    tok = strtok_r(fromLabviewBody, ",", &save_ptr);
+    tok = strtok_r(NULL, ",", &save_ptr);
 
     // 3rd Item is Error Number
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok == NULL)
         return asynError;
     fromLabviewError = atoi(tok);
@@ -392,6 +394,7 @@ asynStatus mpxConnection::mpxCommand(char* commandId, double timeout)
     int msg_len = 0;
     asynStatus status;
     char *tok = NULL;
+    char *save_ptr = NULL;
 
     // default to this error for any following parsing issues
     fromLabviewError = MPX_ERR_UNEXPECTED;
@@ -419,11 +422,11 @@ asynStatus mpxConnection::mpxCommand(char* commandId, double timeout)
     }
 
     // items in the response are comma delimited
-    tok = strtok(fromLabviewBody, ",");
-    tok = strtok(NULL, ",");
+    tok = strtok_r(fromLabviewBody, ",", &save_ptr);
+    tok = strtok_r(NULL, ",", &save_ptr);
 
     // 3rd Item is Error Number
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok == NULL)
         return asynError;
     fromLabviewError = atoi(tok);
@@ -442,6 +445,7 @@ asynStatus mpxConnection::mpxGet(char* valueId, double timeout)
     int msg_len = 0;
     asynStatus status;
     char *tok = NULL;
+    char *save_ptr;
 
     // default to this error for any following parsing issues
     fromLabviewError = MPX_ERR_UNEXPECTED;
@@ -471,18 +475,18 @@ asynStatus mpxConnection::mpxGet(char* valueId, double timeout)
     }
 
     // items in the response are comma delimited
-    tok = strtok(fromLabviewBody, ",");
-    tok = strtok(NULL, ",");
+    tok = strtok_r(fromLabviewBody, ",", &save_ptr);
+    tok = strtok_r(NULL, ",", &save_ptr);
 
     // 3rd Item is Value
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok == NULL)
         return asynError;
 
     strncpy(fromLabviewValue, tok, MPX_MAXLINE);
 
     // 4th Item is Error Number
-    tok = strtok(NULL, ",");
+    tok = strtok_r(NULL, ",", &save_ptr);
     if (tok == NULL)
         return asynError;
     fromLabviewError = atoi(tok);
@@ -549,6 +553,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
 
     char headerStr[] = MPX_HEADER;
     char* tok;
+    char* save_ptr = NULL;
     char header[MPX_MAXLINE];
 
     // default to this error for any following parsing issues
@@ -621,9 +626,9 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
                 "mpxRead: Response Header: %s\n", header);
 
         // parse the header
-        tok = strtok(header, ","); // this first element already verified above
+        tok = strtok_r(header, ",", &save_ptr); // this first element already verified above
 
-        tok = strtok(NULL, ",");
+        tok = strtok_r(NULL, ",", &save_ptr);
         if (tok == NULL)
         {
             asynPrint(pasynUser, ASYN_TRACE_ERROR,
@@ -681,6 +686,7 @@ asynStatus mpxConnection::mpxReadCmd(char* cmdType, char* cmdName,
     asynStatus status = asynSuccess;
     char buff[MPX_MAXLINE];
     char* tok;
+    char* save_ptr = NULL;
 
     // default to this error for any following parsing issues
     fromLabviewError = MPX_ERR_UNEXPECTED;
@@ -710,11 +716,11 @@ asynStatus mpxConnection::mpxReadCmd(char* cmdType, char* cmdName,
 
             // items in the response are comma delimited -
             // 1st item is the command type
-            tok = strtok(buff, ",");
+            tok = strtok_r(buff, ",", &save_ptr);
             if (!(tok == NULL || strncmp(cmdType, tok, MPX_MAXLINE)))
             {
                 // 2nd item is command (or variable) name which should be echoed back
-                tok = strtok(NULL, ",");
+                tok = strtok_r(NULL, ",", &save_ptr);
                 if (!(tok == NULL || strncmp(cmdName, tok, MPX_MAXLINE)))
                     break; // success - exit the while loop
             }
