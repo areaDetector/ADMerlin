@@ -1063,7 +1063,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
             switch (imageMode)
             {
             case MPXImageSingle:
-                imagesRemaining = imagesToAcquire = framesPerAcquire;
+                imagesRemaining = framesPerAcquire;
                 break;
             case MPXImageMultiple:
                 imagesRemaining = imagesToAcquire * framesPerAcquire;
@@ -1402,6 +1402,7 @@ medipixDetector::medipixDetector(const char *portName,
             &medipixSelectGui);
 
     setStringParam(medipixSelectGui, "medipixEmbedded.edl");
+    callParamCallbacks();
 
     /* Set some default values for parameters */
     switch (detectorType)
