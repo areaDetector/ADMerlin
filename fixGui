@@ -1,0 +1,2 @@
+#! /bin/bash
+caput -S Medipix1Test3SelectGui "medipixQuadEmbedded.edl"
