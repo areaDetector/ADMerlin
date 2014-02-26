@@ -606,7 +606,6 @@ record(mbbi,"$(P)$(R)QuadMerlinMode_RBV") {
 
 # 
 # % gdatag, array, rw, $(PORT)_medipix, SelectGui, Set SelectGui
-# % autosave 2 
 record(waveform, "$(P)$(R)SelectGui")
 {
     field(PINI, "YES")
