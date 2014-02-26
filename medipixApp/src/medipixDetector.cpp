@@ -1402,7 +1402,6 @@ medipixDetector::medipixDetector(const char *portName,
             &medipixSelectGui);
 
     setStringParam(medipixSelectGui, "medipixEmbedded.edl");
-    callParamCallbacks();
 
     /* Set some default values for parameters */
     switch (detectorType)

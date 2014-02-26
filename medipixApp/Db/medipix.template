@@ -604,24 +604,15 @@ record(mbbi,"$(P)$(R)QuadMerlinMode_RBV") {
     field(SCAN, "I/O Intr")
 }
 
-# 
-# % gdatag, array, rw, $(PORT)_medipix, SelectGui, Set SelectGui
-record(waveform, "$(P)$(R)SelectGui")
-{
-    field(PINI, "YES")
-    field(DTYP, "asynOctetWrite")
-    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))SELECTGUI")
-    field(FTVL, "CHAR")
-    field(NELM, "256")
-}
-
+# Field to control which GUI is displayed 
 # % gdatag, array, rw, $(PORT)_medipix, SelectGui_RBV, Set SelectGui_RBV
 record(waveform, "$(P)$(R)SelectGui_RBV")
 {
     field(DTYP, "asynOctetRead")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))SELECTGUI")
     field(FTVL, "CHAR")
-    field(NELM, "256")
+    field(NELM, 256)
+    field(VAL, "medipixEmbedded.edl")
     field(SCAN, "I/O Intr")
 }
 
