@@ -69,7 +69,6 @@ record(mbbi, "$(P)$(R)FileFormat_RBV")
 ###################################################################
 #  These records control the acquisition mode                     # 
 ###################################################################
-# % gdatag, mbbinary, rw, $(PORT)_ADBase, ImageMode, Set ImageMode
 # % autosave 2 
 record(mbbo, "$(P)$(R)ImageMode")
 {
@@ -89,7 +88,6 @@ record(mbbo, "$(P)$(R)ImageMode")
    field(VAL,  "2")
 }
 
-# % gdatag, mbbinary, ro, $(PORT)_ADBase, ImageMode_RBV, Readback for ImageMode
 record(mbbi, "$(P)$(R)ImageMode_RBV")
 {
    field(DTYP, "asynInt32")
@@ -456,7 +454,7 @@ record(mbbi,"$(P)$(R)ProfileControl_RBV") {
    field(SCAN, "I/O Intr")
 }
 
-# % gdatag, array, ro, $(PORT)_medipix, ProfileAverageX_RBV, Readback for ProfileAverageX
+##  gdatag, array, ro, $(PORT)_medipix, ProfileAverageX_RBV, Readback for ProfileAverageX
 record(waveform, "$(P)$(R)ProfileAverageX_RBV")
 {
    field(DTYP, "asynInt32ArrayIn")
@@ -466,7 +464,7 @@ record(waveform, "$(P)$(R)ProfileAverageX_RBV")
    field(SCAN, "I/O Intr")
 }
 
-# % gdatag, array, ro, $(PORT)_medipix, ProfileAverageY_RBV, Readback for ProfileAverageY
+##  gdatag, array, ro, $(PORT)_medipix, ProfileAverageY_RBV, Readback for ProfileAverageY
 record(waveform, "$(P)$(R)ProfileAverageY_RBV")
 {
    field(DTYP, "asynInt32ArrayIn")
@@ -605,7 +603,7 @@ record(mbbi,"$(P)$(R)QuadMerlinMode_RBV") {
 }
 
 # Field to control which GUI is displayed 
-# % gdatag, array, rw, $(PORT)_medipix, SelectGui_RBV, Set SelectGui_RBV
+##  gdatag, array, rw, $(PORT)_medipix, SelectGui_RBV, Set SelectGui_RBV
 record(waveform, "$(P)$(R)SelectGui_RBV")
 {
     field(DTYP, "asynOctetRead")
