@@ -77,21 +77,20 @@ void medipixDetector::medipixTask()
     this->lock();
 
     // allocate a buffer for reading in images from labview over network
-    switch(detType)
+    switch (detType)
     {
-        UomXBPM:
-            imagSize=MAX_BUFF_UOM;
-            break;
-        Merlin:
-        MedipixXBPM:
-            imagSize=MPX_IMG_FRAME_LEN24;
-            break;
-        MerlinQuad:
-            imagSize=MAX_BUFF_MERLIN_QUAD;
-            break;
-        default:
-            imagSize=MAX_BUFF_UOM;
-            break;
+    case UomXBPM:
+        imagSize = MAX_BUFF_UOM;
+        break;
+    case Merlin:
+    case MedipixXBPM: imagSize = MPX_IMG_FRAME_LEN24;
+        break;
+    case MerlinQuad:
+        imagSize = MAX_BUFF_MERLIN_QUAD;
+        break;
+    default:
+        imagSize = MAX_BUFF_UOM;
+        break;
     }
 
     bigBuff = (char*) calloc(imagSize, 1);
@@ -435,7 +434,7 @@ NDArray* medipixDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
             NULL);
 
     asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-            "%s:%s: Creating profile waveforms xsize %d. ysize %d\n",
+            "%s:%s: Creating profile waveforms xsize %lu. ysize %lu\n",
             driverName, "copyProfileToNDArray32", dims[0], dims[1]);
 
     if (pImage == NULL)
@@ -653,7 +652,7 @@ asynStatus medipixDetector::setROI()
                 || arrayDims[1].binning != 1 || arrayDims[0].reverse != 0
                 || arrayDims[1].reverse != 0;
 
-        epicsSnprintf(value, MPX_MAXLINE, "%d %d %d %d", arrayDims[0].offset,
+        epicsSnprintf(value, MPX_MAXLINE, "%lu %lu %lu %lu", arrayDims[0].offset,
                 arrayDims[1].offset, arrayDims[0].size, arrayDims[1].size);
         cmdConnection->mpxSet(MPXVAR_ROI, value, Labview_DEFAULT_TIMEOUT);
     }
@@ -817,6 +816,31 @@ asynStatus medipixDetector::getThreshold()
     if (status == asynSuccess)
         setDoubleParam(medipixThreshold1,
                 atof(cmdConnection->fromLabviewValue));
+    status = cmdConnection->mpxGet(MPXVAR_THRESHOLD2, Labview_DEFAULT_TIMEOUT);
+    if (status == asynSuccess)
+        setDoubleParam(medipixThreshold2,
+                atof(cmdConnection->fromLabviewValue));
+    status = cmdConnection->mpxGet(MPXVAR_THRESHOLD3, Labview_DEFAULT_TIMEOUT);
+    if (status == asynSuccess)
+        setDoubleParam(medipixThreshold3,
+                atof(cmdConnection->fromLabviewValue));
+    status = cmdConnection->mpxGet(MPXVAR_THRESHOLD4, Labview_DEFAULT_TIMEOUT);
+    if (status == asynSuccess)
+        setDoubleParam(medipixThreshold4,
+                atof(cmdConnection->fromLabviewValue));
+    status = cmdConnection->mpxGet(MPXVAR_THRESHOLD5, Labview_DEFAULT_TIMEOUT);
+    if (status == asynSuccess)
+        setDoubleParam(medipixThreshold5,
+                atof(cmdConnection->fromLabviewValue));
+    status = cmdConnection->mpxGet(MPXVAR_THRESHOLD6, Labview_DEFAULT_TIMEOUT);
+    if (status == asynSuccess)
+        setDoubleParam(medipixThreshold6,
+                atof(cmdConnection->fromLabviewValue));
+    status = cmdConnection->mpxGet(MPXVAR_THRESHOLD7, Labview_DEFAULT_TIMEOUT);
+    if (status == asynSuccess)
+        setDoubleParam(medipixThreshold7,
+                atof(cmdConnection->fromLabviewValue));
+
     status = cmdConnection->mpxGet(MPXVAR_OPERATINGENERGY,
             Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
@@ -1023,7 +1047,6 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
     char strVal[MPX_MAXLINE];
     int function = pasynUser->reason;
     int adstatus;
-    int counter1Enabled;
     int imageMode, imagesToAcquire, profileMaskParm;
     asynStatus status = asynSuccess;
     const char *functionName = "writeInt32";
@@ -1107,7 +1130,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
                 cmdConnection->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal,
                         Labview_DEFAULT_TIMEOUT);
 
-                if (profileMaskParm & MPXPROFILES_IMAGE == MPXPROFILES_IMAGE)
+                if (profileMaskParm & (MPXPROFILES_IMAGE == MPXPROFILES_IMAGE))
                 {
                     cmdConnection->mpxCommand(MPXCMD_STARTACQUISITION,
                             Labview_DEFAULT_TIMEOUT);
@@ -1167,11 +1190,11 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 
     if (status)
         asynPrint(pasynUser, ASYN_TRACE_ERROR,
-                "%s:%s: error, function=%d, status=%d, reason=%d value=%d\n",
-                functionName, status, function, value);
+                "%s:%s: error, status=%d, reason=%d value=%d\n",
+                driverName, functionName, status, function, value);
     else
         asynPrint(pasynUser, ASYN_TRACEIO_DRIVER,
-                "%s:%s: function=%d, reason=%d, value=%d\n", functionName,
+                "%s:%s: reason=%d, value=%d\n", driverName, functionName,
                 function, value);
     return status;
 }
@@ -1207,6 +1230,48 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_THRESHOLD1, value_str,
+                Labview_DEFAULT_TIMEOUT);
+        getThreshold();
+    }
+    else if (function == medipixThreshold2)
+    {
+        epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
+        status = cmdConnection->mpxSet(MPXVAR_THRESHOLD2, value_str,
+                Labview_DEFAULT_TIMEOUT);
+        getThreshold();
+    }
+    else if (function == medipixThreshold3)
+    {
+        epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
+        status = cmdConnection->mpxSet(MPXVAR_THRESHOLD3, value_str,
+                Labview_DEFAULT_TIMEOUT);
+        getThreshold();
+    }
+    else if (function == medipixThreshold4)
+    {
+        epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
+        status = cmdConnection->mpxSet(MPXVAR_THRESHOLD4, value_str,
+                Labview_DEFAULT_TIMEOUT);
+        getThreshold();
+    }
+    else if (function == medipixThreshold5)
+    {
+        epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
+        status = cmdConnection->mpxSet(MPXVAR_THRESHOLD5, value_str,
+                Labview_DEFAULT_TIMEOUT);
+        getThreshold();
+    }
+    else if (function == medipixThreshold6)
+    {
+        epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
+        status = cmdConnection->mpxSet(MPXVAR_THRESHOLD6, value_str,
+                Labview_DEFAULT_TIMEOUT);
+        getThreshold();
+    }
+    else if (function == medipixThreshold7)
+    {
+        epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
+        status = cmdConnection->mpxSet(MPXVAR_THRESHOLD7, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
@@ -1354,6 +1419,12 @@ medipixDetector::medipixDetector(const char *portName,
     createParam(medipixDelayTimeString, asynParamFloat64, &medipixDelayTime);
     createParam(medipixThreshold0String, asynParamFloat64, &medipixThreshold0);
     createParam(medipixThreshold1String, asynParamFloat64, &medipixThreshold1);
+    createParam(medipixThreshold2String, asynParamFloat64, &medipixThreshold2);
+    createParam(medipixThreshold3String, asynParamFloat64, &medipixThreshold3);
+    createParam(medipixThreshold4String, asynParamFloat64, &medipixThreshold4);
+    createParam(medipixThreshold5String, asynParamFloat64, &medipixThreshold5);
+    createParam(medipixThreshold6String, asynParamFloat64, &medipixThreshold6);
+    createParam(medipixThreshold7String, asynParamFloat64, &medipixThreshold7);
     createParam(medipixOperatingEnergyString, asynParamFloat64,
             &medipixOperatingEnergy);
     createParam(medipixThresholdApplyString, asynParamInt32,

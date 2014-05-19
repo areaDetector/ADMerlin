@@ -21,7 +21,7 @@
 							<builder id="org.eclipse.cdt.build.core.settings.default.builder.1001791468" keepEnvironmentInBuildfile="false" managedBuildOn="false" name="Gnu Make Builder" superClass="org.eclipse.cdt.build.core.settings.default.builder"/>
 							<tool id="org.eclipse.cdt.build.core.settings.holder.libs.1018247751" name="holder for library settings" superClass="org.eclipse.cdt.build.core.settings.holder.libs"/>
 							<tool id="org.eclipse.cdt.build.core.settings.holder.645262035" name="Assembly" superClass="org.eclipse.cdt.build.core.settings.holder">
-								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.522080436" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
+								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.522080436" name="Include Paths" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/usr/include"/>
 									<listOptionValue builtIn="false" value="/usr/include/linux/"/>
 									<listOptionValue builtIn="false" value="/usr/include/c++/4.4.6"/>
@@ -33,14 +33,14 @@
 									<listOptionValue builtIn="false" value="/dls_sw/prod/tools/RHEL6-x86_64/szip/2-1/prefix/include"/>
 									<listOptionValue builtIn="false" value="/dls_sw/prod/tools/RHEL6-x86_64/boost/1-48-0/prefix/include"/>
 								</option>
-								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1557490983" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
+								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1557490983" name="Symbols" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="size_t=long"/>
 									<listOptionValue builtIn="false" value="hsize_t=long"/>
 								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.716634231" languageId="org.eclipse.cdt.core.assembly" languageName="Assembly" sourceContentType="org.eclipse.cdt.core.asmSource" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
 							<tool id="org.eclipse.cdt.build.core.settings.holder.1289521943" name="GNU C++" superClass="org.eclipse.cdt.build.core.settings.holder">
-								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.1577582032" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
+								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.1577582032" name="Include Paths" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/usr/include"/>
 									<listOptionValue builtIn="false" value="/usr/include/linux/"/>
 									<listOptionValue builtIn="false" value="/usr/include/c++/3.4.6"/>
@@ -48,20 +48,20 @@
 									<listOptionValue builtIn="false" value="/dls_sw/epics/R3.14.12.1/base/include"/>
 									<listOptionValue builtIn="false" value="/dls_sw/work/R3.14.12.1/support/asyn/include"/>
 								</option>
-								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.433165873" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
+								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.433165873" name="Symbols" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="size_t=long"/>
 									<listOptionValue builtIn="false" value="hsize_t=long"/>
 								</option>
 								<inputType id="org.eclipse.cdt.build.core.settings.holder.inType.1605520103" languageId="org.eclipse.cdt.core.g++" languageName="GNU C++" sourceContentType="org.eclipse.cdt.core.cxxSource,org.eclipse.cdt.core.cxxHeader" superClass="org.eclipse.cdt.build.core.settings.holder.inType"/>
 							</tool>
 							<tool id="org.eclipse.cdt.build.core.settings.holder.548786446" name="GNU C" superClass="org.eclipse.cdt.build.core.settings.holder">
-								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.1619390518" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
+								<option id="org.eclipse.cdt.build.core.settings.holder.incpaths.1619390518" name="Include Paths" superClass="org.eclipse.cdt.build.core.settings.holder.incpaths" valueType="includePath">
 									<listOptionValue builtIn="false" value="/usr/include"/>
 									<listOptionValue builtIn="false" value="/usr/include/linux/"/>
 									<listOptionValue builtIn="false" value="../support/areaDetector/include/"/>
 									<listOptionValue builtIn="false" value="/dls_sw/epics/R3.14.11/base/include"/>
 								</option>
-								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1704800332" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
+								<option id="org.eclipse.cdt.build.core.settings.holder.symbols.1704800332" name="Symbols" superClass="org.eclipse.cdt.build.core.settings.holder.symbols" valueType="definedSymbols">
 									<listOptionValue builtIn="false" value="size_t=long"/>
 									<listOptionValue builtIn="false" value="hsize_t=long"/>
 								</option>

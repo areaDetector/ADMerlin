@@ -61,16 +61,22 @@ typedef enum
 
 /** Medipix Individual Trigger types */
 
-#define TMTrigInternal  "0"
-#define TMTrigRising    "1"
-#define TMTrigFalling   "2"
-#define TMTrigSoftware  "3"
+#define TMTrigInternal  (char*)"0"
+#define TMTrigRising    (char*)"1"
+#define TMTrigFalling   (char*)"2"
+#define TMTrigSoftware  (char*)"3"
 
 /** ASYN PARAMETER NAMES **/
 
 #define medipixDelayTimeString              "DELAY_TIME"
 #define medipixThreshold0String             "THRESHOLD0"
 #define medipixThreshold1String             "THRESHOLD1"
+#define medipixThreshold2String             "THRESHOLD2"
+#define medipixThreshold3String             "THRESHOLD3"
+#define medipixThreshold4String             "THRESHOLD4"
+#define medipixThreshold5String             "THRESHOLD5"
+#define medipixThreshold6String             "THRESHOLD6"
+#define medipixThreshold7String             "THRESHOLD7"
 #define medipixOperatingEnergyString        "OPERATINGENERGY"
 
 #define medipixThresholdApplyString         "THRESHOLD_APPLY"
@@ -129,6 +135,12 @@ protected:
 #define FIRST_medipix_PARAM medipixDelayTime
     int medipixThreshold0;
     int medipixThreshold1;
+    int medipixThreshold2;
+    int medipixThreshold3;
+    int medipixThreshold4;
+    int medipixThreshold5;
+    int medipixThreshold6;
+    int medipixThreshold7;
     int medipixOperatingEnergy;
     int medipixThresholdApply;
     int medipixThresholdAutoApply;

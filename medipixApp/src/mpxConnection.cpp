@@ -502,7 +502,7 @@ asynStatus mpxConnection::mpxGet(char* valueId, double timeout)
  */
 asynStatus mpxConnection::mpxWrite(double timeout)
 {
-    char *functionName = "mpxWrite";
+    char *functionName = (char*)"mpxWrite";
     size_t nwrite;
     asynStatus status;
 
