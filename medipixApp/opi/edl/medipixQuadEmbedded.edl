@@ -3,8 +3,8 @@ beginScreenProperties
 major 4
 minor 0
 release 1
-x 703
-y 393
+x 343
+y 128
 w 360
 h 80
 font "arial-bold-r-12.0"
@@ -69,7 +69,7 @@ object activeXTextClass
 beginObjectProperties
 major 4
 minor 1
-release 0
+release 1
 x 165
 y 10
 w 60
@@ -87,7 +87,7 @@ endObjectProperties
 object relatedDisplayClass
 beginObjectProperties
 major 4
-minor 2
+minor 4
 release 0
 x 25
 y 10
@@ -103,6 +103,29 @@ numPvs 4
 numDsps 1
 displayFileName {
   0 "medipixThreshold.edl"
+}
+endObjectProperties
+
+# (Related Display)
+object relatedDisplayClass
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 25
+y 45
+w 105
+h 20
+fgColor index 14
+bgColor index 3
+topShadowColor index 1
+botShadowColor index 11
+font "arial-bold-r-12.0"
+buttonLabel "Thresholds"
+numPvs 4
+numDsps 1
+displayFileName {
+  0 "medipix8Thresholds.edl"
 }
 endObjectProperties
 

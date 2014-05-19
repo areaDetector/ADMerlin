@@ -3,10 +3,10 @@ beginScreenProperties
 major 4
 minor 0
 release 1
-x 535
-y 143
+x 686
+y 857
 w 360
-h 80
+h 180
 font "arial-bold-r-12.0"
 ctlFont "arial-bold-r-12.0"
 btnFont "arial-bold-r-12.0"
@@ -19,7 +19,7 @@ ctlBgColor1 index 3
 ctlBgColor2 index 3
 topShadowColor index 1
 botShadowColor index 11
-title "Pilatus Settings"
+title "Merlin Threshold Scan"
 showGrid
 snapToGrid
 gridSize 5
@@ -29,10 +29,10 @@ endScreenProperties
 object relatedDisplayClass
 beginObjectProperties
 major 4
-minor 2
+minor 4
 release 0
 x 5
-y 55
+y 135
 w 105
 h 20
 fgColor index 14
@@ -55,7 +55,7 @@ major 4
 minor 0
 release 0
 x 270
-y 55
+y 135
 w 85
 h 20
 
@@ -68,7 +68,7 @@ major 4
 minor 0
 release 0
 x 270
-y 55
+y 135
 w 85
 h 20
 fgColor index 25
@@ -92,9 +92,9 @@ object activeXTextClass
 beginObjectProperties
 major 4
 minor 1
-release 0
+release 1
 x 165
-y 55
+y 135
 w 100
 h 20
 font "arial-bold-r-12.0"
@@ -111,9 +111,9 @@ object activeXTextClass
 beginObjectProperties
 major 4
 minor 1
-release 0
+release 1
 x 165
-y 30
+y 110
 w 90
 h 20
 font "arial-bold-r-12.0"
@@ -132,7 +132,7 @@ major 4
 minor 0
 release 0
 x 270
-y 30
+y 110
 w 85
 h 20
 
@@ -145,7 +145,7 @@ major 4
 minor 0
 release 0
 x 270
-y 30
+y 110
 w 85
 h 20
 fgColor index 25
@@ -171,7 +171,7 @@ major 4
 minor 0
 release 0
 x 270
-y 5
+y 85
 w 85
 h 20
 
@@ -184,7 +184,7 @@ major 4
 minor 0
 release 0
 x 270
-y 5
+y 85
 w 85
 h 20
 fgColor index 25
@@ -208,9 +208,9 @@ object activeXTextClass
 beginObjectProperties
 major 4
 minor 1
-release 0
+release 1
 x 165
-y 5
+y 85
 w 90
 h 20
 font "arial-bold-r-12.0"
@@ -226,10 +226,10 @@ endObjectProperties
 object relatedDisplayClass
 beginObjectProperties
 major 4
-minor 2
+minor 4
 release 0
 x 5
-y 10
+y 90
 w 105
 h 20
 fgColor index 14
@@ -242,6 +242,195 @@ numPvs 4
 numDsps 1
 displayFileName {
   0 "medipixThreshold.edl"
+}
+endObjectProperties
+
+# (Textupdate)
+object TextupdateClass
+beginObjectProperties
+major 10
+minor 0
+release 0
+x 245
+y 5
+w 110
+h 20
+controlPv "$(P)$(R)ThresholdEnergy0_RBV"
+fgColor index 16
+fgAlarm
+bgColor index 10
+fill
+font "arial-bold-r-12.0"
+fontAlign "center"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 6
+release 0
+x 125
+y 5
+w 110
+h 20
+controlPv "$(P)$(R)ThresholdEnergy0"
+font "helvetica-bold-r-12.0"
+fgColor index 25
+bgColor index 3
+editable
+motifWidget
+limitsFromDb
+nullColor index 0
+useKp
+useHexPrefix
+newPos
+inputFocusUpdates
+objType "controls"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 5
+y 5
+w 110
+h 20
+font "arial-bold-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "Threshold 0 (keV):"
+}
+endObjectProperties
+
+# (Textupdate)
+object TextupdateClass
+beginObjectProperties
+major 10
+minor 0
+release 0
+x 245
+y 30
+w 110
+h 20
+controlPv "$(P)$(R)ThresholdEnergy1_RBV"
+fgColor index 16
+fgAlarm
+bgColor index 10
+fill
+font "arial-bold-r-12.0"
+fontAlign "center"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 6
+release 0
+x 125
+y 30
+w 110
+h 20
+controlPv "$(P)$(R)ThresholdEnergy1"
+font "helvetica-bold-r-12.0"
+fgColor index 25
+bgColor index 3
+editable
+motifWidget
+limitsFromDb
+nullColor index 0
+useKp
+useHexPrefix
+newPos
+inputFocusUpdates
+objType "controls"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 5
+y 30
+w 110
+h 20
+font "arial-bold-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "Threshold 1 (keV):"
+}
+endObjectProperties
+
+# (Textupdate)
+object TextupdateClass
+beginObjectProperties
+major 10
+minor 0
+release 0
+x 245
+y 55
+w 110
+h 20
+controlPv "$(P)$(R)OperatingEnergy_RBV"
+fgColor index 16
+fgAlarm
+bgColor index 10
+fill
+font "arial-bold-r-12.0"
+fontAlign "center"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 6
+release 0
+x 125
+y 55
+w 110
+h 20
+controlPv "$(P)$(R)OperatingEnergy"
+font "helvetica-bold-r-12.0"
+fgColor index 25
+bgColor index 3
+editable
+motifWidget
+limitsFromDb
+nullColor index 0
+useKp
+useHexPrefix
+newPos
+inputFocusUpdates
+objType "controls"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 5
+y 55
+w 110
+h 20
+font "arial-bold-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "Operating E (keV):"
 }
 endObjectProperties
 
