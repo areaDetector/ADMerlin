@@ -1,1 +1,1 @@
-./iocs/lancelot/bin/linux-x86/stlancelot-gui $@
+./iocs/lancelot/bin/linux-x86_64/stlancelot-gui $@
