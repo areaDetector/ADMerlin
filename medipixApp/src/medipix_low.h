@@ -46,7 +46,7 @@ extern int mpxDisconnect(void);
 // size of buffer for image frame body including leading comma
 #define MPX_IMG_FRAME_LEN MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES + MPX_MSG_DATATYPE_LEN + 2
 #define MPX_IMG_FRAME_LEN24 MPX_IMG_HDR_LEN + MPX_IMAGE_BYTES * 2 + MPX_MSG_DATATYPE_LEN + 2 // 32 bit pixels in 12 bit mode
-#define MAX_BUFF_MERLIN_QUAD 530000
+#define MAX_BUFF_MERLIN_QUAD 2000000
 #define MAX_BUFF_UOM 5300000  // TODO verify has this got an extra 0 on it??
 
 // error definitions

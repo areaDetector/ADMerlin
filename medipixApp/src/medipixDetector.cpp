@@ -1018,6 +1018,8 @@ asynStatus medipixDetector::SetQuadMode(int mode)
         break;
     }
 
+    setIntegerParam(medipixCounterDepth, bits);
+
     epicsSnprintf(value, MPX_MAXLINE, "%d", bits);
     cmdConnection->mpxSet(MPXVAR_COUNTERDEPTH, value,
             Labview_DEFAULT_TIMEOUT);
