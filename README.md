@@ -1,2 +1,2 @@
 # ADMerlin
-areaDetector driver for the Merlin pixel-array detector from Quantum
+An EPICS areaDetector driver for the Merlin Medipix3 based pixel-array detector from Quantum Detectors.
