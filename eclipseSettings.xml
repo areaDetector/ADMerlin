@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cdtprojectproperties>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.IncludePaths">
+<language name="holder for library settings">
+
+</language>
+<language name="Assembly">
+<includepath>/usr/include</includepath>
+<includepath>/usr/include/linux</includepath>
+<includepath>/dls_sw/epics/R3.14.11/base/include</includepath>
+<includepath>/dls_sw/work/R3.14.11/support/asyn/include</includepath>
+<includepath>/dls_sw/work/R3.14.11/support/areaDetector/ADApp/ADSrc</includepath>
+
+</language>
+<language name="GNU C++">
+<includepath>/usr/include</includepath>
+<includepath>/usr/include/linux</includepath>
+<includepath>/dls_sw/epics/R3.14.11/base/include</includepath>
+<includepath>/dls_sw/work/R3.14.11/support/asyn/include</includepath>
+<includepath workspace_path="true">/areaDetector</includepath>
+<includepath>/dls_sw/work/R3.14.11/support/areaDetector/ADApp/ADSrc</includepath>
+
+</language>
+<language name="GNU C">
+<includepath>/usr/include</includepath>
+<includepath>/usr/include/linux</includepath>
+<includepath>/dls_sw/epics/R3.14.11/base/include</includepath>
+<includepath>/dls_sw/work/R3.14.11/support/asyn/include</includepath>
+<includepath workspace_path="true">/areaDetector</includepath>
+<includepath>/dls_sw/work/R3.14.11/support/areaDetector/ADApp/ADSrc</includepath>
+
+</language>
+</section>
+<section name="org.eclipse.cdt.internal.ui.wizards.settingswizards.Macros">
+<language name="holder for library settings">
+
+</language>
+<language name="Assembly">
+<macro>
+<name>size_t</name><value>long</value>
+</macro>
+
+</language>
+<language name="GNU C++">
+<macro>
+<name>size_t</name><value>long</value>
+</macro>
+
+</language>
+<language name="GNU C">
+<macro>
+<name>size_t</name><value>long</value>
+</macro>
+
+</language>
+</section>
+</cdtprojectproperties>

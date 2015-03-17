@@ -1,0 +1,19 @@
+# These are the IOCs we should create. The IOC should either have the same name
+# as an xml or py file in etc/makeIocs, or be suffixed with _sim to create a
+# simulation from that same file
+
+# These are R3.14.11 IOCs 
+ifneq (,$(findstring R3.14.11, $(EPICS_BASE))) 
+endif
+
+# These are R3.14.12.3 IOCs 
+ifneq (,$(findstring R3.14.12.3, $(EPICS_BASE))) 
+    IOCS += example
+    IOCS += merlin
+    IOCS += lancelot
+    IOCS += uombpm
+endif
+
+# These are the dirs that each IOC lives in
+#IOC_DIRS := $(patsubst %, $(TOP)/iocs/%, $(IOCS))
+
