@@ -1,3 +1,0 @@
-# Place any example specific dependencies here
-AUTOSAVE=       $(SUPPORT)/autosave/5-0dls1
-FFMPEG=         $(SUPPORT)/ffmpegServer/2-1-1dls5
