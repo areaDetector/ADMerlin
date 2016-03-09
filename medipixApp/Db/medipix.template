@@ -16,6 +16,8 @@
 # % gui, $(PORT), edmtab, medipixDetector.edl, P=$(P),R=$(R)
 ##  gdatag, template, Merlin, $(PORT)_medipix, Merlin detector
 
+include "ADBase.template"
+
 # We redefine the states for the TriggerMode records defined in ADBase.template
 record(mbbo,"$(P)$(R)TriggerMode") {
     field(DESC,"Acquire mode")
