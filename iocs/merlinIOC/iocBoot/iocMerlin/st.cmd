@@ -24,9 +24,9 @@ epicsEnvSet("CBUFFS", "500")
 epicsEnvSet("EPICS_DB_INCLUDE_PATH", "$(ADCORE)/db")
 
 # The name of the drvAsynIPPort for commands
-epicsEnvSet("COMMAND_PORT", "ML_CMD")
+epicsEnvSet("COMMAND_PORT", "$(PORT)cmd")
 # The name of the drvAsynIPPort for data
-epicsEnvSet("DATA_PORT", "ML_DATA")
+epicsEnvSet("DATA_PORT", "$(PORT)data")
 # The IP address of the Merlin Labview system
 epicsEnvSet("MERLIN_IP", "164.54.160.214")
 # The IP port for the command socket
@@ -39,11 +39,11 @@ epicsEnvSet("MODEL", "3")   #0=Merlin, 1=MedipixXBPM, 2=UomXBPM, 3=MerlinQuad
 epicsEnvSet("EPICS_DB_INCLUDE_PATH", "$(ADCORE)/db")
 
 
-drvAsynIPPortConfigure(LVCommand, $(MERLIN_IP):$(COMMAND_IPPORT), 0, 0, 0)
-asynOctetSetOutputEos(LVCommand, 0, "\n")
-asynOctetSetInputEos(LVCommand, 0, "\n")
+drvAsynIPPortConfigure($(COMMAND_PORT), $(MERLIN_IP):$(COMMAND_IPPORT), 0, 0, 0)
+asynOctetSetOutputEos($(COMMAND_PORT), 0, "\n")
+asynOctetSetInputEos($(COMMAND_PORT), 0, "\n")
 
-drvAsynIPPortConfigure(LVData, $(MERLIN_IP):$(DATA_IPPORT), 0, 0, 0)
+drvAsynIPPortConfigure($(DATA_PORT), $(MERLIN_IP):$(DATA_IPPORT), 0, 0, 0)
 
 # medipixDetectorConfig(
 #              portName,           # The name of the asyn port to be created
@@ -69,7 +69,7 @@ asynSetTraceIOMask("$(PORT)",0,2)
 
 dbLoadRecords("$(ADMERLIN)/db/medipix.template","P=$(PREFIX),R=cam1:,PORT=$(PORT),ADDR=0,TIMEOUT=1")
 
-# Create a standard arrays plugin, set it to get data from first Prosilica driver.
+# Create a standard arrays plugin, set it to get data from Merlin driver.
 NDStdArraysConfigure("Image1", 5, 0, "$(PORT)", 0, 0)
 
 dbLoadRecords("$(ADCORE)/db/NDStdArrays.template", "P=$(PREFIX),R=image1:,PORT=Image1,ADDR=0,TIMEOUT=1,NDARRAY_PORT=$(PORT),TYPE=Int16,FTVL=SHORT,NELEMENTS=262144")
