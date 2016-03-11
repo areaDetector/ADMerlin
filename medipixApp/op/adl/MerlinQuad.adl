@@ -1,6 +1,6 @@
 
 file {
-	name="/local/DPbin/epics/epics_2015-03-31/synApps_5_8/support/areaDetector-2-1/ADMedipix/medipixApp/opi/adl/MerlinQuad.adl"
+	name="/home/epics/devel/areaDetector/ADMerlin/medipixApp/op/adl/MerlinQuad.adl"
 	version=030107
 }
 display {
@@ -155,68 +155,480 @@ composite {
 		}
 	}
 }
-composite {
+text {
 	object {
-		x=41
+		x=101
 		y=39
-		width=310
+		width=40
 		height=20
 	}
-	"composite name"=""
-	children {
-		text {
-			object {
-				x=41
-				y=39
-				width=100
-				height=20
-			}
-			"basic attribute" {
-				clr=14
-			}
-			textix="Mode"
-			align="horiz. right"
-		}
-		menu {
-			object {
-				x=146
-				y=39
-				width=120
-				height=20
-			}
-			control {
-				chan="$(P)$(R)QuadMerlinMode"
-				clr=14
-				bclr=51
-			}
-		}
-		"text update" {
-			object {
-				x=271
-				y=41
-				width=80
-				height=18
-			}
-			monitor {
-				chan="$(P)$(R)QuadMerlinMode_RBV"
-				clr=54
-				bclr=4
-			}
-			format="string"
-			limits {
-			}
-		}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Mode"
+	align="horiz. right"
+}
+menu {
+	object {
+		x=146
+		y=39
+		width=120
+		height=20
+	}
+	control {
+		chan="$(P)$(R)QuadMerlinMode"
+		clr=14
+		bclr=51
+	}
+}
+"text update" {
+	object {
+		x=271
+		y=41
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)QuadMerlinMode_RBV"
+		clr=54
+		bclr=4
+	}
+	format="string"
+	limits {
 	}
 }
 composite {
 	object {
-		x=47
+		x=97
 		y=70
-		width=328
-		height=239
+		width=200
+		height=21
 	}
 	"composite name"=""
-	"composite file"="MerlinThresholds.adl"
+	children {
+		composite {
+			object {
+				x=97
+				y=70
+				width=200
+				height=21
+			}
+			"composite name"=""
+			children {
+				rectangle {
+					object {
+						x=97
+						y=70
+						width=200
+						height=21
+					}
+					"basic attribute" {
+						clr=2
+					}
+				}
+			}
+		}
+	}
+}
+text {
+	object {
+		x=147
+		y=70
+		width=100
+		height=20
+	}
+	"basic attribute" {
+		clr=54
+	}
+	textix="Thresholds"
+	align="horiz. centered"
+}
+text {
+	object {
+		x=5
+		y=99
+		width=220
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Operating Energy (keV)"
+	align="horiz. right"
+}
+"text entry" {
+	object {
+		x=230
+		y=99
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)OperatingEnergy"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=295
+		y=100
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)OperatingEnergy_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=55
+		y=123
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Threshold 0 (keV)"
+	align="horiz. right"
+}
+"text entry" {
+	object {
+		x=230
+		y=123
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)ThresholdEnergy0"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=295
+		y=124
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)ThresholdEnergy0_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=230
+		y=147
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)ThresholdEnergy1"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=55
+		y=147
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Threshold 1 (keV)"
+	align="horiz. right"
+}
+"text update" {
+	object {
+		x=295
+		y=148
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)ThresholdEnergy1_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=230
+		y=170
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)ThresholdEnergy2"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=295
+		y=171
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)ThresholdEnergy2_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=55
+		y=170
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Threshold 2 (keV)"
+	align="horiz. right"
+}
+"text entry" {
+	object {
+		x=230
+		y=194
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)ThresholdEnergy3"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=55
+		y=194
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Threshold 3 (keV)"
+	align="horiz. right"
+}
+"text update" {
+	object {
+		x=295
+		y=195
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)ThresholdEnergy3_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=230
+		y=218
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)ThresholdEnergy4"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=55
+		y=218
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Threshold 4 (keV)"
+	align="horiz. right"
+}
+"text update" {
+	object {
+		x=295
+		y=219
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)ThresholdEnergy4_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=295
+		y=266
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)ThresholdEnergy6_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=230
+		y=265
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)ThresholdEnergy6"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=55
+		y=265
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Threshold 6 (keV)"
+	align="horiz. right"
+}
+"text update" {
+	object {
+		x=295
+		y=290
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)ThresholdEnergy7_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=230
+		y=289
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)ThresholdEnergy7"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=55
+		y=289
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Threshold 7 (keV)"
+	align="horiz. right"
+}
+text {
+	object {
+		x=55
+		y=242
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Threshold 5 (keV)"
+	align="horiz. right"
+}
+"text entry" {
+	object {
+		x=230
+		y=242
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)ThresholdEnergy5"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=295
+		y=243
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)ThresholdEnergy5_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
 }
 rectangle {
 	object {
@@ -232,13 +644,77 @@ rectangle {
 }
 composite {
 	object {
-		x=47
+		x=97
 		y=321
-		width=328
-		height=195
+		width=200
+		height=21
 	}
 	"composite name"=""
-	"composite file"="MerlinThresholdsScan.adl"
+	children {
+		rectangle {
+			object {
+				x=97
+				y=321
+				width=200
+				height=21
+			}
+			"basic attribute" {
+				clr=2
+			}
+		}
+	}
+}
+text {
+	object {
+		x=97
+		y=321
+		width=200
+		height=20
+	}
+	"basic attribute" {
+		clr=54
+	}
+	textix="Threshold Scan Setup"
+	align="horiz. centered"
+}
+text {
+	object {
+		x=49
+		y=496
+		width=280
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Image Mode and click acquire"
+	align="horiz. centered"
+}
+text {
+	object {
+		x=74
+		y=471
+		width=230
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="select Threshold on the"
+	align="horiz. centered"
+}
+text {
+	object {
+		x=74
+		y=449
+		width=230
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="To start threshold scan"
+	align="horiz. centered"
 }
 "message button" {
 	object {
@@ -255,13 +731,231 @@ composite {
 	label="Reset"
 	press_msg="1"
 }
-composite {
+text {
+	object {
+		x=25
+		y=556
+		width=110
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="To Labview:"
+	align="horiz. right"
+}
+"text update" {
+	object {
+		x=135
+		y=558
+		width=240
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)StringToServer_RBV"
+		clr=54
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=135
+		y=579
+		width=240
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)StringFromServer_RBV"
+		clr=54
+		bclr=2
+	}
+	limits {
+	}
+}
+text {
 	object {
 		x=5
-		y=556
-		width=370
-		height=41
+		y=577
+		width=130
+		height=20
 	}
-	"composite name"=""
-	"composite file"="MerlinCMD.adl"
+	"basic attribute" {
+		clr=14
+	}
+	textix="From Labview:"
+	align="horiz. right"
+}
+text {
+	object {
+		x=55
+		y=350
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Threshold # (0-7)"
+	align="horiz. right"
+}
+"text entry" {
+	object {
+		x=230
+		y=350
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)ThresholdScan"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=295
+		y=351
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)ThresholdScan_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=45
+		y=374
+		width=180
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Start Energy (keV)"
+	align="horiz. right"
+}
+"text entry" {
+	object {
+		x=230
+		y=374
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)StartThresholdScan"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=295
+		y=375
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)StartThresholdScan_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=230
+		y=398
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)StopThresholdScan"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=65
+		y=398
+		width=160
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="End Energy (keV)"
+	align="horiz. right"
+}
+"text update" {
+	object {
+		x=295
+		y=399
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)StopThresholdScan_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=230
+		y=421
+		width=60
+		height=20
+	}
+	control {
+		chan="$(P)$(R)StepThresholdScan"
+		clr=14
+		bclr=51
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=295
+		y=422
+		width=80
+		height=18
+	}
+	monitor {
+		chan="$(P)$(R)StepThresholdScan_RBV"
+		clr=54
+		bclr=4
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=55
+		y=421
+		width=170
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Step Energy (keV)"
+	align="horiz. right"
 }
