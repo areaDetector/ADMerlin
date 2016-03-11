@@ -1,6 +1,6 @@
 
 file {
-	name="/local/DPbin/epics/epics_2015-03-31/synApps_5_8/support/areaDetector-2-1/ADMedipix/medipixApp/opi/adl/ADMerlinQuad.adl"
+	name="/home/epics/devel/areaDetector/ADMerlin/medipixApp/op/adl/ADMerlinQuad.adl"
 	version=030107
 }
 display {
@@ -8,7 +8,7 @@ display {
 		x=38
 		y=70
 		width=1098
-		height=771
+		height=680
 	}
 	clr=14
 	bclr=4
@@ -133,23 +133,13 @@ composite {
 }
 composite {
 	object {
-		x=4
-		y=705
+		x=5
+		y=615
 		width=350
 		height=60
 	}
 	"composite name"=""
 	"composite file"="ADAttrFile.adl"
-}
-composite {
-	object {
-		x=716
-		y=638
-		width=380
-		height=60
-	}
-	"composite name"=""
-	"composite file"="ADDriverFile.adl"
 }
 composite {
 	object {
@@ -173,608 +163,13 @@ composite {
 }
 composite {
 	object {
-		x=360
-		y=615
+		x=5
+		y=475
 		width=350
 		height=135
 	}
 	"composite name"=""
 	"composite file"="ADBuffers.adl"
-}
-rectangle {
-	object {
-		x=121
-		y=343
-		width=117
-		height=21
-	}
-	"basic attribute" {
-		clr=2
-	}
-}
-rectangle {
-	object {
-		x=4
-		y=341
-		width=350
-		height=360
-	}
-	"basic attribute" {
-		clr=14
-		fill="outline"
-	}
-}
-text {
-	object {
-		x=100
-		y=344
-		width=159
-		height=20
-	}
-	"basic attribute" {
-		clr=54
-	}
-	textix="Readout"
-	align="horiz. centered"
-}
-text {
-	object {
-		x=172
-		y=371
-		width=10
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="X"
-	align="horiz. right"
-}
-text {
-	object {
-		x=265
-		y=371
-		width=10
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Y"
-	align="horiz. right"
-}
-"text entry" {
-	object {
-		x=147
-		y=441
-		width=60
-		height=20
-	}
-	control {
-		chan="$(P)$(R)BinX"
-		clr=14
-		bclr=51
-	}
-	limits {
-	}
-}
-"text entry" {
-	object {
-		x=240
-		y=441
-		width=60
-		height=20
-	}
-	control {
-		chan="$(P)$(R)BinY"
-		clr=14
-		bclr=51
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=147
-		y=421
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)BinX_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=240
-		y=421
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)BinY_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-text {
-	object {
-		x=66
-		y=441
-		width=70
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Binning"
-	align="horiz. right"
-}
-composite {
-	object {
-		x=147
-		y=466
-		width=154
-		height=40
-	}
-	"composite name"=""
-	children {
-		"text update" {
-			object {
-				x=147
-				y=466
-				width=61
-				height=18
-			}
-			monitor {
-				chan="$(P)$(R)MinX_RBV"
-				clr=54
-				bclr=4
-			}
-			align="horiz. centered"
-			limits {
-			}
-		}
-		"text entry" {
-			object {
-				x=147
-				y=486
-				width=60
-				height=20
-			}
-			control {
-				chan="$(P)$(R)MinX"
-				clr=14
-				bclr=51
-			}
-			limits {
-			}
-		}
-		"text entry" {
-			object {
-				x=240
-				y=486
-				width=60
-				height=20
-			}
-			control {
-				chan="$(P)$(R)MinY"
-				clr=14
-				bclr=51
-			}
-			limits {
-			}
-		}
-		"text update" {
-			object {
-				x=240
-				y=466
-				width=61
-				height=18
-			}
-			monitor {
-				chan="$(P)$(R)MinY_RBV"
-				clr=54
-				bclr=4
-			}
-			align="horiz. centered"
-			limits {
-			}
-		}
-	}
-}
-text {
-	object {
-		x=86
-		y=486
-		width=50
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Region start"
-	align="horiz. right"
-}
-text {
-	object {
-		x=96
-		y=531
-		width=40
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Region size"
-	align="horiz. right"
-}
-composite {
-	object {
-		x=147
-		y=511
-		width=154
-		height=40
-	}
-	"composite name"=""
-	children {
-		"text entry" {
-			object {
-				x=147
-				y=531
-				width=60
-				height=20
-			}
-			control {
-				chan="$(P)$(R)SizeX"
-				clr=14
-				bclr=51
-			}
-			limits {
-			}
-		}
-		"text entry" {
-			object {
-				x=240
-				y=531
-				width=60
-				height=20
-			}
-			control {
-				chan="$(P)$(R)SizeY"
-				clr=14
-				bclr=51
-			}
-			limits {
-			}
-		}
-		"text update" {
-			object {
-				x=147
-				y=511
-				width=61
-				height=18
-			}
-			monitor {
-				chan="$(P)$(R)SizeX_RBV"
-				clr=54
-				bclr=4
-			}
-			align="horiz. centered"
-			limits {
-			}
-		}
-		"text update" {
-			object {
-				x=240
-				y=511
-				width=61
-				height=18
-			}
-			monitor {
-				chan="$(P)$(R)SizeY_RBV"
-				clr=54
-				bclr=4
-			}
-			align="horiz. centered"
-			limits {
-			}
-		}
-	}
-}
-text {
-	object {
-		x=26
-		y=396
-		width=110
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Sensor size"
-	align="horiz. right"
-}
-"text update" {
-	object {
-		x=147
-		y=397
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)MaxSizeX_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=240
-		y=397
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)MaxSizeY_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-text {
-	object {
-		x=33
-		y=621
-		width=180
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Image size (bytes)"
-	align="horiz. right"
-}
-"text update" {
-	object {
-		x=240
-		y=622
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)ArraySize_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=240
-		y=647
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)Gain_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-text {
-	object {
-		x=96
-		y=646
-		width=40
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Gain"
-	align="horiz. right"
-}
-composite {
-	object {
-		x=46
-		y=671
-		width=273
-		height=20
-	}
-	"composite name"=""
-	children {
-		text {
-			object {
-				x=46
-				y=671
-				width=90
-				height=20
-			}
-			"basic attribute" {
-				clr=14
-			}
-			textix="Data type"
-			align="horiz. right"
-		}
-		menu {
-			object {
-				x=142
-				y=671
-				width=80
-				height=20
-			}
-			control {
-				chan="$(P)$(R)DataType"
-				clr=14
-				bclr=51
-			}
-		}
-		"text update" {
-			object {
-				x=240
-				y=672
-				width=79
-				height=18
-			}
-			monitor {
-				chan="$(P)$(R)DataType_RBV"
-				clr=54
-				bclr=4
-			}
-			align="horiz. centered"
-			format="string"
-			limits {
-			}
-		}
-	}
-}
-"text update" {
-	object {
-		x=147
-		y=556
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)ReverseX_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=240
-		y=556
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)ReverseY_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-text {
-	object {
-		x=66
-		y=576
-		width=70
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Reverse"
-	align="horiz. right"
-}
-menu {
-	object {
-		x=147
-		y=576
-		width=60
-		height=18
-	}
-	control {
-		chan="$(P)$(R)ReverseX"
-		clr=14
-		bclr=51
-	}
-}
-menu {
-	object {
-		x=240
-		y=576
-		width=60
-		height=18
-	}
-	control {
-		chan="$(P)$(R)ReverseY"
-		clr=14
-		bclr=51
-	}
-}
-text {
-	object {
-		x=36
-		y=596
-		width=100
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Image size"
-	align="horiz. right"
-}
-"text update" {
-	object {
-		x=147
-		y=597
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)ArraySizeX_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=240
-		y=597
-		width=61
-		height=18
-	}
-	monitor {
-		chan="$(P)$(R)ArraySizeY_RBV"
-		clr=54
-		bclr=4
-	}
-	align="horiz. centered"
-	limits {
-	}
-}
-menu {
-	object {
-		x=147
-		y=646
-		width=60
-		height=18
-	}
-	control {
-		chan="$(P)$(R)Gain"
-		clr=14
-		bclr=51
-	}
 }
 composite {
 	object {
@@ -785,4 +180,218 @@ composite {
 	}
 	"composite name"=""
 	"composite file"="MerlinQuad.adl"
+}
+composite {
+	object {
+		x=4
+		y=340
+		width=350
+		height=130
+	}
+	"composite name"=""
+	children {
+		rectangle {
+			object {
+				x=121
+				y=342
+				width=117
+				height=21
+			}
+			"basic attribute" {
+				clr=2
+			}
+		}
+		rectangle {
+			object {
+				x=4
+				y=340
+				width=350
+				height=130
+			}
+			"basic attribute" {
+				clr=14
+				fill="outline"
+			}
+		}
+		text {
+			object {
+				x=100
+				y=343
+				width=159
+				height=20
+			}
+			"basic attribute" {
+				clr=54
+			}
+			textix="Readout"
+			align="horiz. centered"
+		}
+		text {
+			object {
+				x=172
+				y=370
+				width=10
+				height=20
+			}
+			"basic attribute" {
+				clr=14
+			}
+			textix="X"
+			align="horiz. right"
+		}
+		text {
+			object {
+				x=265
+				y=370
+				width=10
+				height=20
+			}
+			"basic attribute" {
+				clr=14
+			}
+			textix="Y"
+			align="horiz. right"
+		}
+		composite {
+			object {
+				x=33
+				y=420
+				width=268
+				height=45
+			}
+			"composite name"=""
+			children {
+				text {
+					object {
+						x=33
+						y=445
+						width=180
+						height=20
+					}
+					"basic attribute" {
+						clr=14
+					}
+					textix="Image size (bytes)"
+					align="horiz. right"
+				}
+				"text update" {
+					object {
+						x=240
+						y=446
+						width=61
+						height=18
+					}
+					monitor {
+						chan="$(P)$(R)ArraySize_RBV"
+						clr=54
+						bclr=4
+					}
+					align="horiz. centered"
+					limits {
+					}
+				}
+				text {
+					object {
+						x=36
+						y=420
+						width=100
+						height=20
+					}
+					"basic attribute" {
+						clr=14
+					}
+					textix="Image size"
+					align="horiz. right"
+				}
+				"text update" {
+					object {
+						x=147
+						y=421
+						width=61
+						height=18
+					}
+					monitor {
+						chan="$(P)$(R)ArraySizeX_RBV"
+						clr=54
+						bclr=4
+					}
+					align="horiz. centered"
+					limits {
+					}
+				}
+				"text update" {
+					object {
+						x=240
+						y=421
+						width=61
+						height=18
+					}
+					monitor {
+						chan="$(P)$(R)ArraySizeY_RBV"
+						clr=54
+						bclr=4
+					}
+					align="horiz. centered"
+					limits {
+					}
+				}
+			}
+		}
+		composite {
+			object {
+				x=26
+				y=395
+				width=275
+				height=20
+			}
+			"composite name"=""
+			children {
+				text {
+					object {
+						x=26
+						y=395
+						width=110
+						height=20
+					}
+					"basic attribute" {
+						clr=14
+					}
+					textix="Sensor size"
+					align="horiz. right"
+				}
+				"text update" {
+					object {
+						x=147
+						y=396
+						width=61
+						height=18
+					}
+					monitor {
+						chan="$(P)$(R)MaxSizeX_RBV"
+						clr=54
+						bclr=4
+					}
+					align="horiz. centered"
+					limits {
+					}
+				}
+				"text update" {
+					object {
+						x=240
+						y=396
+						width=61
+						height=18
+					}
+					monitor {
+						chan="$(P)$(R)MaxSizeY_RBV"
+						clr=54
+						bclr=4
+					}
+					align="horiz. centered"
+					limits {
+					}
+				}
+			}
+		}
+	}
 }
