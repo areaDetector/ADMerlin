@@ -1516,11 +1516,6 @@ medipixDetector::medipixDetector(const char *portName,
     this->maxSize[0] = maxSizeX;
     this->maxSize[1] = maxSizeY;
 
-// attempt to clear the spurious error on startup (failed - not sure where this is coming from?)
-//      Medipix1TestFileName devAsynOctet: writeIt requested 0 but sent 10780660 bytes
-    printf("****************************\n");
-    status |= setStringParam(NDFileName, "image.bmp");
-
 // allocate space for the waveforms
     this->profileX = (int*) malloc(maxSizeX * sizeof(int));
     this->profileY = (int*) malloc(maxSizeY * sizeof(int));
