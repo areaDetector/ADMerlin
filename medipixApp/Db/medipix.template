@@ -627,22 +627,23 @@ record(waveform, "$(P)$(R)ProfileAverageY_RBV")
 }
 
 # Set number of backgound images to average 
+### Commented out, this parameter is not supported by driver 
 ##  gdatag, pv, rw, $(PORT)_medipix, BackgoundCount, Set BackgoundCount
-record(longout, "$(P)$(R)BackgoundCount") {
-   field(PINI, "YES")
-   field(DTYP, "asynInt32")
-   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))BACKGROUNDCOUNT")
-   field(DESC, "Backgound Correction Image Count")
-   field(VAL, "0")
-}
+#record(longout, "$(P)$(R)BackgoundCount") {
+#   field(PINI, "YES")
+#   field(DTYP, "asynInt32")
+#   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))BACKGROUNDCOUNT")
+#   field(DESC, "Backgound Correction Image Count")
+#   field(VAL, "0")
+#}
 
 ##  gdatag, pv, ro, $(PORT)_medipix, BackgoundCount_RBV, Readback for BackgoundCount
-record(longin, "$(P)$(R)BackgoundCount_RBV") {
-   field(DTYP, "asynInt32")
-   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))BACKGROUNDCOUNT")
-   field(DESC, "Backgound Correction Image Count")
-   field(SCAN, "I/O Intr")
-}
+#record(longin, "$(P)$(R)BackgoundCount_RBV") {
+#   field(DTYP, "asynInt32")
+#   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))BACKGROUNDCOUNT")
+#   field(DESC, "Backgound Correction Image Count")
+#   field(SCAN, "I/O Intr")
+#}
 
 # Enable Background Correction
 # % autosave 2 
@@ -667,23 +668,24 @@ record(bi,"$(P)$(R)EnableBackgroundCorrection_RBV") {
 }
 
 
-# Set number of images to sum 
+# Set number of images to sum
+### Commented out, this parameter is not supported by driver 
 ##  gdatag, pv, rw, $(PORT)_medipix, SumCount, Set SumCount
-record(longout, "$(P)$(R)SumCount") {
-   field(PINI, "YES")
-   field(DTYP, "asynInt32")
-   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))SUMCOUNT")
-   field(DESC, "Summing Image Count")
-   field(VAL, "1")
-}
+#record(longout, "$(P)$(R)SumCount") {
+#   field(PINI, "YES")
+#   field(DTYP, "asynInt32")
+#   field(OUT, "@asyn($(PORT),$(ADDR),$(TIMEOUT))SUMCOUNT")
+#   field(DESC, "Summing Image Count")
+#   field(VAL, "1")
+#}
 
 ##  gdatag, pv, ro, $(PORT)_medipix, SumCount_RBV, Readback for SumCount
-record(longin, "$(P)$(R)SumCount_RBV") {
-   field(DTYP, "asynInt32")
-   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))SUMCOUNT")
-   field(DESC, "Summinf Image Count")
-   field(SCAN, "I/O Intr")
-}
+#record(longin, "$(P)$(R)SumCount_RBV") {
+#   field(DTYP, "asynInt32")
+#   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))SUMCOUNT")
+#   field(DESC, "Summinf Image Count")
+#   field(SCAN, "I/O Intr")
+#}
 
 
 # Enable Summed Image averaging
@@ -762,7 +764,7 @@ record(waveform, "$(P)$(R)SelectGui_RBV")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))SELECTGUI")
     field(FTVL, "CHAR")
     field(NELM, 256)
-    field(VAL, "medipixEmbedded.edl")
+#    field(VAL, "medipixEmbedded.edl")
     field(SCAN, "I/O Intr")
 }
 
