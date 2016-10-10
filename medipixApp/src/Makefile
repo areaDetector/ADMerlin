@@ -9,7 +9,7 @@ include $(TOP)/configure/CONFIG
 #LIBRARY += medipix_low
 LIBRARY += medipixDetector
 
-PROD += medipix_sim
+PROD_Linux += medipix_sim
 #PROD += medipix_test
 
 #build cpp with debug
