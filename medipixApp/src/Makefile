@@ -9,7 +9,7 @@ include $(TOP)/configure/CONFIG
 #LIBRARY += medipix_low
 LIBRARY += medipixDetector
 
-PROD += medipix_sim
+PROD_Linux += medipix_sim
 #PROD += medipix_test
 
 #build cpp with debug
@@ -25,7 +25,7 @@ medipix_low_SRCS += medipix_low.c
 
 # Add locally compiled object code
 medipix_sim_SRCS += medipix_sim.c
-medipix_sim_LDFLAGS += -lpthread
+medipix_sim_SYS_LIBS += pthread
 
 medipix_test_SRCS += medipix_test.c
 medipix_test_LIBS += medipix_low
