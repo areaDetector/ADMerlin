@@ -24,8 +24,8 @@ medipix_low_SRCS += medipix_low.c
 # ------------------------
 
 # Add locally compiled object code
-medipix_sim_SRCS += medipix_sim.c
-medipix_sim_SYS_LIBS += pthread
+medipix_sim_SRCS_Linux += medipix_sim.c
+medipix_sim_SYS_LIBS_Linux += pthread
 
 medipix_test_SRCS += medipix_test.c
 medipix_test_LIBS += medipix_low
