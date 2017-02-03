@@ -10,7 +10,7 @@
 
 #include "ADDriver.h"
 
-#include "medipixDetector.h"
+#include "merlinDetector.h"
 #include "mpxConnection.h"
 
 // #######################################################################################
@@ -19,7 +19,7 @@
 
 // Constructor
 mpxConnection::mpxConnection(asynUser* parentUser, asynUser* tcpUser,
-        medipixDetector* parentObj)
+        merlinDetector* parentObj)
 {
     this->parentUser = parentUser;
     this->tcpUser = tcpUser;
@@ -27,10 +27,10 @@ mpxConnection::mpxConnection(asynUser* parentUser, asynUser* tcpUser,
 }
 
 // parses the start of the data header and returns its type
-medipixDataHeader mpxConnection::parseDataHeader(const char* header)
+merlinDataHeader mpxConnection::parseDataHeader(const char* header)
 {
     char buff[MPX_MSG_DATATYPE_LEN];
-    medipixDataHeader headerType = MPXUnknownHeader;
+    merlinDataHeader headerType = MPXUnknownHeader;
 
     strncpy(buff, header, MPX_MSG_DATATYPE_LEN);
 
@@ -199,7 +199,7 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
 //    on B21)
 // parses the data header and adds appropriate attributes to pImage
 void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
-        medipixDataHeader headerType, size_t *xsize, size_t *ysize,
+        merlinDataHeader headerType, size_t *xsize, size_t *ysize,
         int* pixelSize, int* profileMask)
 {
     char buff[MPX_IMG_HDR_LEN + 1];
@@ -245,7 +245,7 @@ void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
 
         /*
          * NOTE it has been decided that this driver will provide a timestamp and will ignore the value
-         * passed from medipix - this is because the FPGA does not have access to a clock while processing
+         * passed from merlin - this is because the FPGA does not have access to a clock while processing
          * and hence all frames in a given acquisition are reported as starting at the same microsecond
          **/
         rawtime = time(NULL);

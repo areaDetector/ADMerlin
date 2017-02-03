@@ -1,5 +1,5 @@
 /*
- * medipixDetector.h
+ * merlinDetector.h
  *
  *  Created on: 16 Oct 2013
  *      Author: hgv27681
@@ -24,7 +24,7 @@
 typedef enum
 {
     Merlin, MedipixXBPM, UomXBPM, MerlinQuad
-} medipixDetectorType;
+} merlinDetectorType;
 
 /** Trigger modes */
 typedef enum
@@ -35,7 +35,7 @@ typedef enum
     TMExternalTriggerLow,
     TMExternalTriggerRising,
     TMSoftwareTrigger
-} medipixTriggerMode;/** Trigger modes */
+} merlinTriggerMode;/** Trigger modes */
 
 /** Enumeration of image collection modes */
 typedef enum
@@ -68,52 +68,52 @@ typedef enum
 
 /** ASYN PARAMETER NAMES **/
 
-#define medipixDelayTimeString              "DELAY_TIME"
-#define medipixThreshold0String             "THRESHOLD0"
-#define medipixThreshold1String             "THRESHOLD1"
-#define medipixThreshold2String             "THRESHOLD2"
-#define medipixThreshold3String             "THRESHOLD3"
-#define medipixThreshold4String             "THRESHOLD4"
-#define medipixThreshold5String             "THRESHOLD5"
-#define medipixThreshold6String             "THRESHOLD6"
-#define medipixThreshold7String             "THRESHOLD7"
-#define medipixOperatingEnergyString        "OPERATINGENERGY"
+#define merlinDelayTimeString              "DELAY_TIME"
+#define merlinThreshold0String             "THRESHOLD0"
+#define merlinThreshold1String             "THRESHOLD1"
+#define merlinThreshold2String             "THRESHOLD2"
+#define merlinThreshold3String             "THRESHOLD3"
+#define merlinThreshold4String             "THRESHOLD4"
+#define merlinThreshold5String             "THRESHOLD5"
+#define merlinThreshold6String             "THRESHOLD6"
+#define merlinThreshold7String             "THRESHOLD7"
+#define merlinOperatingEnergyString        "OPERATINGENERGY"
 
-#define medipixThresholdApplyString         "THRESHOLD_APPLY"
-#define medipixThresholdAutoApplyString     "THRESHOLD_AUTO_APPLY"
-#define medipixArmedString                  "ARMED"
+#define merlinThresholdApplyString         "THRESHOLD_APPLY"
+#define merlinThresholdAutoApplyString     "THRESHOLD_AUTO_APPLY"
+#define merlinArmedString                  "ARMED"
 
-#define medipixmedpixThresholdScanString    "THRESHOLDSCAN"
-#define medipixStartThresholdScanString     "THRESHOLDSTART"
-#define medipixStopThresholdScanString      "THRESHOLDSTOP"
-#define medipixStepThresholdScanString      "THRESHOLDSTEP"
-#define medipixStartThresholdScanningString "STARTTHRESHOLDSCANNING"
-#define medipixCounterDepthString           "COUNTERDEPTH"
-#define medipixResetString                  "RESET"
-#define medipixSoftwareTriggerString        "SOFTWARETRIGGER"
-#define medipixEnableCounter1String         "ENABLECOUNTER1"
-#define medipixContinuousRWString           "CONTINUOUSRW"
+#define merlinmedpixThresholdScanString    "THRESHOLDSCAN"
+#define merlinStartThresholdScanString     "THRESHOLDSTART"
+#define merlinStopThresholdScanString      "THRESHOLDSTOP"
+#define merlinStepThresholdScanString      "THRESHOLDSTEP"
+#define merlinStartThresholdScanningString "STARTTHRESHOLDSCANNING"
+#define merlinCounterDepthString           "COUNTERDEPTH"
+#define merlinResetString                  "RESET"
+#define merlinSoftwareTriggerString        "SOFTWARETRIGGER"
+#define merlinEnableCounter1String         "ENABLECOUNTER1"
+#define merlinContinuousRWString           "CONTINUOUSRW"
 
 // Medipix XBPM SPECIFIC
-#define medipixProfileControlString         "PROFILECONTROL"
-#define medipixProfileXString               "PROFILE_AVERAGE_X"
-#define medipixProfileYString               "PROFILE_AVERAGE_Y"
+#define merlinProfileControlString         "PROFILECONTROL"
+#define merlinProfileXString               "PROFILE_AVERAGE_X"
+#define merlinProfileYString               "PROFILE_AVERAGE_Y"
 
 // UoM BPM SPECIFIC
-#define medipixEnableBackgroundCorrString   "ENABLEBACKGROUNDCORR"
-#define medipixEnableImageSumString         "ENABLESUMAVERAGE"
+#define merlinEnableBackgroundCorrString   "ENABLEBACKGROUNDCORR"
+#define merlinEnableImageSumString         "ENABLESUMAVERAGE"
 
 // Medipix Quad
-#define medipixQuadMerlinModeString         "QUADMERLINMODE"
-#define medipixSelectGuiString              "SELECTGUI"
+#define merlinQuadMerlinModeString         "QUADMERLINMODE"
+#define merlinSelectGuiString              "SELECTGUI"
 
 class mpxConnection;
 
-/** Driver for Dectris medipix pixel array detectors using their Labview server over TCP/IP socket */
-class medipixDetector: public ADDriver
+/** Driver for Dectris merlin pixel array detectors using their Labview server over TCP/IP socket */
+class merlinDetector: public ADDriver
 {
 public:
-    medipixDetector(const char *portName, const char *LabviewCmdPort,
+    merlinDetector(const char *portName, const char *LabviewCmdPort,
             const char *LabviewDataPort, int maxSizeX, int maxSizeY,
             int detectorType, int maxBuffers, size_t maxMemory, int priority,
             int stackSize);
@@ -124,46 +124,46 @@ public:
 //    virtual asynStatus writeOctet(asynUser *pasynUser, const char *value,
 //            size_t nChars, size_t *nActual);
     void report(FILE *fp, int details);
-    void medipixTask(); /* This should be private but is called from C so must be public */
-    void medipixStatus(); /* This should be private but is called from C so must be public */
+    void merlinTask(); /* This should be private but is called from C so must be public */
+    void merlinStatus(); /* This should be private but is called from C so must be public */
 
     void fromLabViewStr(const char *str);
     void toLabViewStr(const char *str);
 
 protected:
-    int medipixDelayTime;
-#define FIRST_medipix_PARAM medipixDelayTime
-    int medipixThreshold0;
-    int medipixThreshold1;
-    int medipixThreshold2;
-    int medipixThreshold3;
-    int medipixThreshold4;
-    int medipixThreshold5;
-    int medipixThreshold6;
-    int medipixThreshold7;
-    int medipixOperatingEnergy;
-    int medipixThresholdApply;
-    int medipixThresholdAutoApply;
-    int medipixArmed;
-    int medipixThresholdScan;
-    int medipixStartThresholdScan;
-    int medipixStopThresholdScan;
-    int medipixStepThresholdScan;
-    int medipixTvxVersion;
-    int medipixCounterDepth;
-    int medipixSoftwareTrigger;
-    int medipixReset;
-    int medipixEnableCounter1;
-    int medipixContinuousRW;
-    int medipixProfileControl;
-    int medipixProfileX;
-    int medipixProfileY;
-    int medipixEnableBackgroundCorr;
-    int medipixEnableImageSum;
-    int medipixQuadMerlinMode;
-    int medipixSelectGui;
+    int merlinDelayTime;
+#define FIRST_merlin_PARAM merlinDelayTime
+    int merlinThreshold0;
+    int merlinThreshold1;
+    int merlinThreshold2;
+    int merlinThreshold3;
+    int merlinThreshold4;
+    int merlinThreshold5;
+    int merlinThreshold6;
+    int merlinThreshold7;
+    int merlinOperatingEnergy;
+    int merlinThresholdApply;
+    int merlinThresholdAutoApply;
+    int merlinArmed;
+    int merlinThresholdScan;
+    int merlinStartThresholdScan;
+    int merlinStopThresholdScan;
+    int merlinStepThresholdScan;
+    int merlinTvxVersion;
+    int merlinCounterDepth;
+    int merlinSoftwareTrigger;
+    int merlinReset;
+    int merlinEnableCounter1;
+    int merlinContinuousRW;
+    int merlinProfileControl;
+    int merlinProfileX;
+    int merlinProfileY;
+    int merlinEnableBackgroundCorr;
+    int merlinEnableImageSum;
+    int merlinQuadMerlinMode;
+    int merlinSelectGui;
 
-#define LAST_medipix_PARAM medipixSelectGui
+#define LAST_merlin_PARAM merlinSelectGui
 
 private:
     /* These are the methods that are new to this class */
@@ -201,14 +201,14 @@ private:
     char LabviewCommandPortName[20];
     char LabviewDataPortName[20];
 
-    medipixDetectorType detType;
+    merlinDetectorType detType;
 
     mpxConnection *cmdConnection;
     mpxConnection *dataConnection;
 };
 
-#define NUM_medipix_PARAMS (&LAST_medipix_PARAM - &FIRST_medipix_PARAM + 1)
+#define NUM_merlin_PARAMS (&LAST_merlin_PARAM - &FIRST_merlin_PARAM + 1)
 
-static const char *driverName = "medipixDetector";
+static const char *driverName = "merlinDetector";
 
 #endif /* MEDIPIXDETECTOR_H_ */

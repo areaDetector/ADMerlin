@@ -1,6 +1,6 @@
 
 file {
-	name="/home/epics/devel/areaDetector/ADMerlin/medipixApp/op/adl/MerlinQuad.adl"
+	name="/home/epics/devel/areaDetector/ADMerlin/merlinApp/op/adl/MerlinQuad.adl"
 	version=030107
 }
 display {

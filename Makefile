@@ -2,10 +2,10 @@
 TOP = .
 include $(TOP)/configure/CONFIG
 DIRS := $(DIRS) configure
-DIRS := $(DIRS) medipixApp
+DIRS := $(DIRS) merlinApp
 ifeq ($(BUILD_IOCS), YES)
 DIRS := $(DIRS) $(filter-out $(DIRS), $(wildcard iocs))
-iocs_DEPEND_DIRS += medipixApp
+iocs_DEPEND_DIRS += merlinApp
 endif
 include $(TOP)/configure/RULES_TOP
 
