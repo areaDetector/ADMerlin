@@ -9,15 +9,9 @@
 /** data header types */
 typedef enum
 {
-    MPXDataHeaderNone,
-    MPXDataHeader12,
-    MPXDataHeader24,
-    MPXGenericImageHeader,
-    MPXProfileHeader12,
-    MPXProfileHeader24,
-    MPXGenericProfileHeader,
     MPXAcquisitionHeader,
     MPXQuadDataHeader,
+    MPXProfileHeader,
     MPXUnknownHeader
 } merlinDataHeader;
 
@@ -51,9 +45,6 @@ public:
 
     /* Helper functions */
     merlinDataHeader parseDataHeader(const char* header);
-    void parseDataFrame(NDAttributeList* pAttr, const char* header,
-            merlinDataHeader headerType, size_t *xsize, size_t *ysize,
-            int* pixelSize, int* profileMask);
     void parseMqDataFrame(NDAttributeList* pAttr, const char* header,
     		size_t *xsize, size_t *ysize, int* pixelDepth, int* offset);
 

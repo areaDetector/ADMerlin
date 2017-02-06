@@ -1,6 +1,6 @@
 /* merlinDetector.cpp
  *
- * This is a driver for a Medipix 3 detector chip.
+ * This is a driver for the Merlin detector (Quad chip version but supports other chip counts)
  *
  * The driver is designed to communicate with the chip via the matching Labview controller over TCP/IP
  *
@@ -58,9 +58,8 @@ void merlinDetector::merlinTask()
     NDArray * pImage;
     epicsTimeStamp startTime;
     const char *functionName = "merlinTask";
-    size_t dims[2], dummy;
+    size_t dims[2];
     int arrayCallbacks;
-    int dummy2;
     int nread;
     char *bigBuff;
     char aquisitionHeader[MPX_ACQUISITION_HEADER_LEN + 1];
@@ -83,7 +82,7 @@ void merlinDetector::merlinTask()
         imagSize = MAX_BUFF_UOM;
         break;
     case Merlin:
-    case MedipixXBPM: imagSize = MPX_IMG_FRAME_LEN24;
+    case MerlinXBPM: imagSize = MPX_IMG_FRAME_LEN24;
         break;
     case MerlinQuad:
         imagSize = MAX_BUFF_MERLIN_QUAD;
@@ -174,52 +173,6 @@ void merlinDetector::merlinTask()
                 strncpy(aquisitionHeader, bigBuff, MPX_ACQUISITION_HEADER_LEN);
                 aquisitionHeader[MPX_ACQUISITION_HEADER_LEN] = 0;
             }
-            else if (header == MPXDataHeader12)
-            {
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-                        "Creating a 12bit Array\n");
-
-                pImage = copyToNDArray16(dims, bigBuff, MPX_IMG_HDR_LEN);
-                if (pImage == NULL)
-                    continue;
-                dataConnection->parseDataFrame(pImage->pAttributeList, bigBuff,
-                        header, &dummy, &dummy, &dummy2, &dummy2);
-            }
-            else if (header == MPXDataHeader24)
-            {
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-                        "Creating a 24bit Array\n");
-
-                pImage = copyToNDArray32(dims, bigBuff, MPX_IMG_HDR_LEN);
-                if (pImage == NULL)
-                    continue;
-                dataConnection->parseDataFrame(pImage->pAttributeList, bigBuff,
-                        header, &dummy, &dummy, &dummy2, &dummy2);
-            }
-            else if (header == MPXGenericImageHeader)
-            {
-                int pixelSize;
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-                        "Creating a generic Image NDArray\n");
-
-                // Parse the header and use the information to determine the
-                // size of the NDArray
-                imageAttr->clear();
-                dataConnection->parseDataFrame(imageAttr, bigBuff, header,
-                        &(dims[0]), &(dims[1]), &pixelSize, &dummy2);
-                pImage = NULL;
-                if (pixelSize == 16)
-                {
-                    pImage = copyToNDArray16(dims, bigBuff, MPX_IMG_HDR_LEN);
-                }
-                else if (pixelSize == 32)
-                {
-                    pImage = copyToNDArray32(dims, bigBuff, MPX_IMG_HDR_LEN);
-                }
-                if (pImage == NULL)
-                    continue;
-                imageAttr->copy(pImage->pAttributeList);
-            }
             else if (header == MPXQuadDataHeader)
             {
                 int pixelSize;
@@ -255,9 +208,7 @@ void merlinDetector::merlinTask()
                 }
                 imageAttr->copy(pImage->pAttributeList);
             }
-            else if (header == MPXProfileHeader12
-                    || header == MPXProfileHeader24
-                    || header == MPXGenericProfileHeader)
+            else if (header == MPXProfileHeader)
             {
                 int profileMask = 0;
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
@@ -266,12 +217,11 @@ void merlinDetector::merlinTask()
                 imageAttr->clear();
                 pImage = NULL;
 
-                if (header == MPXGenericProfileHeader)
-                    dataConnection->parseDataFrame(imageAttr, bigBuff, header,
-                            &(dims[0]), &(dims[1]), &dummy2, &profileMask);
-                else
-                    dataConnection->parseDataFrame(imageAttr, bigBuff, header,
-                            &dummy, &dummy, &dummy2, &profileMask);
+//				dataConnection->parseDataFrame(imageAttr, bigBuff, header,
+//						&(dims[0]), &(dims[1]), &dummy2, &profileMask);
+                // TODO do profiles using 2.0 release of documentation
+                // TODO instead of above we should call parseMqDataFrame
+                // TODO in fact not sure we need a separate clause at this point.
 
                 if (profileMask
                         != (MPXPROFILES_XPROFILE | MPXPROFILES_YPROFILE
@@ -296,11 +246,7 @@ void merlinDetector::merlinTask()
             }
 
             // for Data frames - complete the NDAttributes, pass the NDArray on
-            if (header == MPXDataHeader12 || header == MPXDataHeader24
-                    || header == MPXProfileHeader12
-                    || header == MPXProfileHeader24
-                    || header == MPXGenericImageHeader
-                    || header == MPXGenericProfileHeader
+            if (header == MPXProfileHeader
                     || header == MPXQuadDataHeader)
             {
                 // Put the frame number and time stamp into the buffer
@@ -320,8 +266,7 @@ void merlinDetector::merlinTask()
                 // Must release the lock here, to avoid a deadlock: we can
                 // block on the plugin lock, and the plugin can be calling us
                 this->unlock();
-                if (header == MPXDataHeader12 || header == MPXDataHeader24
-                    || header == MPXGenericImageHeader || header == MPXQuadDataHeader)
+                if (header == MPXQuadDataHeader)
                 {
                     doCallbacksGenericPointer(pImage, NDArrayData, 0);
                 }
@@ -330,7 +275,7 @@ void merlinDetector::merlinTask()
                     // address 1 on the port is used for profiles
                     // TODO use of port 1 is not working in NDPluginBase so
                     // currently reverting to use the same address
-                    // (i.e. setting Medipix1:ROI:NDArrayAddress has no effect
+                    // (i.e. setting Merlin1:ROI:NDArrayAddress has no effect
                     doCallbacksGenericPointer(pImage, NDArrayData, 0);
                 }
                 this->lock();
@@ -671,7 +616,7 @@ asynStatus merlinDetector::setAcquireParams()
     if (startingUp)
         return asynSuccess;
 
-    if (detType == MedipixXBPM || detType == UomXBPM)
+    if (detType == MerlinXBPM || detType == UomXBPM)
     {
         int exposures, val;
 
@@ -1357,13 +1302,11 @@ extern "C" int merlinDetectorConfig(const char *portName,
  * After calling the base class constructor this method creates a thread to collect the detector data,
  * and sets reasonable default values for the parameters defined in this class, asynNDArrayDriver, and ADDriver.
  * \param[in] portName The name of the asyn port driver to be created.
- * \param[in] LabviewCommandPort The name of the asyn port previously created with drvAsynIPPortConfigure to
- *            communicate with Labview for commands.
- * \param[in] LabviewDataPort The name of the asyn port previously created with drvAsynIPPortConfigure to
- *            communicate with Labview for data.
+ * \param[in] LabviewPort The name of the asyn port previously created with drvAsynIPPortConfigure to
+ *            communicate with Labview.
  * \param[in] maxSizeX The size of the merlin detector in the X direction.
  * \param[in] maxSizeY The size of the merlin detector in the Y direction.
- * \param[in] detectorType The type of detector. 0=Merlin, 1=MedipixXBPM, 2=UomXBPM, 3=MerlinQuad
+ * \param[in] portName The name of the asyn port driver to be created.
  * \param[in] maxBuffers The maximum number of NDArray buffers that the NDArrayPool for this driver is
  *            allowed to allocate. Set this to -1 to allow an unlimited number of buffers.
  * \param[in] maxMemory The maximum amount of memory that the NDArrayPool for this driver is
@@ -1481,12 +1424,12 @@ merlinDetector::merlinDetector(const char *portName,
     /* Set some default values for parameters */
     switch (detectorType)
     {
-    case MedipixXBPM:
-        setStringParam(ADManufacturer, "Medipix Consortium");
+    case MerlinXBPM:
+        setStringParam(ADManufacturer, "Merlin Consortium");
         setStringParam(ADModel, "Lancelot XBPM");
         break;
     case Merlin:
-        setStringParam(ADManufacturer, "Medipix Consortium");
+        setStringParam(ADManufacturer, "Merlin Consortium");
         setStringParam(ADModel, "Merlin");
         break;
     case UomXBPM:
@@ -1494,7 +1437,7 @@ merlinDetector::merlinDetector(const char *portName,
         setStringParam(ADModel, "UoM XBPM");
         break;
     case MerlinQuad:
-        setStringParam(ADManufacturer, "Medipix Consortium");
+        setStringParam(ADManufacturer, "Merlin Consortium");
         setStringParam(ADModel, "Merlin Quad");
         setStringParam(merlinSelectGui, "merlinQuadEmbedded.edl");
         break;

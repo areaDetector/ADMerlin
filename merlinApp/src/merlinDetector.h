@@ -23,7 +23,7 @@
 /** Detector Types */
 typedef enum
 {
-    Merlin, MedipixXBPM, UomXBPM, MerlinQuad
+    Merlin, MerlinXBPM, UomXBPM, MerlinQuad
 } merlinDetectorType;
 
 /** Trigger modes */
@@ -59,7 +59,7 @@ typedef enum
     MPXQuadModeSumming
 } MPXQuadMode_t;
 
-/** Medipix Individual Trigger types */
+/** Merlin Individual Trigger types */
 
 #define TMTrigInternal  (char*)"0"
 #define TMTrigRising    (char*)"1"
@@ -94,7 +94,7 @@ typedef enum
 #define merlinEnableCounter1String         "ENABLECOUNTER1"
 #define merlinContinuousRWString           "CONTINUOUSRW"
 
-// Medipix XBPM SPECIFIC
+// Merlin XBPM SPECIFIC
 #define merlinProfileControlString         "PROFILECONTROL"
 #define merlinProfileXString               "PROFILE_AVERAGE_X"
 #define merlinProfileYString               "PROFILE_AVERAGE_Y"
@@ -103,7 +103,7 @@ typedef enum
 #define merlinEnableBackgroundCorrString   "ENABLEBACKGROUNDCORR"
 #define merlinEnableImageSumString         "ENABLESUMAVERAGE"
 
-// Medipix Quad
+// Merlin Quad
 #define merlinQuadMerlinModeString         "QUADMERLINMODE"
 #define merlinSelectGuiString              "SELECTGUI"
 

@@ -34,18 +34,8 @@ merlinDataHeader mpxConnection::parseDataHeader(const char* header)
 
     strncpy(buff, header, MPX_MSG_DATATYPE_LEN);
 
-    if (!strncmp(buff, MPX_DATA_12, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXDataHeader12;
-    else if (!strncmp(buff, MPX_DATA_24, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXDataHeader24;
-    if (!strncmp(buff, MPX_GENERIC_IMAGE, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXGenericImageHeader;
-    if (!strncmp(buff, MPX_PROFILE_12, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXProfileHeader12;
-    else if (!strncmp(buff, MPX_PROFILE_24, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXProfileHeader24;
-    else if (!strncmp(buff, MPX_GENERIC_PROFILE, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXGenericProfileHeader;
+    if (!strncmp(buff, MPX_PROFILE, MPX_MSG_DATATYPE_LEN))
+        headerType = MPXProfileHeader;
     else if (!strncmp(buff, MPX_QUAD_DATA, MPX_MSG_DATATYPE_LEN))
         headerType = MPXQuadDataHeader;
     else if (!strncmp(buff, MPX_DATA_ACQ_HDR, MPX_MSG_DATATYPE_LEN))
@@ -66,9 +56,9 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
 
     char buff[MPX_IMG_HDR_LEN + 1];
     double dVal;
-    int iVal;
+    int iVal, i;
     //int dacNum;
-    //char dacName[10];
+    char thresholdName[20];
     char* tok;
     char* save_ptr = NULL;
 
@@ -164,177 +154,161 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
     }
 
 
+    for(i = 0; i<7; i++)
+    {
     tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         dVal = atof(tok);
-        pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        dVal = atof(tok);
-        pAttr->add("Threshold 1", "", NDAttrFloat64, &dVal);
-    }
-
-    // TODO - rest of Thresholds and DACS (need to come up with naming convention for
-    // NDAttributes in repeating DACS block
-/*
-    for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
-    {
-        tok = strtok_r(NULL, ",");
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            sprintf(dacName, "DAC %03d", dacNum);
-            asynPrint(this->parentUser, ASYN_TRACE_MPX_VERBOSE, "dac %d = %d\n", dacNum, iVal);
-            pAttr->add(dacName, "", NDAttrInt32, &iVal);
+			snprintf(thresholdName, sizeof(thresholdName), "Threshold %d", i);
+			pAttr->add(thresholdName, "", NDAttrFloat64, &dVal);
         }
     }
-*/
 }
 
-// Data Frame Header Parser for original Frames of type 12B and 24B
-// Also parses generic Frames of type IMG (originally developed for UoM XBPM
-//    on B21)
-// parses the data header and adds appropriate attributes to pImage
-void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
-        merlinDataHeader headerType, size_t *xsize, size_t *ysize,
-        int* pixelSize, int* profileMask)
-{
-    char buff[MPX_IMG_HDR_LEN + 1];
-    unsigned long lVal;
-    double dVal;
-    int iVal, dacNum;
-    char dacName[10];
-    char* tok;
-    char* save_ptr = NULL;
 
-    // initialise member variables that should be set during this parse
-    *profileMask = 0;
-
-    // make a copy since strtok_r is destructive
-    strncpy(buff, header, MPX_IMG_HDR_LEN);
-    buff[MPX_IMG_HDR_LEN + 1] = 0;
-
-    asynPrint(this->parentUser, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
-            buff);
-
-    tok = strtok_r(buff, ",", &save_ptr);
-    tok = strtok_r(NULL, ",", &save_ptr);  // skip the (HDR already parsed)
-    if (tok != NULL)
-    {
-        iVal = atoi(tok);
-        pAttr->add("Frame Number", "", NDAttrInt32, &iVal);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        iVal = atoi(tok);
-        pAttr->add("Counter Number", "", NDAttrInt32, &iVal);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        time_t rawtime;
-        unsigned long msecs;
-
-        // Covert string representation to EPICS Time and store in attributes as
-        // a unsigned long
-        // format is 2012-02-01 11:26:00.000
-
-        /*
-         * NOTE it has been decided that this driver will provide a timestamp and will ignore the value
-         * passed from merlin - this is because the FPGA does not have access to a clock while processing
-         * and hence all frames in a given acquisition are reported as starting at the same microsecond
-         **/
-        rawtime = time(NULL);
-        lVal = (unsigned long) rawtime;
-        msecs = 0;
-
-        pAttr->add("Start Time UTC seconds", "", NDAttrUInt32, &lVal);
-        pAttr->add("Start Time millisecs", "", NDAttrUInt32, &msecs);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        dVal = atof(tok);
-        pAttr->add("Duration", "", NDAttrFloat64, &dVal);
-    }
-    if (headerType == MPXGenericImageHeader
-            || headerType == MPXGenericProfileHeader)
-    {
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            pAttr->add("X Offset", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            pAttr->add("Y Offset", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            *xsize = iVal;
-            pAttr->add("X Size", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            *ysize = iVal;
-            pAttr->add("Y Size", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            pAttr->add("Pixel Depth", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            *pixelSize = iVal;
-            pAttr->add("Pixel Size", "", NDAttrInt32, &iVal);
-        }
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        dVal = atof(tok);
-        pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        dVal = atof(tok);
-        pAttr->add("Threshold 1", "", NDAttrFloat64, &dVal);
-    }
-    for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
-    {
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            sprintf(dacName, "DAC %03d", dacNum);
-            asynPrint(this->parentUser, ASYN_TRACE_MPX_VERBOSE, "dac %d = %d\n", dacNum, iVal);
-            pAttr->add(dacName, "", NDAttrInt32, &iVal);
-        }
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        iVal = atoi(tok);
-        *profileMask = iVal;
-        pAttr->add("Profile Mask", "", NDAttrInt32, &iVal);
-    }
-}
+//
+//// Data Frame Header Parser for original Frames of type 12B and 24B
+//// Also parses generic Frames of type IMG (originally developed for UoM XBPM
+////    on B21)
+//// parses the data header and adds appropriate attributes to pImage
+//void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
+//        merlinDataHeader headerType, size_t *xsize, size_t *ysize,
+//        int* pixelSize, int* profileMask)
+//{
+//    char buff[MPX_IMG_HDR_LEN + 1];
+//    unsigned long lVal;
+//    double dVal;
+//    int iVal, dacNum;
+//    char dacName[10];
+//    char* tok;
+//    char* save_ptr = NULL;
+//
+//    // initialise member variables that should be set during this parse
+//    *profileMask = 0;
+//
+//    // make a copy since strtok_r is destructive
+//    strncpy(buff, header, MPX_IMG_HDR_LEN);
+//    buff[MPX_IMG_HDR_LEN + 1] = 0;
+//
+//    asynPrint(this->parentUser, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
+//            buff);
+//
+//    tok = strtok_r(buff, ",", &save_ptr);
+//    tok = strtok_r(NULL, ",", &save_ptr);  // skip the (HDR already parsed)
+//    if (tok != NULL)
+//    {
+//        iVal = atoi(tok);
+//        pAttr->add("Frame Number", "", NDAttrInt32, &iVal);
+//    }
+//    tok = strtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        iVal = atoi(tok);
+//        pAttr->add("Counter Number", "", NDAttrInt32, &iVal);
+//    }
+//    tok = strtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        time_t rawtime;
+//        unsigned long msecs;
+//
+//        // Covert string representation to EPICS Time and store in attributes as
+//        // a unsigned long
+//        // format is 2012-02-01 11:26:00.000
+//
+//        /*
+//         * NOTE it has been decided that this driver will provide a timestamp and will ignore the value
+//         * passed from merlin - this is because the FPGA does not have access to a clock while processing
+//         * and hence all frames in a given acquisition are reported as starting at the same microsecond
+//         **/
+//        rawtime = time(NULL);
+//        lVal = (unsigned long) rawtime;
+//        msecs = 0;
+//
+//        pAttr->add("Start Time UTC seconds", "", NDAttrUInt32, &lVal);
+//        pAttr->add("Start Time millisecs", "", NDAttrUInt32, &msecs);
+//    }
+//    tok = strtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        dVal = atof(tok);
+//        pAttr->add("Duration", "", NDAttrFloat64, &dVal);
+//    }
+//    if (headerType == MPXGenericImageHeader
+//            || headerType == MPXProfileHeader)
+//    {
+//        tok = strtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            pAttr->add("X Offset", "", NDAttrInt32, &iVal);
+//        }
+//        tok = strtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            pAttr->add("Y Offset", "", NDAttrInt32, &iVal);
+//        }
+//        tok = strtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            *xsize = iVal;
+//            pAttr->add("X Size", "", NDAttrInt32, &iVal);
+//        }
+//        tok = strtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            *ysize = iVal;
+//            pAttr->add("Y Size", "", NDAttrInt32, &iVal);
+//        }
+//        tok = strtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            pAttr->add("Pixel Depth", "", NDAttrInt32, &iVal);
+//        }
+//        tok = strtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            *pixelSize = iVal;
+//            pAttr->add("Pixel Size", "", NDAttrInt32, &iVal);
+//        }
+//    }
+//    tok = strtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        dVal = atof(tok);
+//        pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
+//    }
+//    tok = strtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        dVal = atof(tok);
+//        pAttr->add("Threshold 1", "", NDAttrFloat64, &dVal);
+//    }
+//    for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
+//    {
+//        tok = strtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            sprintf(dacName, "DAC %03d", dacNum);
+//            asynPrint(this->parentUser, ASYN_TRACE_MPX_VERBOSE, "dac %d = %d\n", dacNum, iVal);
+//            pAttr->add(dacName, "", NDAttrInt32, &iVal);
+//        }
+//    }
+//    tok = strtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        iVal = atoi(tok);
+//        *profileMask = iVal;
+//        pAttr->add("Profile Mask", "", NDAttrInt32, &iVal);
+//    }
+//}
 
 // #######################################################################################
 // ##################### Labview communications primitives ###############################
