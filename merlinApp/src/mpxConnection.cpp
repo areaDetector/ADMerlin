@@ -21,6 +21,7 @@
 mpxConnection::mpxConnection(asynUser* parentUser, asynUser* tcpUser,
         merlinDetector* parentObj)
 {
+	fromLabviewError = 0;
     this->parentUser = parentUser;
     this->tcpUser = tcpUser;
     this->parentObj = parentObj;
@@ -51,20 +52,24 @@ merlinDataHeader mpxConnection::parseDataHeader(const char* header)
 // (This data format intended to extend to future products)
 // parses the data header and adds appropriate attributes to pImage
 void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
-		size_t *xsize, size_t *ysize, int* pixelDepth, int* offset)
+        size_t *xsize, size_t *ysize, int* pixelDepth, int* offset,
+        int* profileSelect)
 {
 
-    char buff[MPX_IMG_HDR_LEN + 1];
+    char buff[MPX_IMG_HDR_FULL_LEN + 1];
+    unsigned int uVal;
     double dVal;
-    int iVal, i;
+    int iVal, i, chipCount, chip, dacsPreset = 1;
     //int dacNum;
-    char thresholdName[20];
+    char thresholdName[30];
     char* tok;
     char* save_ptr = NULL;
 
+    *profileSelect = 0;
+
     // make a copy since strtok_r is destructive
-    strncpy(buff, header, MPX_IMG_HDR_LEN);
-    buff[MPX_IMG_HDR_LEN + 1] = 0;
+    strncpy(buff, header, MPX_IMG_HDR_FULL_LEN);
+    buff[MPX_IMG_HDR_FULL_LEN + 1] = 0;
 
     asynPrint(this->parentUser, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
             buff);
@@ -86,8 +91,8 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
     tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
-        iVal = atoi(tok);
-        pAttr->add("Chip Count", "", NDAttrInt8, &iVal);
+    	chipCount = atoi(tok);
+        pAttr->add("Chip Count", "", NDAttrInt8, &chipCount);
     }
     tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
@@ -153,8 +158,7 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
         pAttr->add("Gain Mode", "", NDAttrInt8, &iVal);
     }
 
-
-    for(i = 0; i<7; i++)
+    for (i = 0; i <= 7; i++)
     {
     tok = strtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
@@ -163,6 +167,74 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
 			snprintf(thresholdName, sizeof(thresholdName), "Threshold %d", i);
 			pAttr->add(thresholdName, "", NDAttrFloat64, &dVal);
         }
+    }
+
+    tok = strtok_r(NULL, ",", &save_ptr);
+    if (tok != NULL && strncmp(tok, OPT_START_STRING, OPT_TOKEN_LEN) == 0)
+    {
+        // this section reads the optional extension fields
+        int done = false, count = 0;
+
+        count = 0;
+        do
+        {
+            if (tok != NULL && strncmp(tok, OPT_END_STRING, OPT_TOKEN_LEN) == 0)
+            {
+                iVal = atoi(tok);
+                pAttr->add(optFields[count], "", NDAttrInt16, &iVal);
+                tok = strtok_r(NULL, ",", &save_ptr);
+                switch (count)
+                {
+                case PROFILE_SELECT_POS:
+                    *profileSelect = iVal;
+                    break;
+                case DACS_PRESENT_POS:
+                    dacsPreset = iVal;
+                    break;
+                }
+                count++;
+            }
+            else
+            {
+                done = true;
+            }
+        } while (!done && count < optFieldsCount);
+    }
+
+    // this section reads chip dac info blocks for each of the chips on the device
+    for (chip = 0; chip < chipCount && dacsPreset; chip++)
+    {
+        tok = strtok_r(NULL, ",", &save_ptr);
+        if (tok != NULL)
+        {
+            snprintf(thresholdName, sizeof(thresholdName), "DAC %d Format",
+                    chip);
+            pAttr->add(thresholdName, "", NDAttrString, tok);
+        }
+        for (i = 0; i <= 7; i++)
+        {
+            tok = strtok_r(NULL, ",", &save_ptr);
+            if (tok != NULL)
+            {
+                uVal = atol(tok);
+                snprintf(thresholdName, sizeof(thresholdName),
+                        "Chip %d Threshold bits %d", chip, i);
+                pAttr->add(thresholdName, "", NDAttrUInt16, &uVal);
+            }
+        }
+
+        for (i = 0; i < dacInfoCount; i++)
+        {
+            tok = strtok_r(NULL, ",", &save_ptr);
+            if (tok != NULL)
+            {
+                iVal = atoi(tok);
+                snprintf(thresholdName, sizeof(thresholdName), "Chip %d %s",
+                        chip + 1, dacInfo[i]);
+                pAttr->add(thresholdName, "", NDAttrInt16, &iVal);
+            }
+        }
+
     }
 }
 

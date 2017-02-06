@@ -46,7 +46,8 @@ public:
     /* Helper functions */
     merlinDataHeader parseDataHeader(const char* header);
     void parseMqDataFrame(NDAttributeList* pAttr, const char* header,
-    		size_t *xsize, size_t *ysize, int* pixelDepth, int* offset);
+    		size_t *xsize, size_t *ysize, int* pixelDepth, int* offset,
+    		int* profileSelect);
 
     void dumpData(char* sdata, int size);
 

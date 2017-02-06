@@ -177,6 +177,7 @@ private:
 
     NDArray* copyProfileToNDArray32(size_t *dims, char *buffer,
             int profileMask);
+    NDArray* copyToNDArray8(size_t *dims, char *buffer, int offset);
     NDArray* copyToNDArray16(size_t *dims, char *buffer, int offset);
     NDArray* copyToNDArray32(size_t *dims, char *buffer, int offset);
     inline void endian_swap(unsigned short& x);

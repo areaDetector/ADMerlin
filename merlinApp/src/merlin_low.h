@@ -32,6 +32,9 @@ extern int mpxDisconnect(void);
 
 #define MPX_MAXLINE 256
 #define MPX_IMG_HDR_LEN 256
+#define MPX_IMG_HDR_DAC_LEN 128
+#define MPX_IMG_HDR_MAX_CHIPS 16
+#define MPX_IMG_HDR_FULL_LEN MPX_IMG_HDR_LEN + MPX_IMG_HDR_DAC_LEN * MPX_IMG_HDR_MAX_CHIPS
 #define MPX_ACQUISITION_HEADER_LEN 2044
 
 #define MPX_X_SIZE 256
@@ -104,6 +107,24 @@ extern int mpxDisconnect(void);
 #define MPXCMD_PROFILES                 (char*) "PROFILES"
 #define MPXCMD_BACKGROUNDACQUIRE        (char*) "BCKGRND"
 
+
+// constants for parsing the Chip DAC sections
+static const int dacInfoCount = 19;
+static const char* const dacInfo[] =
+{ "Preamp", "Ikrum", "Shaper", "Disc", "Disc LS", "Shaper Test",
+        "DAC Disc L", "DAC Test", "DAC DISC H", "Delay", "TP Buff In",
+        "TP Buff Out", "RPZ", "GND", "TP Ref", "FBK", "Cas", "TP Ref A",
+        "TP Ref B" };
+
+// constants for parsing the optional fields section
+static const int optFieldsCount = 6;
+static const char* const optFields[] = { "ROI X", "ROI Y", "ROI Width",
+        "ROI Height", "Profile Select", "DACs Present" };
+#define OPT_START_STRING				"OPT1"
+#define OPT_END_STRING					"END1"
+#define OPT_TOKEN_LEN 					4
+#define PROFILE_SELECT_POS				4
+#define DACS_PRESENT_POS 				5
 
 // Bits in the PROFILES selection mask
 #define MPXPROFILES_IMAGE               1

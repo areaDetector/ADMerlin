@@ -176,7 +176,7 @@ void merlinDetector::merlinTask()
             else if (header == MPXQuadDataHeader)
             {
                 int pixelSize;
-                int offset;
+                int offset, profileSelect;
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating a Quad Merlin Image NDArray\n");
 
@@ -184,9 +184,13 @@ void merlinDetector::merlinTask()
                 // size of the NDArray
                 imageAttr->clear();
                 dataConnection->parseMqDataFrame(imageAttr, bigBuff, &(dims[0]),
-                        &(dims[1]), &pixelSize, &offset);
+                        &(dims[1]), &pixelSize, &offset, &profileSelect);
                 pImage = NULL;
-                if (pixelSize == 16)
+                if (pixelSize == 8)
+                {
+                    pImage = copyToNDArray8(dims, bigBuff, offset);
+                }
+                else if (pixelSize == 16)
                 {
                     pImage = copyToNDArray16(dims, bigBuff, offset);
                 }
@@ -197,7 +201,7 @@ void merlinDetector::merlinTask()
                 else
                 {
                     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                        "Unsupported bit depth %d\n", header);
+                        "Unsupported bit depth %d\n", pixelSize);
                     setStringParam(ADStatusMessage,
                             "Error: Unsupported bit depth");
                 }
@@ -246,8 +250,7 @@ void merlinDetector::merlinTask()
             }
 
             // for Data frames - complete the NDAttributes, pass the NDArray on
-            if (header == MPXProfileHeader
-                    || header == MPXQuadDataHeader)
+            if (header == MPXProfileHeader || header == MPXQuadDataHeader)
             {
                 // Put the frame number and time stamp into the buffer
                 pImage->uniqueId = imageCounter;
@@ -419,6 +422,46 @@ NDArray* merlinDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
     return pImage;
 }
 
+
+// Todo make the following three functions a single template function
+
+/** Helper function to copy a 8 bit buffer into an NDArray
+ *
+ */
+NDArray* merlinDetector::copyToNDArray8(size_t *dims, char *buffer, int offset)
+{
+    // copy the data into NDArray, switching to little endien and
+    // Inverting in the Y axis (merlin origin is at bottom left)
+    epicsUInt8 *pData, *pSrc;
+    size_t x, y;
+
+    NDArray* pImage = this->pNDArrayPool->alloc(2, dims, NDUInt8, 0, NULL);
+
+    if (pImage == NULL)
+    {
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s:%s: unable to allocate NDArray from pool\n", driverName,
+                "copyToNDArray8");
+        setStringParam(ADStatusMessage,
+                "Error: run out of buffers in detector driver");
+    }
+    else
+    {
+        for (y = 0; y < dims[1]; y++)
+        {
+            for (x = 0, pData = (epicsUInt8 *) pImage->pData + y * dims[0], pSrc =
+                    (epicsUInt8 *) (buffer + offset)
+                            + (dims[1] - y) * dims[0]; x < dims[0];
+                    x++, pData++, pSrc++)
+            {
+                *pData = *pSrc;
+            }
+        }
+    }
+    return pImage;
+}
+
+
 /** Helper function to copy a 16 bit buffer into an NDArray
  *
  */
@@ -455,6 +498,7 @@ NDArray* merlinDetector::copyToNDArray16(size_t *dims, char *buffer, int offset)
     }
     return pImage;
 }
+
 
 /** Helper function to copy a 32 bit buffer into an NDArray
  *
@@ -654,7 +698,8 @@ asynStatus merlinDetector::setAcquireParams()
 
     int counterDepth;
     status = getIntegerParam(merlinCounterDepth, &counterDepth);
-    if ((status != asynSuccess) || (counterDepth != 12 && counterDepth != 24)) // currently limited to 12/24 bit
+    if ((status != asynSuccess) || (counterDepth != 6 && counterDepth != 12 &&
+            counterDepth != 24)) // currently limited to 6/12/24 bit
     {
         counterDepth = 12;
         setIntegerParam(merlinCounterDepth, counterDepth);
