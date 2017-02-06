@@ -1,5 +1,5 @@
 /**
- * Interface library to medipix Labview system.
+ * Interface library to merlin Labview system.
  * 
  * Matthew Pearson
  * Nov 2011

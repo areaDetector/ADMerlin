@@ -1,11 +1,11 @@
 /**
- * Test program for interface library to medipix Labview system.
+ * Test program for interface library to merlin Labview system.
  * 
  * Matthew Pearson
  * Nov 2011
  */
 
-#include "medipix_low.h"
+#include "merlin_low.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
 
   unsigned int data[MPX_DATAFRAME] = {0};
 
-  printf("Test program for medipix_low interface library.\n");
+  printf("Test program for merlin_low interface library.\n");
 
   if ((status = mpxConnect("127.0.0.1", 14000, 14001)) != MPX_OK) {
     printf("ERROR. status: %d, message: %s\n", status, mpxError(status, errMsg));

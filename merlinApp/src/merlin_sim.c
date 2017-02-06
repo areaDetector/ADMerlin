@@ -1,5 +1,5 @@
 /**
- * Simple TCP server to simulate a medipix Labview system.
+ * Simple TCP server to simulate a merlin Labview system.
  * Arguments:
  *   port number - port number to listen for connections
  * 
