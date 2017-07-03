@@ -1,14 +1,14 @@
 
 file {
-	name="/home/epics/devel/areaDetector/ADMerlin/merlinApp/op/adl/ADMerlinQuad.adl"
-	version=030107
+	name="/home/epics/devel/areaDetector-3-1/ADMerlin/merlinApp/op/adl/ADMerlinQuad.adl"
+	version=030109
 }
 display {
 	object {
 		x=38
 		y=70
-		width=1098
-		height=680
+		width=1100
+		height=740
 	}
 	clr=14
 	bclr=4
@@ -116,7 +116,7 @@ composite {
 		x=6
 		y=35
 		width=350
-		height=215
+		height=340
 	}
 	"composite name"=""
 	"composite file"="ADSetup.adl"
@@ -133,10 +133,10 @@ composite {
 }
 composite {
 	object {
-		x=5
+		x=360
 		y=615
 		width=350
-		height=60
+		height=110
 	}
 	"composite name"=""
 	"composite file"="ADAttrFile.adl"
@@ -154,7 +154,7 @@ composite {
 composite {
 	object {
 		x=5
-		y=255
+		y=380
 		width=350
 		height=80
 	}
@@ -164,7 +164,7 @@ composite {
 composite {
 	object {
 		x=5
-		y=475
+		y=600
 		width=350
 		height=135
 	}
@@ -173,7 +173,7 @@ composite {
 }
 composite {
 	object {
-		x=716
+		x=715
 		y=35
 		width=380
 		height=600
@@ -184,7 +184,7 @@ composite {
 composite {
 	object {
 		x=4
-		y=340
+		y=465
 		width=350
 		height=130
 	}
@@ -193,7 +193,7 @@ composite {
 		rectangle {
 			object {
 				x=121
-				y=342
+				y=467
 				width=117
 				height=21
 			}
@@ -204,7 +204,7 @@ composite {
 		rectangle {
 			object {
 				x=4
-				y=340
+				y=465
 				width=350
 				height=130
 			}
@@ -216,7 +216,7 @@ composite {
 		text {
 			object {
 				x=100
-				y=343
+				y=468
 				width=159
 				height=20
 			}
@@ -229,7 +229,7 @@ composite {
 		text {
 			object {
 				x=172
-				y=370
+				y=495
 				width=10
 				height=20
 			}
@@ -242,7 +242,7 @@ composite {
 		text {
 			object {
 				x=265
-				y=370
+				y=495
 				width=10
 				height=20
 			}
@@ -255,7 +255,7 @@ composite {
 		composite {
 			object {
 				x=33
-				y=420
+				y=545
 				width=268
 				height=45
 			}
@@ -264,7 +264,7 @@ composite {
 				text {
 					object {
 						x=33
-						y=445
+						y=570
 						width=180
 						height=20
 					}
@@ -277,7 +277,7 @@ composite {
 				"text update" {
 					object {
 						x=240
-						y=446
+						y=571
 						width=61
 						height=18
 					}
@@ -293,7 +293,7 @@ composite {
 				text {
 					object {
 						x=36
-						y=420
+						y=545
 						width=100
 						height=20
 					}
@@ -306,7 +306,7 @@ composite {
 				"text update" {
 					object {
 						x=147
-						y=421
+						y=546
 						width=61
 						height=18
 					}
@@ -322,7 +322,7 @@ composite {
 				"text update" {
 					object {
 						x=240
-						y=421
+						y=546
 						width=61
 						height=18
 					}
@@ -340,7 +340,7 @@ composite {
 		composite {
 			object {
 				x=26
-				y=395
+				y=520
 				width=275
 				height=20
 			}
@@ -349,7 +349,7 @@ composite {
 				text {
 					object {
 						x=26
-						y=395
+						y=520
 						width=110
 						height=20
 					}
@@ -362,7 +362,7 @@ composite {
 				"text update" {
 					object {
 						x=147
-						y=396
+						y=521
 						width=61
 						height=18
 					}
@@ -378,7 +378,7 @@ composite {
 				"text update" {
 					object {
 						x=240
-						y=396
+						y=521
 						width=61
 						height=18
 					}
