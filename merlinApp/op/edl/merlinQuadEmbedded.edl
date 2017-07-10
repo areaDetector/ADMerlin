@@ -102,7 +102,7 @@ buttonLabel "Threshold Scan"
 numPvs 4
 numDsps 1
 displayFileName {
-  0 "medipixThreshold.edl"
+  0 "merlinThreshold.edl"
 }
 endObjectProperties
 
@@ -125,7 +125,7 @@ buttonLabel "Thresholds"
 numPvs 4
 numDsps 1
 displayFileName {
-  0 "medipix8Thresholds.edl"
+  0 "merlin8Thresholds.edl"
 }
 endObjectProperties
 

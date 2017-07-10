@@ -45,14 +45,14 @@ asynOctetSetInputEos($(COMMAND_PORT), 0, "\n")
 
 drvAsynIPPortConfigure($(DATA_PORT), $(MERLIN_IP):$(DATA_IPPORT), 0, 0, 0)
 
-# medipixDetectorConfig(
+# merlinDetectorConfig(
 #              portName,           # The name of the asyn port to be created
 #              LabviewCommandPort, # The name of the asyn port previously created with drvAsynIPPortConfigure to
 #                                    communicate with Labview for commands.
 #              LabviewDataPort,    # The name of the asyn port previously created with drvAsynIPPortConfigure to
 #                                    communicate with Labview for data.
-#              maxSizeX,           # The size of the medipix detector in the X direction.
-#              maxSizeY,           # The size of the medipix detector in the Y direction.
+#              maxSizeX,           # The size of the merlin detector in the X direction.
+#              maxSizeY,           # The size of the merlin detector in the Y direction.
 #              detectorType,       # The type of detector. 0=Merlin, 1=MedipixXBPM, 2=UomXBPM, 3=MerlinQuad
 #              maxBuffers,         # The maximum number of NDArray buffers that the NDArrayPool for this driver is
 #                                    allowed to allocate. Set this to 0 to allow an unlimited number of buffers.
@@ -62,12 +62,12 @@ drvAsynIPPortConfigure($(DATA_PORT), $(MERLIN_IP):$(DATA_IPPORT), 0, 0, 0)
 #              stackSize,          # The stack size for the asyn port driver thread if ASYN_CANBLOCK is set in asynFlags.
 
 # This is for a Merlin quad
-medipixDetectorConfig("$(PORT)", $(COMMAND_PORT), $(DATA_PORT), $(XSIZE), $(YSIZE), $(MODEL), 0, 0, 0, 0)
+merlinDetectorConfig("$(PORT)", $(COMMAND_PORT), $(DATA_PORT), $(XSIZE), $(YSIZE), $(MODEL), 0, 0, 0, 0)
 
 asynSetTraceIOMask("$(PORT)",0,2)
 #asynSetTraceMask("$(PORT)",0,255)
 
-dbLoadRecords("$(ADMERLIN)/db/medipix.template","P=$(PREFIX),R=cam1:,PORT=$(PORT),ADDR=0,TIMEOUT=1")
+dbLoadRecords("$(ADMERLIN)/db/merlin.template","P=$(PREFIX),R=cam1:,PORT=$(PORT),ADDR=0,TIMEOUT=1")
 
 # Create a standard arrays plugin, set it to get data from Merlin driver.
 NDStdArraysConfigure("Image1", 5, 0, "$(PORT)", 0, 0)
@@ -76,7 +76,7 @@ dbLoadRecords("$(ADCORE)/db/NDStdArrays.template", "P=$(PREFIX),R=image1:,PORT=I
 
 # Load all other plugins using commonPlugins.cmd
 < $(ADCORE)/iocBoot/commonPlugins.cmd
-set_requestfile_path("$(ADMERLIN)/medipixApp/Db")
+set_requestfile_path("$(ADMERLIN)/merlinApp/Db")
 
 #asynSetTraceMask("$(PORT)",0,255)
 

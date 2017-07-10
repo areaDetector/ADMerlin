@@ -5,12 +5,14 @@
 #include <math.h>
 #include <time.h>
 #include <stdint.h>
+#include <epicsString.h>
+#include <epicsStdio.h>
 
 #include <asynOctetSyncIO.h>
 
 #include "ADDriver.h"
 
-#include "medipixDetector.h"
+#include "merlinDetector.h"
 #include "mpxConnection.h"
 
 // #######################################################################################
@@ -19,33 +21,24 @@
 
 // Constructor
 mpxConnection::mpxConnection(asynUser* parentUser, asynUser* tcpUser,
-        medipixDetector* parentObj)
+        merlinDetector* parentObj)
 {
+	fromLabviewError = 0;
     this->parentUser = parentUser;
     this->tcpUser = tcpUser;
     this->parentObj = parentObj;
 }
 
 // parses the start of the data header and returns its type
-medipixDataHeader mpxConnection::parseDataHeader(const char* header)
+merlinDataHeader mpxConnection::parseDataHeader(const char* header)
 {
     char buff[MPX_MSG_DATATYPE_LEN];
-    medipixDataHeader headerType = MPXUnknownHeader;
+    merlinDataHeader headerType = MPXUnknownHeader;
 
     strncpy(buff, header, MPX_MSG_DATATYPE_LEN);
 
-    if (!strncmp(buff, MPX_DATA_12, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXDataHeader12;
-    else if (!strncmp(buff, MPX_DATA_24, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXDataHeader24;
-    if (!strncmp(buff, MPX_GENERIC_IMAGE, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXGenericImageHeader;
-    if (!strncmp(buff, MPX_PROFILE_12, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXProfileHeader12;
-    else if (!strncmp(buff, MPX_PROFILE_24, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXProfileHeader24;
-    else if (!strncmp(buff, MPX_GENERIC_PROFILE, MPX_MSG_DATATYPE_LEN))
-        headerType = MPXGenericProfileHeader;
+    if (!strncmp(buff, MPX_PROFILE, MPX_MSG_DATATYPE_LEN))
+        headerType = MPXProfileHeader;
     else if (!strncmp(buff, MPX_QUAD_DATA, MPX_MSG_DATATYPE_LEN))
         headerType = MPXQuadDataHeader;
     else if (!strncmp(buff, MPX_DATA_ACQ_HDR, MPX_MSG_DATATYPE_LEN))
@@ -61,59 +54,63 @@ medipixDataHeader mpxConnection::parseDataHeader(const char* header)
 // (This data format intended to extend to future products)
 // parses the data header and adds appropriate attributes to pImage
 void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
-		size_t *xsize, size_t *ysize, int* pixelDepth, int* offset)
+        size_t *xsize, size_t *ysize, int* pixelDepth, int* offset,
+        int* profileSelect)
 {
 
-    char buff[MPX_IMG_HDR_LEN + 1];
+    char buff[MPX_IMG_HDR_FULL_LEN + 1];
+    unsigned int uVal;
     double dVal;
-    int iVal;
+    int iVal, i, chipCount, chip, dacsPreset = 1;
     //int dacNum;
-    //char dacName[10];
+    char thresholdName[30];
     char* tok;
     char* save_ptr = NULL;
 
-    // make a copy since strtok_r is destructive
-    strncpy(buff, header, MPX_IMG_HDR_LEN);
-    buff[MPX_IMG_HDR_LEN + 1] = 0;
+    *profileSelect = 0;
+
+    // make a copy since epicsStrtok_r is destructive
+    strncpy(buff, header, MPX_IMG_HDR_FULL_LEN);
+    buff[MPX_IMG_HDR_FULL_LEN + 1] = 0;
 
     asynPrint(this->parentUser, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
             buff);
 
-    tok = strtok_r(buff, ",", &save_ptr);
-    tok = strtok_r(NULL, ",", &save_ptr);  // skip the (HDR already parsed)
+    tok = epicsStrtok_r(buff, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);  // skip the (HDR already parsed)
     if (tok != NULL)
     {
         iVal = atol(tok);
         pAttr->add("Frame Number", "", NDAttrInt32, &iVal);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
     	// this needs to be pushed up to caller since it changes depending on no. of chips
         iVal = atoi(tok);
         *offset = iVal;
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
-        iVal = atoi(tok);
-        pAttr->add("Chip Count", "", NDAttrInt8, &iVal);
+    	chipCount = atoi(tok);
+        pAttr->add("Chip Count", "", NDAttrInt8, &chipCount);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         *xsize = iVal;
         pAttr->add("X Size", "", NDAttrInt32, &iVal);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         *ysize = iVal;
         pAttr->add("Y Size", "", NDAttrInt32, &iVal);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
     	tok++; // skip the leading U (on this strangely represented field)
@@ -121,220 +118,271 @@ void mpxConnection::parseMqDataFrame(NDAttributeList* pAttr, const char* header,
         pAttr->add("Pixel Depth", "", NDAttrInt32, &iVal);
         *pixelDepth = iVal;
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         pAttr->add("Sensor Layout", "", NDAttrString, tok);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = strtoul(tok, NULL, 16);
         pAttr->add("Chip Select", "", NDAttrInt8, &iVal);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
     	// TODO - need to convert time to useful (numeric) format
         pAttr->add("Time stamp", "", NDAttrInt32, 0);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         dVal = atof(tok);
         pAttr->add("Shutter Time", "", NDAttrFloat64, &dVal);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         pAttr->add("Counter", "", NDAttrInt8, &iVal);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         pAttr->add("Colour Mode", "", NDAttrInt8, &iVal);
     }
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         iVal = atoi(tok);
         pAttr->add("Gain Mode", "", NDAttrInt8, &iVal);
     }
 
-
-    tok = strtok_r(NULL, ",", &save_ptr);
+    for (i = 0; i <= 7; i++)
+    {
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok != NULL)
     {
         dVal = atof(tok);
-        pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        dVal = atof(tok);
-        pAttr->add("Threshold 1", "", NDAttrFloat64, &dVal);
-    }
-
-    // TODO - rest of Thresholds and DACS (need to come up with naming convention for
-    // NDAttributes in repeating DACS block
-/*
-    for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
-    {
-        tok = strtok_r(NULL, ",");
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            sprintf(dacName, "DAC %03d", dacNum);
-            asynPrint(this->parentUser, ASYN_TRACE_MPX_VERBOSE, "dac %d = %d\n", dacNum, iVal);
-            pAttr->add(dacName, "", NDAttrInt32, &iVal);
+			epicsSnprintf(thresholdName, sizeof(thresholdName), "Threshold %d", i);
+			pAttr->add(thresholdName, "", NDAttrFloat64, &dVal);
         }
     }
-*/
+
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
+    if (tok != NULL && strncmp(tok, OPT_START_STRING, OPT_TOKEN_LEN) == 0)
+    {
+        // this section reads the optional extension fields
+        int done = false, count = 0;
+
+        count = 0;
+        do
+        {
+            if (tok != NULL && strncmp(tok, OPT_END_STRING, OPT_TOKEN_LEN) == 0)
+            {
+                iVal = atoi(tok);
+                pAttr->add(optFields[count], "", NDAttrInt16, &iVal);
+                tok = epicsStrtok_r(NULL, ",", &save_ptr);
+                switch (count)
+                {
+                case PROFILE_SELECT_POS:
+                    *profileSelect = iVal;
+                    break;
+                case DACS_PRESENT_POS:
+                    dacsPreset = iVal;
+                    break;
+                }
+                count++;
+            }
+            else
+            {
+                done = true;
+            }
+        } while (!done && count < optFieldsCount);
+    }
+
+    // this section reads chip dac info blocks for each of the chips on the device
+    for (chip = 0; chip < chipCount && dacsPreset; chip++)
+    {
+        tok = epicsStrtok_r(NULL, ",", &save_ptr);
+        if (tok != NULL)
+        {
+            epicsSnprintf(thresholdName, sizeof(thresholdName), "DAC %d Format",
+                    chip);
+            pAttr->add(thresholdName, "", NDAttrString, tok);
+        }
+        for (i = 0; i <= 7; i++)
+        {
+            tok = epicsStrtok_r(NULL, ",", &save_ptr);
+            if (tok != NULL)
+            {
+                uVal = atol(tok);
+                epicsSnprintf(thresholdName, sizeof(thresholdName),
+                        "Chip %d Threshold bits %d", chip, i);
+                pAttr->add(thresholdName, "", NDAttrUInt16, &uVal);
+            }
+        }
+
+        for (i = 0; i < dacInfoCount; i++)
+        {
+            tok = epicsStrtok_r(NULL, ",", &save_ptr);
+            if (tok != NULL)
+            {
+                iVal = atoi(tok);
+                epicsSnprintf(thresholdName, sizeof(thresholdName), "Chip %d %s",
+                        chip + 1, dacInfo[i]);
+                pAttr->add(thresholdName, "", NDAttrInt16, &iVal);
+            }
+        }
+
+    }
 }
 
-// Data Frame Header Parser for original Frames of type 12B and 24B
-// Also parses generic Frames of type IMG (originally developed for UoM XBPM
-//    on B21)
-// parses the data header and adds appropriate attributes to pImage
-void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
-        medipixDataHeader headerType, size_t *xsize, size_t *ysize,
-        int* pixelSize, int* profileMask)
-{
-    char buff[MPX_IMG_HDR_LEN + 1];
-    unsigned long lVal;
-    double dVal;
-    int iVal, dacNum;
-    char dacName[10];
-    char* tok;
-    char* save_ptr = NULL;
 
-    // initialise member variables that should be set during this parse
-    *profileMask = 0;
-
-    // make a copy since strtok_r is destructive
-    strncpy(buff, header, MPX_IMG_HDR_LEN);
-    buff[MPX_IMG_HDR_LEN + 1] = 0;
-
-    asynPrint(this->parentUser, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
-            buff);
-
-    tok = strtok_r(buff, ",", &save_ptr);
-    tok = strtok_r(NULL, ",", &save_ptr);  // skip the (HDR already parsed)
-    if (tok != NULL)
-    {
-        iVal = atoi(tok);
-        pAttr->add("Frame Number", "", NDAttrInt32, &iVal);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        iVal = atoi(tok);
-        pAttr->add("Counter Number", "", NDAttrInt32, &iVal);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        time_t rawtime;
-        unsigned long msecs;
-
-        // Covert string representation to EPICS Time and store in attributes as
-        // a unsigned long
-        // format is 2012-02-01 11:26:00.000
-
-        /*
-         * NOTE it has been decided that this driver will provide a timestamp and will ignore the value
-         * passed from medipix - this is because the FPGA does not have access to a clock while processing
-         * and hence all frames in a given acquisition are reported as starting at the same microsecond
-         **/
-        rawtime = time(NULL);
-        lVal = (unsigned long) rawtime;
-        msecs = 0;
-
-        pAttr->add("Start Time UTC seconds", "", NDAttrUInt32, &lVal);
-        pAttr->add("Start Time millisecs", "", NDAttrUInt32, &msecs);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        dVal = atof(tok);
-        pAttr->add("Duration", "", NDAttrFloat64, &dVal);
-    }
-    if (headerType == MPXGenericImageHeader
-            || headerType == MPXGenericProfileHeader)
-    {
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            pAttr->add("X Offset", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            pAttr->add("Y Offset", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            *xsize = iVal;
-            pAttr->add("X Size", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            *ysize = iVal;
-            pAttr->add("Y Size", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            pAttr->add("Pixel Depth", "", NDAttrInt32, &iVal);
-        }
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            *pixelSize = iVal;
-            pAttr->add("Pixel Size", "", NDAttrInt32, &iVal);
-        }
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        dVal = atof(tok);
-        pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        dVal = atof(tok);
-        pAttr->add("Threshold 1", "", NDAttrFloat64, &dVal);
-    }
-    for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
-    {
-        tok = strtok_r(NULL, ",", &save_ptr);
-        if (tok != NULL)
-        {
-            iVal = atoi(tok);
-            sprintf(dacName, "DAC %03d", dacNum);
-            asynPrint(this->parentUser, ASYN_TRACE_MPX_VERBOSE, "dac %d = %d\n", dacNum, iVal);
-            pAttr->add(dacName, "", NDAttrInt32, &iVal);
-        }
-    }
-    tok = strtok_r(NULL, ",", &save_ptr);
-    if (tok != NULL)
-    {
-        iVal = atoi(tok);
-        *profileMask = iVal;
-        pAttr->add("Profile Mask", "", NDAttrInt32, &iVal);
-    }
-}
+//
+//// Data Frame Header Parser for original Frames of type 12B and 24B
+//// Also parses generic Frames of type IMG (originally developed for UoM XBPM
+////    on B21)
+//// parses the data header and adds appropriate attributes to pImage
+//void mpxConnection::parseDataFrame(NDAttributeList* pAttr, const char* header,
+//        merlinDataHeader headerType, size_t *xsize, size_t *ysize,
+//        int* pixelSize, int* profileMask)
+//{
+//    char buff[MPX_IMG_HDR_LEN + 1];
+//    unsigned long lVal;
+//    double dVal;
+//    int iVal, dacNum;
+//    char dacName[10];
+//    char* tok;
+//    char* save_ptr = NULL;
+//
+//    // initialise member variables that should be set during this parse
+//    *profileMask = 0;
+//
+//    // make a copy since epicsStrtok_r is destructive
+//    strncpy(buff, header, MPX_IMG_HDR_LEN);
+//    buff[MPX_IMG_HDR_LEN + 1] = 0;
+//
+//    asynPrint(this->parentUser, ASYN_TRACE_MPX, "Image frame Header: %s\n\n",
+//            buff);
+//
+//    tok = epicsStrtok_r(buff, ",", &save_ptr);
+//    tok = epicsStrtok_r(NULL, ",", &save_ptr);  // skip the (HDR already parsed)
+//    if (tok != NULL)
+//    {
+//        iVal = atoi(tok);
+//        pAttr->add("Frame Number", "", NDAttrInt32, &iVal);
+//    }
+//    tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        iVal = atoi(tok);
+//        pAttr->add("Counter Number", "", NDAttrInt32, &iVal);
+//    }
+//    tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        time_t rawtime;
+//        unsigned long msecs;
+//
+//        // Covert string representation to EPICS Time and store in attributes as
+//        // a unsigned long
+//        // format is 2012-02-01 11:26:00.000
+//
+//        /*
+//         * NOTE it has been decided that this driver will provide a timestamp and will ignore the value
+//         * passed from merlin - this is because the FPGA does not have access to a clock while processing
+//         * and hence all frames in a given acquisition are reported as starting at the same microsecond
+//         **/
+//        rawtime = time(NULL);
+//        lVal = (unsigned long) rawtime;
+//        msecs = 0;
+//
+//        pAttr->add("Start Time UTC seconds", "", NDAttrUInt32, &lVal);
+//        pAttr->add("Start Time millisecs", "", NDAttrUInt32, &msecs);
+//    }
+//    tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        dVal = atof(tok);
+//        pAttr->add("Duration", "", NDAttrFloat64, &dVal);
+//    }
+//    if (headerType == MPXGenericImageHeader
+//            || headerType == MPXProfileHeader)
+//    {
+//        tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            pAttr->add("X Offset", "", NDAttrInt32, &iVal);
+//        }
+//        tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            pAttr->add("Y Offset", "", NDAttrInt32, &iVal);
+//        }
+//        tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            *xsize = iVal;
+//            pAttr->add("X Size", "", NDAttrInt32, &iVal);
+//        }
+//        tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            *ysize = iVal;
+//            pAttr->add("Y Size", "", NDAttrInt32, &iVal);
+//        }
+//        tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            pAttr->add("Pixel Depth", "", NDAttrInt32, &iVal);
+//        }
+//        tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            *pixelSize = iVal;
+//            pAttr->add("Pixel Size", "", NDAttrInt32, &iVal);
+//        }
+//    }
+//    tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        dVal = atof(tok);
+//        pAttr->add("Threshold 0", "", NDAttrFloat64, &dVal);
+//    }
+//    tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        dVal = atof(tok);
+//        pAttr->add("Threshold 1", "", NDAttrFloat64, &dVal);
+//    }
+//    for (dacNum = 1; dacNum <= 25; dacNum++ && tok != NULL)
+//    {
+//        tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//        if (tok != NULL)
+//        {
+//            iVal = atoi(tok);
+//            sprintf(dacName, "DAC %03d", dacNum);
+//            asynPrint(this->parentUser, ASYN_TRACE_MPX_VERBOSE, "dac %d = %d\n", dacNum, iVal);
+//            pAttr->add(dacName, "", NDAttrInt32, &iVal);
+//        }
+//    }
+//    tok = epicsStrtok_r(NULL, ",", &save_ptr);
+//    if (tok != NULL)
+//    {
+//        iVal = atoi(tok);
+//        *profileMask = iVal;
+//        pAttr->add("Profile Mask", "", NDAttrInt32, &iVal);
+//    }
+//}
 
 // #######################################################################################
 // ##################### Labview communications primitives ###############################
@@ -373,11 +421,11 @@ asynStatus mpxConnection::mpxSet(char* valueId, char* value, double timeout)
     }
 
     // items in the response are comma delimited
-    tok = strtok_r(fromLabviewBody, ",", &save_ptr);
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(fromLabviewBody, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
 
     // 3rd Item is Error Number
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok == NULL)
         return asynError;
     fromLabviewError = atoi(tok);
@@ -422,11 +470,11 @@ asynStatus mpxConnection::mpxCommand(char* commandId, double timeout)
     }
 
     // items in the response are comma delimited
-    tok = strtok_r(fromLabviewBody, ",", &save_ptr);
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(fromLabviewBody, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
 
     // 3rd Item is Error Number
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok == NULL)
         return asynError;
     fromLabviewError = atoi(tok);
@@ -475,18 +523,18 @@ asynStatus mpxConnection::mpxGet(char* valueId, double timeout)
     }
 
     // items in the response are comma delimited
-    tok = strtok_r(fromLabviewBody, ",", &save_ptr);
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(fromLabviewBody, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
 
     // 3rd Item is Value
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok == NULL)
         return asynError;
 
     strncpy(fromLabviewValue, tok, MPX_MAXLINE);
 
     // 4th Item is Error Number
-    tok = strtok_r(NULL, ",", &save_ptr);
+    tok = epicsStrtok_r(NULL, ",", &save_ptr);
     if (tok == NULL)
         return asynError;
     fromLabviewError = atoi(tok);
@@ -626,9 +674,9 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
                 "mpxRead: Response Header: %s\n", header);
 
         // parse the header
-        tok = strtok_r(header, ",", &save_ptr); // this first element already verified above
+        tok = epicsStrtok_r(header, ",", &save_ptr); // this first element already verified above
 
-        tok = strtok_r(NULL, ",", &save_ptr);
+        tok = epicsStrtok_r(NULL, ",", &save_ptr);
         if (tok == NULL)
         {
             asynPrint(pasynUser, ASYN_TRACE_ERROR,
@@ -716,11 +764,11 @@ asynStatus mpxConnection::mpxReadCmd(char* cmdType, char* cmdName,
 
             // items in the response are comma delimited -
             // 1st item is the command type
-            tok = strtok_r(buff, ",", &save_ptr);
+            tok = epicsStrtok_r(buff, ",", &save_ptr);
             if (!(tok == NULL || strncmp(cmdType, tok, MPX_MAXLINE)))
             {
                 // 2nd item is command (or variable) name which should be echoed back
-                tok = strtok_r(NULL, ",", &save_ptr);
+                tok = epicsStrtok_r(NULL, ",", &save_ptr);
                 if (!(tok == NULL || strncmp(cmdName, tok, MPX_MAXLINE)))
                     break; // success - exit the while loop
             }

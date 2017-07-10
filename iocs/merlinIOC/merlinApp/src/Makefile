@@ -22,14 +22,14 @@ PROD_IOC_Darwin += $(PROD_NAME)
 
 # <name>.dbd will be created from <name>Include.dbd
 DBD +=  $(PROD_NAME).dbd
-$(PROD_NAME)_DBD += medipix.dbd
+$(PROD_NAME)_DBD += merlin.dbd
 $(PROD_NAME)_DBD += drvAsynIPPort.dbd
 
 # <name>_registerRecordDeviceDriver.cpp will be created from <name>.dbd
 PROD_SRCS += $(PROD_NAME)_registerRecordDeviceDriver.cpp $(PROD_NAME)Main.cpp
 
 # Add locally compiled object code
-PROD_LIBS += medipixDetector
+PROD_LIBS += merlinDetector
 
 
 include $(ADCORE)/ADApp/commonDriverMakefile

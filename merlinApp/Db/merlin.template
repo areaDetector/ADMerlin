@@ -1,4 +1,4 @@
-# medipix.template
+# merlin.template
 # Medipix Area Detector extensions
 #
 # Giles Knap Feb 2012
@@ -13,8 +13,8 @@
 #% macro, YSIZE,    Maximum size of Y histograms
 
 # This associates the template with an edm screen
-# % gui, $(PORT), edmtab, medipixDetector.edl, P=$(P),R=$(R)
-##  gdatag, template, Merlin, $(PORT)_medipix, Merlin detector
+# % gui, $(PORT), edmtab, merlinDetector.edl, P=$(P),R=$(R)
+##  gdatag, template, Merlin, $(PORT)_merlin, Merlin detector
 
 include "ADBase.template"
 
@@ -137,7 +137,7 @@ record(asyn, "$(P)$(R)LabviewAsynData")
 
 # Threshold 0 energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy0, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_merlin, ThresholdEnergy0, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy0")
 {
     field(PINI, "YES")
@@ -149,7 +149,7 @@ record(ao, "$(P)$(R)ThresholdEnergy0")
     field(VAL, "10.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy0_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_merlin, ThresholdEnergy0_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy0_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -162,7 +162,7 @@ record(ai, "$(P)$(R)ThresholdEnergy0_RBV")
 
 # Threshold 1 energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy1, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_merlin, ThresholdEnergy1, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy1")
 {
     field(PINI, "YES")
@@ -174,7 +174,7 @@ record(ao, "$(P)$(R)ThresholdEnergy1")
     field(VAL, "10.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy1_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_merlin, ThresholdEnergy1_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy1_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -186,7 +186,7 @@ record(ai, "$(P)$(R)ThresholdEnergy1_RBV")
 }
 # Threshold 2 energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy2, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_merlin, ThresholdEnergy2, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy2")
 {
     field(PINI, "YES")
@@ -198,7 +198,7 @@ record(ao, "$(P)$(R)ThresholdEnergy2")
     field(VAL, "10.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy2_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_merlin, ThresholdEnergy2_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy2_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -211,7 +211,7 @@ record(ai, "$(P)$(R)ThresholdEnergy2_RBV")
 
 # Threshold 3 energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy3, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_merlin, ThresholdEnergy3, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy3")
 {
     field(PINI, "YES")
@@ -223,7 +223,7 @@ record(ao, "$(P)$(R)ThresholdEnergy3")
     field(VAL, "10.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy3_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_merlin, ThresholdEnergy3_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy3_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -236,7 +236,7 @@ record(ai, "$(P)$(R)ThresholdEnergy3_RBV")
 
 # Threshold 4 energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy4, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_merlin, ThresholdEnergy4, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy4")
 {
     field(PINI, "YES")
@@ -248,7 +248,7 @@ record(ao, "$(P)$(R)ThresholdEnergy4")
     field(VAL, "10.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy4_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_merlin, ThresholdEnergy4_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy4_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -261,7 +261,7 @@ record(ai, "$(P)$(R)ThresholdEnergy4_RBV")
 
 # Threshold 5 energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy5, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_merlin, ThresholdEnergy5, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy5")
 {
     field(PINI, "YES")
@@ -273,7 +273,7 @@ record(ao, "$(P)$(R)ThresholdEnergy5")
     field(VAL, "10.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy5_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_merlin, ThresholdEnergy5_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy5_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -286,7 +286,7 @@ record(ai, "$(P)$(R)ThresholdEnergy5_RBV")
 
 # Threshold 6 energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy6, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_merlin, ThresholdEnergy6, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy6")
 {
     field(PINI, "YES")
@@ -298,7 +298,7 @@ record(ao, "$(P)$(R)ThresholdEnergy6")
     field(VAL, "10.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy6_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_merlin, ThresholdEnergy6_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy6_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -312,7 +312,7 @@ record(ai, "$(P)$(R)ThresholdEnergy6_RBV")
 
 # Threshold 7 energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, ThresholdEnergy7, Set ThresholdEnergy
+##  gdatag, pv, rw, $(PORT)_merlin, ThresholdEnergy7, Set ThresholdEnergy
 record(ao, "$(P)$(R)ThresholdEnergy7")
 {
     field(PINI, "YES")
@@ -324,7 +324,7 @@ record(ao, "$(P)$(R)ThresholdEnergy7")
     field(VAL, "10.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ThresholdEnergy7_RBV, Readback for ThresholdEnergy
+##  gdatag, pv, ro, $(PORT)_merlin, ThresholdEnergy7_RBV, Readback for ThresholdEnergy
 record(ai, "$(P)$(R)ThresholdEnergy7_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -337,7 +337,7 @@ record(ai, "$(P)$(R)ThresholdEnergy7_RBV")
 
 # Operating energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, OperatingEnergy, Set OperatingEnergy
+##  gdatag, pv, rw, $(PORT)_merlin, OperatingEnergy, Set OperatingEnergy
 record(ao, "$(P)$(R)OperatingEnergy")
 {
     field(PINI, "YES")
@@ -349,7 +349,7 @@ record(ao, "$(P)$(R)OperatingEnergy")
     field(VAL, "20.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, OperatingEnergy_RBV, Readback for OperatingEnergy
+##  gdatag, pv, ro, $(PORT)_merlin, OperatingEnergy_RBV, Readback for OperatingEnergy
 record(ai, "$(P)$(R)OperatingEnergy_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -363,7 +363,7 @@ record(ai, "$(P)$(R)OperatingEnergy_RBV")
 
 # Threshold Scan Start Energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, StartThresholdScan, Set Threshold Scan Start Energy
+##  gdatag, pv, rw, $(PORT)_merlin, StartThresholdScan, Set Threshold Scan Start Energy
 record(ao, "$(P)$(R)StartThresholdScan")
 {
     field(PINI, "YES")
@@ -375,7 +375,7 @@ record(ao, "$(P)$(R)StartThresholdScan")
     field(VAL, "2.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, StartThresholdScan_RBV, Readback for Threshold Scan Start Energy
+##  gdatag, pv, ro, $(PORT)_merlin, StartThresholdScan_RBV, Readback for Threshold Scan Start Energy
 record(ai, "$(P)$(R)StartThresholdScan_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -388,7 +388,7 @@ record(ai, "$(P)$(R)StartThresholdScan_RBV")
 
 # Threshold Scan Stop Energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, StopThresholdScan, Set Threshold Scan Stop Energy
+##  gdatag, pv, rw, $(PORT)_merlin, StopThresholdScan, Set Threshold Scan Stop Energy
 record(ao, "$(P)$(R)StopThresholdScan")
 {
     field(PINI, "YES")
@@ -400,7 +400,7 @@ record(ao, "$(P)$(R)StopThresholdScan")
     field(VAL, "18.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, StopThresholdScan_RBV, Readback for Threshold Scan Stop Energy
+##  gdatag, pv, ro, $(PORT)_merlin, StopThresholdScan_RBV, Readback for Threshold Scan Stop Energy
 record(ai, "$(P)$(R)StopThresholdScan_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -413,7 +413,7 @@ record(ai, "$(P)$(R)StopThresholdScan_RBV")
 
 # Threshold Scan Step Energy
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, StepThresholdScan, Set Threshold Scan Step Energy
+##  gdatag, pv, rw, $(PORT)_merlin, StepThresholdScan, Set Threshold Scan Step Energy
 record(ao, "$(P)$(R)StepThresholdScan")
 {
     field(PINI, "YES")
@@ -425,7 +425,7 @@ record(ao, "$(P)$(R)StepThresholdScan")
     field(VAL, "1.000")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, StepThresholdScan_RBV, Readback for Threshold Scan Step Energy
+##  gdatag, pv, ro, $(PORT)_merlin, StepThresholdScan_RBV, Readback for Threshold Scan Step Energy
 record(ai, "$(P)$(R)StepThresholdScan_RBV")
 {
     field(DTYP, "asynFloat64")
@@ -437,7 +437,7 @@ record(ai, "$(P)$(R)StepThresholdScan_RBV")
 }
 
 # Set which Threshold to Scan 
-##  gdatag, pv, rw, $(PORT)_medipix, ThresholdScan, Set ThresholdScan
+##  gdatag, pv, rw, $(PORT)_merlin, ThresholdScan, Set ThresholdScan
 record(longout, "$(P)$(R)ThresholdScan") {
    field(PINI, "YES")
    field(DTYP, "asynInt32")
@@ -446,7 +446,7 @@ record(longout, "$(P)$(R)ThresholdScan") {
    field(VAL, "0")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ThresholdScan_RBV, Readback for ThresholdScan
+##  gdatag, pv, ro, $(PORT)_merlin, ThresholdScan_RBV, Readback for ThresholdScan
 record(longin, "$(P)$(R)ThresholdScan_RBV") {
    field(DTYP, "asynInt32")
    field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))THRESHOLDSCAN")
@@ -506,7 +506,7 @@ record(bi, "$(P)$(R)Reset_RBV") {
 
 # Counter depth - number of bits per pixel
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
+##  gdatag, pv, rw, $(PORT)_merlin, CounterDepth, Set CounterDepth
 record(mbbo,"$(P)$(R)CounterDepth") {
    field(PINI, "YES")
    field(DTYP, "asynInt32")
@@ -518,7 +518,7 @@ record(mbbo,"$(P)$(R)CounterDepth") {
     field(ONST,"24 bit")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, CounterDepth_RBV, Read CounterDepth
+##  gdatag, pv, ro, $(PORT)_merlin, CounterDepth_RBV, Read CounterDepth
 record(mbbi,"$(P)$(R)CounterDepth_RBV") {
    field(DTYP, "asynInt32")
    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))COUNTERDEPTH")
@@ -532,7 +532,7 @@ record(mbbi,"$(P)$(R)CounterDepth_RBV") {
 
 # Enable Counter 1
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
+##  gdatag, pv, rw, $(PORT)_merlin, CounterDepth, Set CounterDepth
 record(bo,"$(P)$(R)EnableCounter1") {
     field(PINI, "YES")
     field(DTYP, "asynInt32")
@@ -542,7 +542,7 @@ record(bo,"$(P)$(R)EnableCounter1") {
     field(ONAM,"Enabled")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, CounterDepth_RBV, Read CounterDepth
+##  gdatag, pv, ro, $(PORT)_merlin, CounterDepth_RBV, Read CounterDepth
 record(bi,"$(P)$(R)EnableCounter1_RBV") {
     field(DTYP, "asynInt32")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ENABLECOUNTER1")
@@ -554,7 +554,7 @@ record(bi,"$(P)$(R)EnableCounter1_RBV") {
 
 # Counter depth - continuous RW feature
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, CounterDepth, Set CounterDepth
+##  gdatag, pv, rw, $(PORT)_merlin, CounterDepth, Set CounterDepth
 record(bo,"$(P)$(R)ContinuousRW") {
     field(PINI, "YES")
     field(DTYP, "asynInt32")
@@ -564,7 +564,7 @@ record(bo,"$(P)$(R)ContinuousRW") {
     field(ONAM,"Enabled")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, CounterDepth_RBV, Read CounterDepth
+##  gdatag, pv, ro, $(PORT)_merlin, CounterDepth_RBV, Read CounterDepth
 record(bi,"$(P)$(R)ContinuousRW_RBV") {
     field(DTYP, "asynInt32")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))CONTINUOUSRW")
@@ -582,7 +582,7 @@ record(bi,"$(P)$(R)ContinuousRW_RBV") {
 # Profiles feature - control what data is sent when the profiles command is 
 # executed
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, ProfileControl, Set ProfileControl
+##  gdatag, pv, rw, $(PORT)_merlin, ProfileControl, Set ProfileControl
 record(mbbo,"$(P)$(R)ProfileControl") {
    field(PINI, "YES")
    field(DTYP, "asynInt32")
@@ -594,7 +594,7 @@ record(mbbo,"$(P)$(R)ProfileControl") {
     field(ONST,"Profiles")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, ProfileControl_RBV, Read ProfileControl
+##  gdatag, pv, ro, $(PORT)_merlin, ProfileControl_RBV, Read ProfileControl
 record(mbbi,"$(P)$(R)ProfileControl_RBV") {
    field(DTYP, "asynInt32")
    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))PROFILECONTROL")
@@ -606,7 +606,7 @@ record(mbbi,"$(P)$(R)ProfileControl_RBV") {
    field(SCAN, "I/O Intr")
 }
 
-##  gdatag, array, ro, $(PORT)_medipix, ProfileAverageX_RBV, Readback for ProfileAverageX
+##  gdatag, array, ro, $(PORT)_merlin, ProfileAverageX_RBV, Readback for ProfileAverageX
 record(waveform, "$(P)$(R)ProfileAverageX_RBV")
 {
    field(DTYP, "asynInt32ArrayIn")
@@ -616,7 +616,7 @@ record(waveform, "$(P)$(R)ProfileAverageX_RBV")
    field(SCAN, "I/O Intr")
 }
 
-##  gdatag, array, ro, $(PORT)_medipix, ProfileAverageY_RBV, Readback for ProfileAverageY
+##  gdatag, array, ro, $(PORT)_merlin, ProfileAverageY_RBV, Readback for ProfileAverageY
 record(waveform, "$(P)$(R)ProfileAverageY_RBV")
 {
    field(DTYP, "asynInt32ArrayIn")
@@ -628,7 +628,7 @@ record(waveform, "$(P)$(R)ProfileAverageY_RBV")
 
 # Set number of backgound images to average 
 ### Commented out, this parameter is not supported by driver 
-##  gdatag, pv, rw, $(PORT)_medipix, BackgoundCount, Set BackgoundCount
+##  gdatag, pv, rw, $(PORT)_merlin, BackgoundCount, Set BackgoundCount
 #record(longout, "$(P)$(R)BackgoundCount") {
 #   field(PINI, "YES")
 #   field(DTYP, "asynInt32")
@@ -637,7 +637,7 @@ record(waveform, "$(P)$(R)ProfileAverageY_RBV")
 #   field(VAL, "0")
 #}
 
-##  gdatag, pv, ro, $(PORT)_medipix, BackgoundCount_RBV, Readback for BackgoundCount
+##  gdatag, pv, ro, $(PORT)_merlin, BackgoundCount_RBV, Readback for BackgoundCount
 #record(longin, "$(P)$(R)BackgoundCount_RBV") {
 #   field(DTYP, "asynInt32")
 #   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))BACKGROUNDCOUNT")
@@ -647,7 +647,7 @@ record(waveform, "$(P)$(R)ProfileAverageY_RBV")
 
 # Enable Background Correction
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, EnableBackgroundCorrection, Set EnableBackgroundCorrection
+##  gdatag, pv, rw, $(PORT)_merlin, EnableBackgroundCorrection, Set EnableBackgroundCorrection
 record(bo,"$(P)$(R)EnableBackgroundCorrection") {
     field(PINI, "YES")
     field(DTYP, "asynInt32")
@@ -657,7 +657,7 @@ record(bo,"$(P)$(R)EnableBackgroundCorrection") {
     field(ONAM,"Enabled")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, EnableBackgroundCorrection_RBV, Read EnableBackgroundCorrection
+##  gdatag, pv, ro, $(PORT)_merlin, EnableBackgroundCorrection_RBV, Read EnableBackgroundCorrection
 record(bi,"$(P)$(R)EnableBackgroundCorrection_RBV") {
     field(DTYP, "asynInt32")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ENABLEBACKGROUNDCORR")
@@ -670,7 +670,7 @@ record(bi,"$(P)$(R)EnableBackgroundCorrection_RBV") {
 
 # Set number of images to sum
 ### Commented out, this parameter is not supported by driver 
-##  gdatag, pv, rw, $(PORT)_medipix, SumCount, Set SumCount
+##  gdatag, pv, rw, $(PORT)_merlin, SumCount, Set SumCount
 #record(longout, "$(P)$(R)SumCount") {
 #   field(PINI, "YES")
 #   field(DTYP, "asynInt32")
@@ -679,7 +679,7 @@ record(bi,"$(P)$(R)EnableBackgroundCorrection_RBV") {
 #   field(VAL, "1")
 #}
 
-##  gdatag, pv, ro, $(PORT)_medipix, SumCount_RBV, Readback for SumCount
+##  gdatag, pv, ro, $(PORT)_merlin, SumCount_RBV, Readback for SumCount
 #record(longin, "$(P)$(R)SumCount_RBV") {
 #   field(DTYP, "asynInt32")
 #   field(INP, "@asyn($(PORT),$(ADDR),$(TIMEOUT))SUMCOUNT")
@@ -690,7 +690,7 @@ record(bi,"$(P)$(R)EnableBackgroundCorrection_RBV") {
 
 # Enable Summed Image averaging
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, EnableSumAverage, Set EnableSumAverage
+##  gdatag, pv, rw, $(PORT)_merlin, EnableSumAverage, Set EnableSumAverage
 record(bo,"$(P)$(R)EnableSumAverage") {
     field(PINI, "YES")
     field(DTYP, "asynInt32")
@@ -700,7 +700,7 @@ record(bo,"$(P)$(R)EnableSumAverage") {
     field(ONAM,"Enabled")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, EnableSumAverage_RBV, Read EnableSumAverage
+##  gdatag, pv, ro, $(PORT)_merlin, EnableSumAverage_RBV, Read EnableSumAverage
 record(bi,"$(P)$(R)EnableSumAverage_RBV") {
     field(DTYP, "asynInt32")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))ENABLESUMAVERAGE")
@@ -716,7 +716,7 @@ record(bi,"$(P)$(R)EnableSumAverage_RBV") {
 
 # Select Mode for Quad
 # % autosave 2 
-##  gdatag, pv, rw, $(PORT)_medipix, QuadMerlinMode, Set QuadMerlinMode
+##  gdatag, pv, rw, $(PORT)_merlin, QuadMerlinMode, Set QuadMerlinMode
 record(mbbo,"$(P)$(R)QuadMerlinMode") {
     field(PINI, "YES")
     field(DTYP, "asynInt32")
@@ -736,7 +736,7 @@ record(mbbo,"$(P)$(R)QuadMerlinMode") {
     field(FVST,"Charge Summing")
 }
 
-##  gdatag, pv, ro, $(PORT)_medipix, QuadMerlinMode_RBV, Read QuadMerlinMode_RBV
+##  gdatag, pv, ro, $(PORT)_merlin, QuadMerlinMode_RBV, Read QuadMerlinMode_RBV
 record(mbbi,"$(P)$(R)QuadMerlinMode_RBV") {
     field(DTYP, "asynInt32")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))QUADMERLINMODE")
@@ -757,20 +757,20 @@ record(mbbi,"$(P)$(R)QuadMerlinMode_RBV") {
 }
 
 # Field to control which GUI is displayed 
-##  gdatag, array, rw, $(PORT)_medipix, SelectGui_RBV, Set SelectGui_RBV
+##  gdatag, array, rw, $(PORT)_merlin, SelectGui_RBV, Set SelectGui_RBV
 record(waveform, "$(P)$(R)SelectGui_RBV")
 {
     field(DTYP, "asynOctetRead")
     field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))SELECTGUI")
     field(FTVL, "CHAR")
     field(NELM, 256)
-#    field(VAL, "medipixEmbedded.edl")
+#    field(VAL, "merlinEmbedded.edl")
     field(SCAN, "I/O Intr")
 }
 
 
 ##########################################################################
-# Disable records from ADBase etc. that we do not use for medipix
+# Disable records from ADBase etc. that we do not use for merlin
 ##########################################################################
 
 

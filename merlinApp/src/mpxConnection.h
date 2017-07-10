@@ -4,24 +4,18 @@
 #define ASYN_TRACE_MPX          0x0100
 #define ASYN_TRACE_MPX_VERBOSE  0x0200
 
-#include "medipix_low.h"
+#include "merlin_low.h"
 
 /** data header types */
 typedef enum
 {
-    MPXDataHeaderNone,
-    MPXDataHeader12,
-    MPXDataHeader24,
-    MPXGenericImageHeader,
-    MPXProfileHeader12,
-    MPXProfileHeader24,
-    MPXGenericProfileHeader,
     MPXAcquisitionHeader,
     MPXQuadDataHeader,
+    MPXProfileHeader,
     MPXUnknownHeader
-} medipixDataHeader;
+} merlinDataHeader;
 
-class medipixDetector;
+class merlinDetector;
 
 class mpxConnection
 {
@@ -37,7 +31,7 @@ public:
 public:
     // Constructor
     mpxConnection(asynUser* parentUser, asynUser* tcpUser,
-            medipixDetector* parentObj);
+            merlinDetector* parentObj);
 
     /* The labview communication primitives */
     asynStatus mpxGet(char* valueId, double timeout);
@@ -50,19 +44,17 @@ public:
             int* bytesRead, double timeout);
 
     /* Helper functions */
-    medipixDataHeader parseDataHeader(const char* header);
-    void parseDataFrame(NDAttributeList* pAttr, const char* header,
-            medipixDataHeader headerType, size_t *xsize, size_t *ysize,
-            int* pixelSize, int* profileMask);
+    merlinDataHeader parseDataHeader(const char* header);
     void parseMqDataFrame(NDAttributeList* pAttr, const char* header,
-    		size_t *xsize, size_t *ysize, int* pixelDepth, int* offset);
+    		size_t *xsize, size_t *ysize, int* pixelDepth, int* offset,
+    		int* profileSelect);
 
     void dumpData(char* sdata, int size);
 
 private:
     asynUser* parentUser;
     asynUser* tcpUser;
-    medipixDetector* parentObj;
+    merlinDetector* parentObj;
 };
 
 #endif

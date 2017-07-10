@@ -1,6 +1,6 @@
-/* medipixDetector.cpp
+/* merlinDetector.cpp
  *
- * This is a driver for a Medipix 3 detector chip.
+ * This is a driver for the Merlin detector (Quad chip version but supports other chip counts)
  *
  * The driver is designed to communicate with the chip via the matching Labview controller over TCP/IP
  *
@@ -38,7 +38,7 @@
 #include "ADDriver.h"
 
 #include "mpxConnection.h"
-#include "medipixDetector.h"
+#include "merlinDetector.h"
 
 #define MAX(a,b) a>b ? a : b
 #define MIN(a,b) a<b ? a : b
@@ -48,7 +48,7 @@
  * It is totally decoupled from the command thread and simply waits for data
  * frames to be sent on the data channel (TCP) regardless of the state in the command
  * thread and TCP channel */
-void medipixDetector::medipixTask()
+void merlinDetector::merlinTask()
 {
     int status = asynSuccess;
     int imageCounter;      // number of ndarrays sent to plugins
@@ -57,10 +57,9 @@ void medipixDetector::medipixTask()
     int imagSize;
     NDArray * pImage;
     epicsTimeStamp startTime;
-    const char *functionName = "medipixTask";
-    size_t dims[2], dummy;
+    const char *functionName = "merlinTask";
+    size_t dims[2];
     int arrayCallbacks;
-    int dummy2;
     int nread;
     char *bigBuff;
     char aquisitionHeader[MPX_ACQUISITION_HEADER_LEN + 1];
@@ -83,7 +82,7 @@ void medipixDetector::medipixTask()
         imagSize = MAX_BUFF_UOM;
         break;
     case Merlin:
-    case MedipixXBPM: imagSize = MPX_IMG_FRAME_LEN24;
+    case MerlinXBPM: imagSize = MPX_IMG_FRAME_LEN24;
         break;
     case MerlinQuad:
         imagSize = MAX_BUFF_MERLIN_QUAD;
@@ -141,7 +140,7 @@ void medipixDetector::medipixTask()
             dataConnection->dumpData(bigBuff, nread);
         }
 
-        medipixDataHeader header = dataConnection->parseDataHeader(bigBuff);
+        merlinDataHeader header = dataConnection->parseDataHeader(bigBuff);
         if (header != MPXAcquisitionHeader)
         {
             getIntegerParam(ADNumImagesCounter, &numImagesCounter);
@@ -159,7 +158,7 @@ void medipixDetector::medipixTask()
 
         if (arrayCallbacks)
         {
-            getIntegerParam(medipixCounterDepth, &counterDepth);
+            getIntegerParam(merlinCounterDepth, &counterDepth);
 
             int idim;
             /* Get an image buffer from the pool */
@@ -174,56 +173,10 @@ void medipixDetector::medipixTask()
                 strncpy(aquisitionHeader, bigBuff, MPX_ACQUISITION_HEADER_LEN);
                 aquisitionHeader[MPX_ACQUISITION_HEADER_LEN] = 0;
             }
-            else if (header == MPXDataHeader12)
-            {
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-                        "Creating a 12bit Array\n");
-
-                pImage = copyToNDArray16(dims, bigBuff, MPX_IMG_HDR_LEN);
-                if (pImage == NULL)
-                    continue;
-                dataConnection->parseDataFrame(pImage->pAttributeList, bigBuff,
-                        header, &dummy, &dummy, &dummy2, &dummy2);
-            }
-            else if (header == MPXDataHeader24)
-            {
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-                        "Creating a 24bit Array\n");
-
-                pImage = copyToNDArray32(dims, bigBuff, MPX_IMG_HDR_LEN);
-                if (pImage == NULL)
-                    continue;
-                dataConnection->parseDataFrame(pImage->pAttributeList, bigBuff,
-                        header, &dummy, &dummy, &dummy2, &dummy2);
-            }
-            else if (header == MPXGenericImageHeader)
-            {
-                int pixelSize;
-                asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
-                        "Creating a generic Image NDArray\n");
-
-                // Parse the header and use the information to determine the
-                // size of the NDArray
-                imageAttr->clear();
-                dataConnection->parseDataFrame(imageAttr, bigBuff, header,
-                        &(dims[0]), &(dims[1]), &pixelSize, &dummy2);
-                pImage = NULL;
-                if (pixelSize == 16)
-                {
-                    pImage = copyToNDArray16(dims, bigBuff, MPX_IMG_HDR_LEN);
-                }
-                else if (pixelSize == 32)
-                {
-                    pImage = copyToNDArray32(dims, bigBuff, MPX_IMG_HDR_LEN);
-                }
-                if (pImage == NULL)
-                    continue;
-                imageAttr->copy(pImage->pAttributeList);
-            }
             else if (header == MPXQuadDataHeader)
             {
                 int pixelSize;
-                int offset;
+                int offset, profileSelect;
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
                         "Creating a Quad Merlin Image NDArray\n");
 
@@ -231,9 +184,13 @@ void medipixDetector::medipixTask()
                 // size of the NDArray
                 imageAttr->clear();
                 dataConnection->parseMqDataFrame(imageAttr, bigBuff, &(dims[0]),
-                        &(dims[1]), &pixelSize, &offset);
+                        &(dims[1]), &pixelSize, &offset, &profileSelect);
                 pImage = NULL;
-                if (pixelSize == 16)
+                if (pixelSize == 8)
+                {
+                    pImage = copyToNDArray8(dims, bigBuff, offset);
+                }
+                else if (pixelSize == 16)
                 {
                     pImage = copyToNDArray16(dims, bigBuff, offset);
                 }
@@ -244,7 +201,7 @@ void medipixDetector::medipixTask()
                 else
                 {
                     asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
-                        "Unsupported bit depth %d\n", header);
+                        "Unsupported bit depth %d\n", pixelSize);
                     setStringParam(ADStatusMessage,
                             "Error: Unsupported bit depth");
                 }
@@ -255,9 +212,7 @@ void medipixDetector::medipixTask()
                 }
                 imageAttr->copy(pImage->pAttributeList);
             }
-            else if (header == MPXProfileHeader12
-                    || header == MPXProfileHeader24
-                    || header == MPXGenericProfileHeader)
+            else if (header == MPXProfileHeader)
             {
                 int profileMask = 0;
                 asynPrint(this->pasynUserSelf, ASYN_TRACE_MPX,
@@ -266,12 +221,11 @@ void medipixDetector::medipixTask()
                 imageAttr->clear();
                 pImage = NULL;
 
-                if (header == MPXGenericProfileHeader)
-                    dataConnection->parseDataFrame(imageAttr, bigBuff, header,
-                            &(dims[0]), &(dims[1]), &dummy2, &profileMask);
-                else
-                    dataConnection->parseDataFrame(imageAttr, bigBuff, header,
-                            &dummy, &dummy, &dummy2, &profileMask);
+//				dataConnection->parseDataFrame(imageAttr, bigBuff, header,
+//						&(dims[0]), &(dims[1]), &dummy2, &profileMask);
+                // TODO do profiles using 2.0 release of documentation
+                // TODO instead of above we should call parseMqDataFrame
+                // TODO in fact not sure we need a separate clause at this point.
 
                 if (profileMask
                         != (MPXPROFILES_XPROFILE | MPXPROFILES_YPROFILE
@@ -296,12 +250,7 @@ void medipixDetector::medipixTask()
             }
 
             // for Data frames - complete the NDAttributes, pass the NDArray on
-            if (header == MPXDataHeader12 || header == MPXDataHeader24
-                    || header == MPXProfileHeader12
-                    || header == MPXProfileHeader24
-                    || header == MPXGenericImageHeader
-                    || header == MPXGenericProfileHeader
-                    || header == MPXQuadDataHeader)
+            if (header == MPXProfileHeader || header == MPXQuadDataHeader)
             {
                 // Put the frame number and time stamp into the buffer
                 pImage->uniqueId = imageCounter;
@@ -320,8 +269,7 @@ void medipixDetector::medipixTask()
                 // Must release the lock here, to avoid a deadlock: we can
                 // block on the plugin lock, and the plugin can be calling us
                 this->unlock();
-                if (header == MPXDataHeader12 || header == MPXDataHeader24
-                    || header == MPXGenericImageHeader || header == MPXQuadDataHeader)
+                if (header == MPXQuadDataHeader)
                 {
                     doCallbacksGenericPointer(pImage, NDArrayData, 0);
                 }
@@ -330,7 +278,7 @@ void medipixDetector::medipixTask()
                     // address 1 on the port is used for profiles
                     // TODO use of port 1 is not working in NDPluginBase so
                     // currently reverting to use the same address
-                    // (i.e. setting Medipix1:ROI:NDArrayAddress has no effect
+                    // (i.e. setting Merlin1:ROI:NDArrayAddress has no effect
                     doCallbacksGenericPointer(pImage, NDArrayData, 0);
                 }
                 this->lock();
@@ -346,7 +294,7 @@ void medipixDetector::medipixTask()
         if (triggerMode == TMSoftwareTrigger)
         {
             // software trigger resets  when image received
-            setIntegerParam(medipixSoftwareTrigger, 0);
+            setIntegerParam(merlinSoftwareTrigger, 0);
         }
 
         // If all the expected images have been received then the driver can
@@ -368,7 +316,7 @@ void medipixDetector::medipixTask()
 /** helper functions for endian conversion
  *
  */
-inline void medipixDetector::endian_swap(unsigned short& x)
+inline void merlinDetector::endian_swap(unsigned short& x)
 {
     if (detType == Merlin || detType == MerlinQuad)
     {
@@ -376,7 +324,7 @@ inline void medipixDetector::endian_swap(unsigned short& x)
     }
 }
 
-inline void medipixDetector::endian_swap(unsigned int& x)
+inline void merlinDetector::endian_swap(unsigned int& x)
 {
     if (detType == Merlin || detType == MerlinQuad)
     {
@@ -385,7 +333,7 @@ inline void medipixDetector::endian_swap(unsigned int& x)
     }
 }
 
-inline void medipixDetector::endian_swap(uint64_t& x)
+inline void merlinDetector::endian_swap(uint64_t& x)
 {
     if (detType == Merlin || detType == MerlinQuad)
     {
@@ -400,12 +348,12 @@ inline void medipixDetector::endian_swap(uint64_t& x)
     }
 }
 
-void medipixDetector::fromLabViewStr(const char *str)
+void merlinDetector::fromLabViewStr(const char *str)
 {
     setStringParam(ADStringFromServer, str);
 }
 
-void medipixDetector::toLabViewStr(const char *str)
+void merlinDetector::toLabViewStr(const char *str)
 {
     setStringParam(ADStringToServer, str);
 }
@@ -415,7 +363,7 @@ void medipixDetector::toLabViewStr(const char *str)
  *
  */
 
-NDArray* medipixDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
+NDArray* merlinDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
         int profileMask)
 {
     epicsUInt32 *pData;
@@ -459,7 +407,7 @@ NDArray* medipixDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
             *pData = (epicsUInt32) *pSrc;
         }
 
-        // Invert the Y profile (medipix origin is at bottom left)
+        // Invert the Y profile (merlin origin is at bottom left)
         for (y = dims[1] - 1, pWaveForm = (epicsUInt32 *) profileY; y >= 0;
                 y--, pWaveForm++, pSrc++, pData++)
         {
@@ -468,19 +416,59 @@ NDArray* medipixDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
             *pData = (epicsUInt32) *pSrc;
         }
 
-        doCallbacksInt32Array(profileY, dims[1], medipixProfileY, 0);
-        doCallbacksInt32Array(profileX, dims[0], medipixProfileX, 0);
+        doCallbacksInt32Array(profileY, dims[1], merlinProfileY, 0);
+        doCallbacksInt32Array(profileX, dims[0], merlinProfileX, 0);
     }
     return pImage;
 }
 
+
+// Todo make the following three functions a single template function
+
+/** Helper function to copy a 8 bit buffer into an NDArray
+ *
+ */
+NDArray* merlinDetector::copyToNDArray8(size_t *dims, char *buffer, int offset)
+{
+    // copy the data into NDArray, switching to little endien and
+    // Inverting in the Y axis (merlin origin is at bottom left)
+    epicsUInt8 *pData, *pSrc;
+    size_t x, y;
+
+    NDArray* pImage = this->pNDArrayPool->alloc(2, dims, NDUInt8, 0, NULL);
+
+    if (pImage == NULL)
+    {
+        asynPrint(this->pasynUserSelf, ASYN_TRACE_ERROR,
+                "%s:%s: unable to allocate NDArray from pool\n", driverName,
+                "copyToNDArray8");
+        setStringParam(ADStatusMessage,
+                "Error: run out of buffers in detector driver");
+    }
+    else
+    {
+        for (y = 0; y < dims[1]; y++)
+        {
+            for (x = 0, pData = (epicsUInt8 *) pImage->pData + y * dims[0], pSrc =
+                    (epicsUInt8 *) (buffer + offset)
+                            + (dims[1] - y) * dims[0]; x < dims[0];
+                    x++, pData++, pSrc++)
+            {
+                *pData = *pSrc;
+            }
+        }
+    }
+    return pImage;
+}
+
+
 /** Helper function to copy a 16 bit buffer into an NDArray
  *
  */
-NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer, int offset)
+NDArray* merlinDetector::copyToNDArray16(size_t *dims, char *buffer, int offset)
 {
     // copy the data into NDArray, switching to little endien and
-    // Inverting in the Y axis (medipix origin is at bottom left)
+    // Inverting in the Y axis (merlin origin is at bottom left)
     epicsUInt16 *pData, *pSrc;
     size_t x, y;
 
@@ -511,10 +499,11 @@ NDArray* medipixDetector::copyToNDArray16(size_t *dims, char *buffer, int offset
     return pImage;
 }
 
+
 /** Helper function to copy a 32 bit buffer into an NDArray
  *
  */
-NDArray* medipixDetector::copyToNDArray32(size_t* dims, char* buffer, int offset)
+NDArray* merlinDetector::copyToNDArray32(size_t* dims, char* buffer, int offset)
 {
     epicsUInt32 *pData, *pSrc;
     size_t x, y;
@@ -545,34 +534,34 @@ NDArray* medipixDetector::copyToNDArray32(size_t* dims, char* buffer, int offset
     }
     return pImage;
 }
-asynStatus medipixDetector::setModeCommands(int function)
+asynStatus merlinDetector::setModeCommands(int function)
 {
     asynStatus status;
     char value[MPX_MAXLINE];
     int counter1Enabled, continuousEnabled;
 
-    if (function == medipixEnableCounter1)
+    if (function == merlinEnableCounter1)
     {
-        status = getIntegerParam(medipixEnableCounter1, &counter1Enabled);
+        status = getIntegerParam(merlinEnableCounter1, &counter1Enabled);
         if ((status != asynSuccess)
                 || (counter1Enabled < 0 || counter1Enabled > 1))
         {
             counter1Enabled = 0;
-            setIntegerParam(medipixEnableCounter1, counter1Enabled);
+            setIntegerParam(merlinEnableCounter1, counter1Enabled);
         }
         epicsSnprintf(value, MPX_MAXLINE, "%d", counter1Enabled);
         cmdConnection->mpxSet(MPXVAR_ENABLECOUNTER1, value,
                 Labview_DEFAULT_TIMEOUT);
     }
 
-    if (function == medipixContinuousRW)
+    if (function == merlinContinuousRW)
     {
-        status = getIntegerParam(medipixContinuousRW, &continuousEnabled);
+        status = getIntegerParam(merlinContinuousRW, &continuousEnabled);
         if ((status != asynSuccess)
                 || (continuousEnabled < 0 || continuousEnabled > 1))
         {
             continuousEnabled = 0;
-            setIntegerParam(medipixContinuousRW, continuousEnabled);
+            setIntegerParam(merlinContinuousRW, continuousEnabled);
         }
         epicsSnprintf(value, MPX_MAXLINE, "%d", continuousEnabled);
         cmdConnection->mpxSet(MPXVAR_CONTINUOUSRW, value,
@@ -582,17 +571,17 @@ asynStatus medipixDetector::setModeCommands(int function)
     epicsThreadSleep(.01);
 
     // now get the values again from the device -- it may reset them to consistent values
-    // (presently only one of medipixContinuousRW or medipixEnableCounter1 can be set at a time)
+    // (presently only one of merlinContinuousRW or merlinEnableCounter1 can be set at a time)
     status = cmdConnection->mpxGet(MPXVAR_ENABLECOUNTER1,
             Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setIntegerParam(medipixEnableCounter1,
+        setIntegerParam(merlinEnableCounter1,
                 atoi(cmdConnection->fromLabviewValue));
 
     status = cmdConnection->mpxGet(MPXVAR_CONTINUOUSRW,
             Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setIntegerParam(medipixContinuousRW,
+        setIntegerParam(merlinContinuousRW,
                 atoi(cmdConnection->fromLabviewValue));
 
     return (asynSuccess);
@@ -601,7 +590,7 @@ asynStatus medipixDetector::setModeCommands(int function)
 /* Set ROI parameters on detector - only supported on Manchester BPM
  *
  */
-asynStatus medipixDetector::setROI()
+asynStatus merlinDetector::setROI()
 {
     char value[MPX_MAXLINE];
     NDDimension_t arrayDims[DIMS];
@@ -659,7 +648,7 @@ asynStatus medipixDetector::setROI()
     return asynSuccess;
 }
 
-asynStatus medipixDetector::setAcquireParams()
+asynStatus merlinDetector::setAcquireParams()
 {
     int triggerMode;
     char value[MPX_MAXLINE];
@@ -671,7 +660,7 @@ asynStatus medipixDetector::setAcquireParams()
     if (startingUp)
         return asynSuccess;
 
-    if (detType == MedipixXBPM || detType == UomXBPM)
+    if (detType == MerlinXBPM || detType == UomXBPM)
     {
         int exposures, val;
 
@@ -680,12 +669,12 @@ asynStatus medipixDetector::setAcquireParams()
         cmdConnection->mpxSet(MPXVAR_IMAGESTOSUM, value,
                 Labview_DEFAULT_TIMEOUT);
 
-        getIntegerParam(medipixEnableBackgroundCorr, &val);
+        getIntegerParam(merlinEnableBackgroundCorr, &val);
         epicsSnprintf(value, MPX_MAXLINE, "%d", val);
         cmdConnection->mpxSet(MPXVAR_ENABLEBACKROUNDCORR, value,
                 Labview_DEFAULT_TIMEOUT);
 
-        getIntegerParam(medipixEnableImageSum, &val);
+        getIntegerParam(merlinEnableImageSum, &val);
         epicsSnprintf(value, MPX_MAXLINE, "%d", val);
         cmdConnection->mpxSet(MPXVAR_ENABLEIMAGEAVERAGE, value,
                 Labview_DEFAULT_TIMEOUT);
@@ -708,11 +697,12 @@ asynStatus medipixDetector::setAcquireParams()
     }
 
     int counterDepth;
-    status = getIntegerParam(medipixCounterDepth, &counterDepth);
-    if ((status != asynSuccess) || (counterDepth != 12 && counterDepth != 24)) // currently limited to 12/24 bit
+    status = getIntegerParam(merlinCounterDepth, &counterDepth);
+    if ((status != asynSuccess) || (counterDepth != 6 && counterDepth != 12 &&
+            counterDepth != 24)) // currently limited to 6/12/24 bit
     {
         counterDepth = 12;
-        setIntegerParam(medipixCounterDepth, counterDepth);
+        setIntegerParam(merlinCounterDepth, counterDepth);
     }
 
     double acquireTime;
@@ -748,7 +738,7 @@ asynStatus medipixDetector::setAcquireParams()
     status = getIntegerParam(ADTriggerMode, &triggerMode);
     if (status != asynSuccess)
         triggerMode = TMInternal;
-    // medipix individually controls how start and stop triggers are read
+    // merlin individually controls how start and stop triggers are read
     // here we translate the chosen trigger mode into a combination of start
     // and stop modes
     switch (triggerMode)
@@ -800,7 +790,7 @@ asynStatus medipixDetector::setAcquireParams()
 
 }
 
-asynStatus medipixDetector::getThreshold()
+asynStatus merlinDetector::getThreshold()
 {
     int status;
 
@@ -810,41 +800,41 @@ asynStatus medipixDetector::getThreshold()
     /* Read back the actual setting, in case we are out of bounds.*/
     status = cmdConnection->mpxGet(MPXVAR_THRESHOLD0, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold0,
+        setDoubleParam(merlinThreshold0,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THRESHOLD1, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold1,
+        setDoubleParam(merlinThreshold1,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THRESHOLD2, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold2,
+        setDoubleParam(merlinThreshold2,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THRESHOLD3, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold3,
+        setDoubleParam(merlinThreshold3,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THRESHOLD4, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold4,
+        setDoubleParam(merlinThreshold4,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THRESHOLD5, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold5,
+        setDoubleParam(merlinThreshold5,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THRESHOLD6, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold6,
+        setDoubleParam(merlinThreshold6,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THRESHOLD7, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixThreshold7,
+        setDoubleParam(merlinThreshold7,
                 atof(cmdConnection->fromLabviewValue));
 
     status = cmdConnection->mpxGet(MPXVAR_OPERATINGENERGY,
             Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixOperatingEnergy,
+        setDoubleParam(merlinOperatingEnergy,
                 atof(cmdConnection->fromLabviewValue));
 
     callParamCallbacks();
@@ -852,7 +842,7 @@ asynStatus medipixDetector::getThreshold()
     return (asynSuccess);
 }
 
-asynStatus medipixDetector::updateThresholdScanParms()
+asynStatus merlinDetector::updateThresholdScanParms()
 {
     asynStatus status = asynSuccess;
     char valueStr[MPX_MAXLINE];
@@ -862,10 +852,10 @@ asynStatus medipixDetector::updateThresholdScanParms()
     if (startingUp)
         return asynSuccess;
 
-    getDoubleParam(medipixStartThresholdScan, &start);
-    getDoubleParam(medipixStopThresholdScan, &stop);
-    getDoubleParam(medipixStepThresholdScan, &step);
-    getIntegerParam(medipixThresholdScan, &thresholdScan);
+    getDoubleParam(merlinStartThresholdScan, &start);
+    getDoubleParam(merlinStopThresholdScan, &stop);
+    getDoubleParam(merlinStepThresholdScan, &step);
+    getIntegerParam(merlinThresholdScan, &thresholdScan);
 
     epicsSnprintf(valueStr, MPX_MAXLINE, "%f", start);
     status = cmdConnection->mpxSet(MPXVAR_THSTART, valueStr,
@@ -893,41 +883,41 @@ asynStatus medipixDetector::updateThresholdScanParms()
     /* Read back the actual setting, in case we are out of bounds.*/
     status = cmdConnection->mpxGet(MPXVAR_THSTART, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixStartThresholdScan,
+        setDoubleParam(merlinStartThresholdScan,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THSTEP, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixStepThresholdScan,
+        setDoubleParam(merlinStepThresholdScan,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THSTOP, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setDoubleParam(medipixStopThresholdScan,
+        setDoubleParam(merlinStopThresholdScan,
                 atof(cmdConnection->fromLabviewValue));
     status = cmdConnection->mpxGet(MPXVAR_THSSCAN, Labview_DEFAULT_TIMEOUT);
     if (status == asynSuccess)
-        setIntegerParam(medipixThresholdScan,
+        setIntegerParam(merlinThresholdScan,
                 atoi(cmdConnection->fromLabviewValue));
 
     return status;
 }
 
-static void medipixTaskC(void *drvPvt)
+static void merlinTaskC(void *drvPvt)
 {
-    medipixDetector *pPvt = (medipixDetector *) drvPvt;
+    merlinDetector *pPvt = (merlinDetector *) drvPvt;
 
-    pPvt->medipixTask();
+    pPvt->merlinTask();
 }
 
-static void medipixStatusC(void *drvPvt)
+static void merlinStatusC(void *drvPvt)
 {
-    medipixDetector *pPvt = (medipixDetector *) drvPvt;
+    merlinDetector *pPvt = (merlinDetector *) drvPvt;
 
-    pPvt->medipixStatus();
+    pPvt->merlinStatus();
 }
 
 /** This thread periodically read the detector status (temperature, humidity, etc.)
  It does not run if we are acquiring data, to avoid polling Labview when taking data.*/
-void medipixDetector::medipixStatus()
+void merlinDetector::merlinStatus()
 {
     int result = asynSuccess;
     int status = 0;
@@ -977,7 +967,7 @@ void medipixDetector::medipixStatus()
  *
  * \param[in] mode the mode number
  */
-asynStatus medipixDetector::SetQuadMode(int mode)
+asynStatus merlinDetector::SetQuadMode(int mode)
 {
     char value[MPX_MAXLINE];
     asynStatus result = asynSuccess;
@@ -1018,7 +1008,7 @@ asynStatus medipixDetector::SetQuadMode(int mode)
         break;
     }
 
-    setIntegerParam(medipixCounterDepth, bits);
+    setIntegerParam(merlinCounterDepth, bits);
 
     epicsSnprintf(value, MPX_MAXLINE, "%d", bits);
     cmdConnection->mpxSet(MPXVAR_COUNTERDEPTH, value,
@@ -1044,7 +1034,7 @@ asynStatus medipixDetector::SetQuadMode(int mode)
  * For all parameters it sets the value in the parameter library and calls any registered callbacks..
  * \param[in] pasynUser pasynUser structure that encodes the reason and address.
  * \param[in] value Value to write. */
-asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
+asynStatus merlinDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 {
     char strVal[MPX_MAXLINE];
     int function = pasynUser->reason;
@@ -1055,18 +1045,18 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
 
     status = setIntegerParam(function, value);
 
-    if (function == medipixReset)
+    if (function == merlinReset)
     {
         cmdConnection->mpxCommand(MPXCMD_RESET, Labview_DEFAULT_TIMEOUT);
 // I cannot successfully reconnect to the server after a reset
 // the only solution found so far is to restart the ioc
         exit(0);
     }
-    else if (function == medipixQuadMerlinMode)
+    else if (function == merlinQuadMerlinMode)
     {
         this->SetQuadMode(value);
     }
-    else if (function == medipixSoftwareTrigger)
+    else if (function == merlinSoftwareTrigger)
     {
         cmdConnection->mpxCommand(MPXCMD_SOFTWARETRIGGER,
                 Labview_DEFAULT_TIMEOUT);
@@ -1083,7 +1073,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
             getIntegerParam(ADNumImages, &imagesToAcquire);
             // set number of images to acquire based on the capture mode
             getIntegerParam(ADImageMode, &imageMode);
-            getIntegerParam(medipixProfileControl, &profileMaskParm);
+            getIntegerParam(merlinProfileControl, &profileMaskParm);
 
             switch (imageMode)
             {
@@ -1099,9 +1089,9 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
                 break;
             case MPXThresholdScan:
                 double start, stop, step;
-                getDoubleParam(medipixStartThresholdScan, &start);
-                getDoubleParam(medipixStopThresholdScan, &stop);
-                getDoubleParam(medipixStepThresholdScan, &step);
+                getDoubleParam(merlinStartThresholdScan, &start);
+                getDoubleParam(merlinStopThresholdScan, &stop);
+                getDoubleParam(merlinStepThresholdScan, &step);
                 imagesRemaining = (int) ((stop - start) / step);
                 setStringParam(ADStatusMessage, "Performing Threshold Scan...");
                 setIntegerParam(ADNumImages, 1); // internally Merlin does this so we set EPICS PV to match
@@ -1152,9 +1142,9 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
         }
     }
     else if ((function == ADTriggerMode) || (function == ADNumImages)
-            || (function == ADNumExposures) || (function == medipixCounterDepth)
-            || (function == medipixEnableBackgroundCorr)
-            || (function == medipixEnableImageSum))
+            || (function == ADNumExposures) || (function == merlinCounterDepth)
+            || (function == merlinEnableBackgroundCorr)
+            || (function == merlinEnableImageSum))
     {
         setAcquireParams();
     }
@@ -1163,27 +1153,27 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
     {
         setROI();
     }
-    else if ((function == medipixEnableCounter1
-            || function == medipixContinuousRW))
+    else if ((function == merlinEnableCounter1
+            || function == merlinContinuousRW))
     {
         setModeCommands(function);
     }
-    else if (function == medipixThresholdApply)
+    else if (function == merlinThresholdApply)
     {
         getThreshold();
     }
-    else if (function == medipixProfileControl)
+    else if (function == merlinProfileControl)
     {
         epicsSnprintf(strVal, MPX_MAXLINE, "%d", value);
         cmdConnection->mpxSet(MPXCMD_PROFILECONTROL, strVal,
                 Labview_DEFAULT_TIMEOUT);
-        setIntegerParam(medipixProfileControl, value);
+        setIntegerParam(merlinProfileControl, value);
     }
     else
     {
 // function numbers are assigned sequentially via createParam in the constructor and hence
 // any function numbers lower than our first function is handled by a (the) super class
-        if (function < FIRST_medipix_PARAM)
+        if (function < FIRST_merlin_PARAM)
             status = ADDriver::writeInt32(pasynUser, value);
     }
 
@@ -1206,7 +1196,7 @@ asynStatus medipixDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
  * For all parameters it sets the value in the parameter library and calls any registered callbacks..
  * \param[in] pasynUser pasynUser structure that encodes the reason and address.
  * \param[in] value Value to write. */
-asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
+asynStatus merlinDetector::writeFloat64(asynUser *pasynUser,
         epicsFloat64 value)
 {
     int function = pasynUser->reason;
@@ -1221,63 +1211,63 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
     status = setDoubleParam(function, value);
 
     /* Changing any of the following parameters requires recomputing the base image */
-    if (function == medipixThreshold0)
+    if (function == merlinThreshold0)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_THRESHOLD0, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
-    else if (function == medipixThreshold1)
+    else if (function == merlinThreshold1)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_THRESHOLD1, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
-    else if (function == medipixThreshold2)
+    else if (function == merlinThreshold2)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_THRESHOLD2, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
-    else if (function == medipixThreshold3)
+    else if (function == merlinThreshold3)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_THRESHOLD3, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
-    else if (function == medipixThreshold4)
+    else if (function == merlinThreshold4)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_THRESHOLD4, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
-    else if (function == medipixThreshold5)
+    else if (function == merlinThreshold5)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_THRESHOLD5, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
-    else if (function == medipixThreshold6)
+    else if (function == merlinThreshold6)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_THRESHOLD6, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
-    else if (function == medipixThreshold7)
+    else if (function == merlinThreshold7)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_THRESHOLD7, value_str,
                 Labview_DEFAULT_TIMEOUT);
         getThreshold();
     }
-    else if (function == medipixOperatingEnergy)
+    else if (function == merlinOperatingEnergy)
     {
         epicsSnprintf(value_str, MPX_MAXLINE, "%f", value);
         status = cmdConnection->mpxSet(MPXVAR_OPERATINGENERGY, value_str,
@@ -1288,16 +1278,16 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
     {
         setAcquireParams();
     }
-    else if ((function == medipixStartThresholdScan)
-            || (function == medipixStopThresholdScan)
-            || (function == medipixStepThresholdScan))
+    else if ((function == merlinStartThresholdScan)
+            || (function == merlinStopThresholdScan)
+            || (function == merlinStepThresholdScan))
     {
         updateThresholdScanParms();
     }
     else
     {
         /* If this parameter belongs to a base class call its method */
-        if (function < FIRST_medipix_PARAM)
+        if (function < FIRST_merlin_PARAM)
             status = ADDriver::writeFloat64(pasynUser, value);
     }
 
@@ -1326,10 +1316,10 @@ asynStatus medipixDetector::writeFloat64(asynUser *pasynUser,
  * \param[in] fp File pointed passed by caller where the output is written to.
  * \param[in] details If >0 then driver details are printed.
  */
-void medipixDetector::report(FILE *fp, int details)
+void merlinDetector::report(FILE *fp, int details)
 {
 
-    fprintf(fp, "medipix detector %s\n", this->portName);
+    fprintf(fp, "merlin detector %s\n", this->portName);
     if (details > 0)
     {
         int nx, ny, dataType;
@@ -1343,27 +1333,25 @@ void medipixDetector::report(FILE *fp, int details)
     ADDriver::report(fp, details);
 }
 
-extern "C" int medipixDetectorConfig(const char *portName,
+extern "C" int merlinDetectorConfig(const char *portName,
         const char *LabviewCommandPort, const char *LabviewDataPort,
         int maxSizeX, int maxSizeY, int detectorType, int maxBuffers,
         size_t maxMemory, int priority, int stackSize)
 {
-    new medipixDetector(portName, LabviewCommandPort, LabviewDataPort, maxSizeX,
+    new merlinDetector(portName, LabviewCommandPort, LabviewDataPort, maxSizeX,
             maxSizeY, detectorType, maxBuffers, maxMemory, priority, stackSize);
     return (asynSuccess);
 }
 
-/** Constructor for medipix driver; most parameters are simply passed to ADDriver::ADDriver.
+/** Constructor for merlin driver; most parameters are simply passed to ADDriver::ADDriver.
  * After calling the base class constructor this method creates a thread to collect the detector data,
  * and sets reasonable default values for the parameters defined in this class, asynNDArrayDriver, and ADDriver.
  * \param[in] portName The name of the asyn port driver to be created.
- * \param[in] LabviewCommandPort The name of the asyn port previously created with drvAsynIPPortConfigure to
- *            communicate with Labview for commands.
- * \param[in] LabviewDataPort The name of the asyn port previously created with drvAsynIPPortConfigure to
- *            communicate with Labview for data.
- * \param[in] maxSizeX The size of the medipix detector in the X direction.
- * \param[in] maxSizeY The size of the medipix detector in the Y direction.
- * \param[in] detectorType The type of detector. 0=Merlin, 1=MedipixXBPM, 2=UomXBPM, 3=MerlinQuad
+ * \param[in] LabviewPort The name of the asyn port previously created with drvAsynIPPortConfigure to
+ *            communicate with Labview.
+ * \param[in] maxSizeX The size of the merlin detector in the X direction.
+ * \param[in] maxSizeY The size of the merlin detector in the Y direction.
+ * \param[in] portName The name of the asyn port driver to be created.
  * \param[in] maxBuffers The maximum number of NDArray buffers that the NDArrayPool for this driver is
  *            allowed to allocate. Set this to -1 to allow an unlimited number of buffers.
  * \param[in] maxMemory The maximum amount of memory that the NDArrayPool for this driver is
@@ -1371,13 +1359,13 @@ extern "C" int medipixDetectorConfig(const char *portName,
  * \param[in] priority The thread priority for the asyn port driver thread if ASYN_CANBLOCK is set in asynFlags.
  * \param[in] stackSize The stack size for the asyn port driver thread if ASYN_CANBLOCK is set in asynFlags.
  */
-medipixDetector::medipixDetector(const char *portName,
+merlinDetector::merlinDetector(const char *portName,
         const char *LabviewCommandPort, const char *LabviewDataPort,
         int maxSizeX, int maxSizeY, int detectorType, int maxBuffers,
         size_t maxMemory, int priority, int stackSize)
 
 :
-        ADDriver(portName, 1, NUM_medipix_PARAMS, maxBuffers, maxMemory,
+        ADDriver(portName, 1, NUM_merlin_PARAMS, maxBuffers, maxMemory,
                 asynInt32ArrayMask | asynFloat64ArrayMask
                         | asynGenericPointerMask | asynInt16ArrayMask,
                 asynInt32ArrayMask | asynFloat64ArrayMask
@@ -1388,14 +1376,14 @@ medipixDetector::medipixDetector(const char *portName,
 
 {
     int status = asynSuccess;
-    const char *functionName = "medipixDetector";
+    const char *functionName = "merlinDetector";
     size_t dims[2];
 
     startingUp = 1;
     strcpy(LabviewCommandPortName, LabviewCommandPort);
     strcpy(LabviewDataPortName, LabviewDataPort);
 
-    detType = (medipixDetectorType) detectorType;
+    detType = (merlinDetectorType) detectorType;
 
     /* Allocate the raw buffer we use to read image files.  Only do this once */
     dims[0] = maxSizeX;
@@ -1403,7 +1391,7 @@ medipixDetector::medipixDetector(const char *portName,
     /* Allocate the raw buffer we use for flat fields. */
     this->pFlatField = this->pNDArrayPool->alloc(2, dims, NDUInt32, 0, NULL);
 
-    // medipix is upside down by area detector standards
+    // merlin is upside down by area detector standards
     // this does not work - I need to invert using my own memory copy function
     // this->ADReverseY = 1;
     // Update: this could be made to work by calling the copy NDArray function
@@ -1420,73 +1408,73 @@ medipixDetector::medipixDetector(const char *portName,
 
     cmdConnection->mpxCommand(MPXCMD_STOPACQUISITION, Labview_DEFAULT_TIMEOUT);
 
-    createParam(medipixDelayTimeString, asynParamFloat64, &medipixDelayTime);
-    createParam(medipixThreshold0String, asynParamFloat64, &medipixThreshold0);
-    createParam(medipixThreshold1String, asynParamFloat64, &medipixThreshold1);
-    createParam(medipixThreshold2String, asynParamFloat64, &medipixThreshold2);
-    createParam(medipixThreshold3String, asynParamFloat64, &medipixThreshold3);
-    createParam(medipixThreshold4String, asynParamFloat64, &medipixThreshold4);
-    createParam(medipixThreshold5String, asynParamFloat64, &medipixThreshold5);
-    createParam(medipixThreshold6String, asynParamFloat64, &medipixThreshold6);
-    createParam(medipixThreshold7String, asynParamFloat64, &medipixThreshold7);
-    createParam(medipixOperatingEnergyString, asynParamFloat64,
-            &medipixOperatingEnergy);
-    createParam(medipixThresholdApplyString, asynParamInt32,
-            &medipixThresholdApply);
-    createParam(medipixThresholdAutoApplyString, asynParamInt32,
-            &medipixThresholdAutoApply);
-    createParam(medipixArmedString, asynParamInt32, &medipixArmed);
+    createParam(merlinDelayTimeString, asynParamFloat64, &merlinDelayTime);
+    createParam(merlinThreshold0String, asynParamFloat64, &merlinThreshold0);
+    createParam(merlinThreshold1String, asynParamFloat64, &merlinThreshold1);
+    createParam(merlinThreshold2String, asynParamFloat64, &merlinThreshold2);
+    createParam(merlinThreshold3String, asynParamFloat64, &merlinThreshold3);
+    createParam(merlinThreshold4String, asynParamFloat64, &merlinThreshold4);
+    createParam(merlinThreshold5String, asynParamFloat64, &merlinThreshold5);
+    createParam(merlinThreshold6String, asynParamFloat64, &merlinThreshold6);
+    createParam(merlinThreshold7String, asynParamFloat64, &merlinThreshold7);
+    createParam(merlinOperatingEnergyString, asynParamFloat64,
+            &merlinOperatingEnergy);
+    createParam(merlinThresholdApplyString, asynParamInt32,
+            &merlinThresholdApply);
+    createParam(merlinThresholdAutoApplyString, asynParamInt32,
+            &merlinThresholdAutoApply);
+    createParam(merlinArmedString, asynParamInt32, &merlinArmed);
 
-    createParam(medipixmedpixThresholdScanString, asynParamInt32,
-            &medipixThresholdScan);
-    createParam(medipixStartThresholdScanString, asynParamFloat64,
-            &medipixStartThresholdScan);
-    createParam(medipixStopThresholdScanString, asynParamFloat64,
-            &medipixStopThresholdScan);
-    createParam(medipixStepThresholdScanString, asynParamFloat64,
-            &medipixStepThresholdScan);
-    createParam(medipixCounterDepthString, asynParamInt32,
-            &medipixCounterDepth);
-    createParam(medipixResetString, asynParamInt32, &medipixReset);
-    createParam(medipixSoftwareTriggerString, asynParamInt32,
-            &medipixSoftwareTrigger);
+    createParam(merlinmedpixThresholdScanString, asynParamInt32,
+            &merlinThresholdScan);
+    createParam(merlinStartThresholdScanString, asynParamFloat64,
+            &merlinStartThresholdScan);
+    createParam(merlinStopThresholdScanString, asynParamFloat64,
+            &merlinStopThresholdScan);
+    createParam(merlinStepThresholdScanString, asynParamFloat64,
+            &merlinStepThresholdScan);
+    createParam(merlinCounterDepthString, asynParamInt32,
+            &merlinCounterDepth);
+    createParam(merlinResetString, asynParamInt32, &merlinReset);
+    createParam(merlinSoftwareTriggerString, asynParamInt32,
+            &merlinSoftwareTrigger);
 
-    createParam(medipixEnableCounter1String, asynParamInt32,
-            &medipixEnableCounter1);
-    createParam(medipixContinuousRWString, asynParamInt32,
-            &medipixContinuousRW);
+    createParam(merlinEnableCounter1String, asynParamInt32,
+            &merlinEnableCounter1);
+    createParam(merlinContinuousRWString, asynParamInt32,
+            &merlinContinuousRW);
 
     // XBPM Specific parameters
-    createParam(medipixProfileControlString, asynParamInt32,
-            &medipixProfileControl);
-    int res = createParam(medipixProfileXString, asynParamInt32Array,
-            &medipixProfileX);
-    res = createParam(medipixProfileYString, asynParamInt32Array,
-            &medipixProfileY);
+    createParam(merlinProfileControlString, asynParamInt32,
+            &merlinProfileControl);
+    int res = createParam(merlinProfileXString, asynParamInt32Array,
+            &merlinProfileX);
+    res = createParam(merlinProfileYString, asynParamInt32Array,
+            &merlinProfileY);
 
     // UoM BPM specific
-    createParam(medipixEnableBackgroundCorrString, asynParamInt32,
-            &medipixEnableBackgroundCorr);
-    createParam(medipixEnableImageSumString, asynParamInt32,
-            &medipixEnableImageSum);
+    createParam(merlinEnableBackgroundCorrString, asynParamInt32,
+            &merlinEnableBackgroundCorr);
+    createParam(merlinEnableImageSumString, asynParamInt32,
+            &merlinEnableImageSum);
 
     // Merlin Quad(and greater) Specific
-    createParam(medipixQuadMerlinModeString, asynParamInt32,
-            &medipixQuadMerlinMode);
-    createParam(medipixSelectGuiString, asynParamOctet,
-            &medipixSelectGui);
+    createParam(merlinQuadMerlinModeString, asynParamInt32,
+            &merlinQuadMerlinMode);
+    createParam(merlinSelectGuiString, asynParamOctet,
+            &merlinSelectGui);
 
-    setStringParam(medipixSelectGui, "medipixEmbedded.edl");
+    setStringParam(merlinSelectGui, "merlinEmbedded.edl");
 
     /* Set some default values for parameters */
     switch (detectorType)
     {
-    case MedipixXBPM:
-        setStringParam(ADManufacturer, "Medipix Consortium");
+    case MerlinXBPM:
+        setStringParam(ADManufacturer, "Merlin Consortium");
         setStringParam(ADModel, "Lancelot XBPM");
         break;
     case Merlin:
-        setStringParam(ADManufacturer, "Medipix Consortium");
+        setStringParam(ADManufacturer, "Merlin Consortium");
         setStringParam(ADModel, "Merlin");
         break;
     case UomXBPM:
@@ -1494,9 +1482,9 @@ medipixDetector::medipixDetector(const char *portName,
         setStringParam(ADModel, "UoM XBPM");
         break;
     case MerlinQuad:
-        setStringParam(ADManufacturer, "Medipix Consortium");
+        setStringParam(ADManufacturer, "Merlin Consortium");
         setStringParam(ADModel, "Merlin Quad");
-        setStringParam(medipixSelectGui, "medipixQuadEmbedded.edl");
+        setStringParam(merlinSelectGui, "merlinQuadEmbedded.edl");
         break;
 
     }
@@ -1511,7 +1499,7 @@ medipixDetector::medipixDetector(const char *portName,
     status |= setIntegerParam(NDDataType, NDUInt32);
     status |= setIntegerParam(ADImageMode, ADImageContinuous);
     status |= setIntegerParam(ADTriggerMode, TMInternal);
-    status |= setIntegerParam(medipixProfileControl, MPXPROFILES_IMAGE);
+    status |= setIntegerParam(merlinProfileControl, MPXPROFILES_IMAGE);
 
     this->maxSize[0] = maxSizeX;
     this->maxSize[1] = maxSizeY;
@@ -1527,9 +1515,9 @@ medipixDetector::medipixDetector(const char *portName,
     }
 
     /* Create the thread that updates the images */
-    status = (epicsThreadCreate("medipixDetTask", epicsThreadPriorityMedium,
+    status = (epicsThreadCreate("merlinDetTask", epicsThreadPriorityMedium,
             epicsThreadGetStackSize(epicsThreadStackMedium),
-            (EPICSTHREADFUNC) medipixTaskC, this) == NULL);
+            (EPICSTHREADFUNC) merlinTaskC, this) == NULL);
     if (status)
     {
         printf("%s:%s epicsThreadCreate failure for image task\n", driverName,
@@ -1538,9 +1526,9 @@ medipixDetector::medipixDetector(const char *portName,
     }
 
     /* Create the thread that monitors detector status (temperature, humidity, etc). */
-    status = (epicsThreadCreate("medipixStatusTask", epicsThreadPriorityMedium,
+    status = (epicsThreadCreate("merlinStatusTask", epicsThreadPriorityMedium,
             epicsThreadGetStackSize(epicsThreadStackMedium),
-            (EPICSTHREADFUNC) medipixStatusC, this) == NULL);
+            (EPICSTHREADFUNC) merlinStatusC, this) == NULL);
     if (status)
     {
         printf("%s:%s epicsThreadCreate failure for status task\n", driverName,
@@ -1551,49 +1539,49 @@ medipixDetector::medipixDetector(const char *portName,
 }
 
 /* Code for iocsh registration */
-static const iocshArg medipixDetectorConfigArg0 =
+static const iocshArg merlinDetectorConfigArg0 =
 { "Port name", iocshArgString };
-static const iocshArg medipixDetectorConfigArg1 =
+static const iocshArg merlinDetectorConfigArg1 =
 { "Labview cmd port", iocshArgString };
-static const iocshArg medipixDetectorConfigArg2 =
+static const iocshArg merlinDetectorConfigArg2 =
 { "Labview data port", iocshArgString };
-static const iocshArg medipixDetectorConfigArg3 =
+static const iocshArg merlinDetectorConfigArg3 =
 { "maxSizeX", iocshArgInt };
-static const iocshArg medipixDetectorConfigArg4 =
+static const iocshArg merlinDetectorConfigArg4 =
 { "maxSizeY", iocshArgInt };
-static const iocshArg medipixDetectorConfigArg5 =
+static const iocshArg merlinDetectorConfigArg5 =
 { "detectorType", iocshArgInt };
-static const iocshArg medipixDetectorConfigArg6 =
+static const iocshArg merlinDetectorConfigArg6 =
 { "maxBuffers", iocshArgInt };
-static const iocshArg medipixDetectorConfigArg7 =
+static const iocshArg merlinDetectorConfigArg7 =
 { "maxMemory", iocshArgInt };
-static const iocshArg medipixDetectorConfigArg8 =
+static const iocshArg merlinDetectorConfigArg8 =
 { "priority", iocshArgInt };
-static const iocshArg medipixDetectorConfigArg9 =
+static const iocshArg merlinDetectorConfigArg9 =
 { "stackSize", iocshArgInt };
-static const iocshArg * const medipixDetectorConfigArgs[] =
-{ &medipixDetectorConfigArg0, &medipixDetectorConfigArg1,
-        &medipixDetectorConfigArg2, &medipixDetectorConfigArg3,
-        &medipixDetectorConfigArg4, &medipixDetectorConfigArg5,
-        &medipixDetectorConfigArg6, &medipixDetectorConfigArg7,
-        &medipixDetectorConfigArg8, &medipixDetectorConfigArg9 };
-static const iocshFuncDef configmedipixDetector =
-{ "medipixDetectorConfig", 9, medipixDetectorConfigArgs };
-static void configmedipixDetectorCallFunc(const iocshArgBuf *args)
+static const iocshArg * const merlinDetectorConfigArgs[] =
+{ &merlinDetectorConfigArg0, &merlinDetectorConfigArg1,
+        &merlinDetectorConfigArg2, &merlinDetectorConfigArg3,
+        &merlinDetectorConfigArg4, &merlinDetectorConfigArg5,
+        &merlinDetectorConfigArg6, &merlinDetectorConfigArg7,
+        &merlinDetectorConfigArg8, &merlinDetectorConfigArg9 };
+static const iocshFuncDef configmerlinDetector =
+{ "merlinDetectorConfig", 9, merlinDetectorConfigArgs };
+static void configmerlinDetectorCallFunc(const iocshArgBuf *args)
 {
-    medipixDetectorConfig(args[0].sval, args[1].sval, args[2].sval,
+    merlinDetectorConfig(args[0].sval, args[1].sval, args[2].sval,
             args[3].ival, args[4].ival, args[5].ival, args[6].ival,
             args[7].ival, args[8].ival, args[9].ival);
 }
 
-static void medipixDetectorRegister(void)
+static void merlinDetectorRegister(void)
 {
 
-    iocshRegister(&configmedipixDetector, configmedipixDetectorCallFunc);
+    iocshRegister(&configmerlinDetector, configmerlinDetectorCallFunc);
 }
 
 extern "C"
 {
-epicsExportRegistrar(medipixDetectorRegister);
+epicsExportRegistrar(merlinDetectorRegister);
 }
 

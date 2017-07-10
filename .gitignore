@@ -13,3 +13,7 @@ configure/*.local
 O.*/
 *~
 *.swp
+data/
+iocs/lancelot/
+iocs/merlin/
+CMakeLists.txt

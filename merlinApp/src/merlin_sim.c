@@ -1,5 +1,5 @@
 /**
- * Simple TCP server to simulate a medipix Labview system.
+ * Simple TCP server to simulate a merlin Labview system.
  * Arguments:
  *   port number - port number to listen for connections
  * 
@@ -61,7 +61,7 @@ int main(int argc, char *argv[])
 
     pthread_t tid, tid_data;
 
-    printf("Started Medipix simulation server...\n");
+    printf("Started Merlin simulation server...\n");
 
     if (argc != 3)
     {
@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
     }
 
     /*Should never get here.*/
-    printf("Finishing Medipix server.\n");
+    printf("Finishing Merlin server.\n");
     return EXIT_SUCCESS;
 
 }
