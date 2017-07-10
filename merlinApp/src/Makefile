@@ -13,8 +13,8 @@ PROD_Linux += merlin_sim
 #PROD += merlin_test
 
 #build cpp with debug
-USR_CFLAGS += -DDEBUG
-HOST_OPT=NO
+#USR_CFLAGS += -DDEBUG
+#HOST_OPT=NO
 
 # The following are compiled and added to the support library
 merlin_low_SRCS += merlin_low.c
