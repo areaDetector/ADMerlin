@@ -266,9 +266,6 @@ void merlinDetector::merlinTask()
                 this->getAttributes(pImage->pAttributeList);
 
                 // Call the NDArray callback
-                // Must release the lock here, to avoid a deadlock: we can
-                // block on the plugin lock, and the plugin can be calling us
-                this->unlock();
                 if (header == MPXQuadDataHeader)
                 {
                     doCallbacksGenericPointer(pImage, NDArrayData, 0);
@@ -281,7 +278,6 @@ void merlinDetector::merlinTask()
                     // (i.e. setting Merlin1:ROI:NDArrayAddress has no effect
                     doCallbacksGenericPointer(pImage, NDArrayData, 0);
                 }
-                this->lock();
 
                 /* Free the image buffer */
                 pImage->release();
