@@ -23,7 +23,7 @@
 /** Detector Types */
 typedef enum
 {
-    Merlin, MerlinXBPM, UomXBPM, MerlinQuad
+    Merlin, MerlinXBPM, UomXBPM, MerlinQuad, Cheetah1800
 } merlinDetectorType;
 
 /** Trigger modes */
@@ -36,6 +36,16 @@ typedef enum
     TMExternalTriggerRising,
     TMSoftwareTrigger
 } merlinTriggerMode;/** Trigger modes */
+
+typedef enum
+{
+    TMAuto,
+    TMPosExt,
+    TMNegExt,
+    TMPosExtTimer,
+    TMNegExtTimer,
+    TMPosExtCounter
+} mpx3TriggerMode;/** Trigger modes */
 
 /** Enumeration of image collection modes */
 typedef enum

@@ -40,8 +40,7 @@ public:
     asynStatus mpxWrite(double timeout);
     asynStatus mpxReadCmd(char* cmdType, char* cmdName, double timeout);
     asynStatus mpxWriteRead(char* cmdType, char* cmdName, double timeout);
-    asynStatus mpxRead(asynUser* pasynUser, char* bodyBuf, int bufSize,
-            int* bytesRead, double timeout);
+    asynStatus mpxRead(char* bodyBuf, int bufSize, int* bytesRead, double timeout);
 
     /* Helper functions */
     merlinDataHeader parseDataHeader(const char* header);
