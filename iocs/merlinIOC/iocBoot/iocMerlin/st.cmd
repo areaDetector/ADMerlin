@@ -28,22 +28,30 @@ epicsEnvSet("COMMAND_PORT", "$(PORT)cmd")
 # The name of the drvAsynIPPort for data
 epicsEnvSet("DATA_PORT", "$(PORT)data")
 # The IP address of the Merlin Labview system
-epicsEnvSet("MERLIN_IP", "164.54.160.214")
+# DLS computer
+#epicsEnvSet("MERLIN_IP", "172.16.53.16")
+# DLS computer 10 Gb link
+epicsEnvSet("MERLIN_IP", "192.168.5.1")
+
+# Cube1
+#epicsEnvSet("MERLIN_IP", "172.16.53.11")
+#epicsEnvSet("MERLIN_IP", "172.16.53.15")
 # The IP port for the command socket
-epicsEnvSet("COMMAND_IPPORT", "6341")
+epicsEnvSet("COMMAND_IPPORT", "6351")
 # The IP port for the data socket
-epicsEnvSet("DATA_IPPORT",    "6342")
+epicsEnvSet("DATA_IPPORT",    "6352")
 # The model type for this Medipix detector
-epicsEnvSet("MODEL", "3")   #0=Merlin, 1=MedipixXBPM, 2=UomXBPM, 3=MerlinQuad
+epicsEnvSet("MODEL", "4")   #0=Merlin, 1=MedipixXBPM, 2=UomXBPM, 3=MerlinQuad, 4=Cheetah1800
 
 epicsEnvSet("EPICS_DB_INCLUDE_PATH", "$(ADCORE)/db")
-
 
 drvAsynIPPortConfigure($(COMMAND_PORT), $(MERLIN_IP):$(COMMAND_IPPORT), 0, 0, 0)
 asynOctetSetOutputEos($(COMMAND_PORT), 0, "\n")
 asynOctetSetInputEos($(COMMAND_PORT), 0, "\n")
 
-drvAsynIPPortConfigure($(DATA_PORT), $(MERLIN_IP):$(DATA_IPPORT), 0, 0, 0)
+# The last parameter is noProcessEos; if 0 then asynInterposeEosConfig is called specifying both processEosIn and processEosOut,
+# which is useless here and totally destroys performance.
+drvAsynIPPortConfigure($(DATA_PORT), $(MERLIN_IP):$(DATA_IPPORT), 0, 0, 1)
 
 # merlinDetectorConfig(
 #              portName,           # The name of the asyn port to be created
@@ -53,7 +61,7 @@ drvAsynIPPortConfigure($(DATA_PORT), $(MERLIN_IP):$(DATA_IPPORT), 0, 0, 0)
 #                                    communicate with Labview for data.
 #              maxSizeX,           # The size of the merlin detector in the X direction.
 #              maxSizeY,           # The size of the merlin detector in the Y direction.
-#              detectorType,       # The type of detector. 0=Merlin, 1=MedipixXBPM, 2=UomXBPM, 3=MerlinQuad
+#              detectorType,       # The type of detector. 0=Merlin, 1=MedipixXBPM, 2=UomXBPM, 3=MerlinQuad, 4=Cheetah1800
 #              maxBuffers,         # The maximum number of NDArray buffers that the NDArrayPool for this driver is
 #                                    allowed to allocate. Set this to 0 to allow an unlimited number of buffers.
 #              maxMemory,          # The maximum amount of memory that the NDArrayPool for this driver is
