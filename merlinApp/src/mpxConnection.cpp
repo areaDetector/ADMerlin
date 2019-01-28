@@ -585,8 +585,7 @@ asynStatus mpxConnection::mpxWrite(double timeout)
  * Reads the rest of the body into the passed bodyBuf
  *
  */
-asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
-        int bufSize, int* bytesRead, double timeout)
+asynStatus mpxConnection::mpxRead(char* bodyBuf, int bufSize, int* bytesRead, double timeout)
 {
     size_t nread = 0;
     asynStatus status = asynSuccess;
@@ -614,7 +613,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
     // this is to re-synch with server after an error or reboot
     while (headerChar < mpxLen)
     {
-        status = pasynOctetSyncIO->read(pasynUser, header + headerChar, 1,
+        status = pasynOctetSyncIO->read(tcpUser, header + headerChar, 1,
                 timeout, &nread, &eomReason);
         if (status != asynSuccess)
             return status;
@@ -632,7 +631,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
 
     if (leadingJunk > 0)
     {
-        asynPrint(pasynUser, ASYN_TRACE_ERROR,
+        asynPrint(tcpUser, ASYN_TRACE_ERROR,
                 "%s:%s, status=%d %d bytes of leading garbage discarded before header %s \n",
                 driverName, functionName, status, leadingJunk,
                 this->fromLabview);
@@ -642,7 +641,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
     readCount = 0;
     do
     {
-        status = pasynOctetSyncIO->read(pasynUser, header + mpxLen + readCount,
+        status = pasynOctetSyncIO->read(tcpUser, header + mpxLen + readCount,
                 (headerSize - mpxLen) - readCount, timeout, &nread, &eomReason);
         if (status == asynSuccess)
             readCount += nread;
@@ -651,7 +650,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
 
     if (status != asynSuccess)
     {
-        asynPrint(pasynUser, ASYN_TRACE_ERROR,
+        asynPrint(tcpUser, ASYN_TRACE_ERROR,
                 "%s:%s, timeout=%f, status=%d received %d bytes\n%s\n",
                 driverName, functionName, timeout, status, readCount,
                 this->fromLabview);
@@ -660,7 +659,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
     {
         if (readCount != (headerSize - mpxLen))
         {
-            asynPrint(pasynUser, ASYN_TRACE_ERROR,
+            asynPrint(tcpUser, ASYN_TRACE_ERROR,
                     "%s:%s, Header too short\n",
                     driverName, functionName);
             return asynError;
@@ -679,7 +678,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
         tok = epicsStrtok_r(NULL, ",", &save_ptr);
         if (tok == NULL)
         {
-            asynPrint(pasynUser, ASYN_TRACE_ERROR,
+            asynPrint(tcpUser, ASYN_TRACE_ERROR,
                     "%s:%s, Header missing first comma\n",
                     driverName, functionName);
             return asynError;
@@ -689,7 +688,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
 
         if (bodySize == 0 || bodySize >= bufSize)
         {
-            asynPrint(pasynUser, ASYN_TRACE_ERROR,
+            asynPrint(tcpUser, ASYN_TRACE_ERROR,
                     "%s:%s, frame size %d not supported\n",
                     driverName, functionName, bodySize);
             return asynError;
@@ -698,7 +697,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
         readCount = 0;
         do
         {
-            status = pasynOctetSyncIO->read(pasynUser, bodyBuf + readCount,
+            status = pasynOctetSyncIO->read(tcpUser, bodyBuf + readCount,
                     bodySize - readCount, timeout, &nread, &eomReason);
             if (status == asynSuccess)
                 readCount += nread;
@@ -706,7 +705,7 @@ asynStatus mpxConnection::mpxRead(asynUser* pasynUser, char* bodyBuf,
 
         if (readCount < bodySize)
         {
-            asynPrint(pasynUser, ASYN_TRACE_ERROR,
+            asynPrint(tcpUser, ASYN_TRACE_ERROR,
                     "%s:%s, timeout=%f, status=%d received %d bytes in MPX command body, expected %d\n",
                     driverName, functionName, timeout, status, readCount,
                     bodySize);
@@ -749,7 +748,7 @@ asynStatus mpxConnection::mpxReadCmd(char* cmdType, char* cmdName,
     // at either end
     while (status == asynSuccess)
     {
-        status = mpxRead(this->tcpUser, buff, MPX_MAXLINE, &nread, timeout);
+        status = mpxRead(buff, MPX_MAXLINE, &nread, timeout);
 
         if (status == asynSuccess)
         {

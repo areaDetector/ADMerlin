@@ -85,6 +85,7 @@ void merlinDetector::merlinTask()
     case MerlinXBPM: imagSize = MPX_IMG_FRAME_LEN24;
         break;
     case MerlinQuad:
+    case Cheetah1800:
         imagSize = MAX_BUFF_MERLIN_QUAD;
         break;
     default:
@@ -108,8 +109,7 @@ void merlinDetector::merlinTask()
         this->unlock();
 
         // wait for the next data frame packet - this function spends most of its time here
-        status = cmdConnection->mpxRead(this->pasynLabViewData, bigBuff,
-                imagSize, &nread, 10);
+        status = dataConnection->mpxRead(bigBuff, imagSize, &nread, 10);
 
         /* If there was an error jump to bottom of loop */
         if (status)
@@ -426,8 +426,7 @@ NDArray* merlinDetector::copyProfileToNDArray32(size_t *dims, char *buffer,
  */
 NDArray* merlinDetector::copyToNDArray8(size_t *dims, char *buffer, int offset)
 {
-    // copy the data into NDArray, switching to little endien and
-    // Inverting in the Y axis (merlin origin is at bottom left)
+    // copy the data into NDArray, straight, ASI camserver is not backwards
     epicsUInt8 *pData, *pSrc;
     size_t x, y;
 
@@ -443,16 +442,7 @@ NDArray* merlinDetector::copyToNDArray8(size_t *dims, char *buffer, int offset)
     }
     else
     {
-        for (y = 0; y < dims[1]; y++)
-        {
-            for (x = 0, pData = (epicsUInt8 *) pImage->pData + y * dims[0], pSrc =
-                    (epicsUInt8 *) (buffer + offset)
-                            + (dims[1] - y) * dims[0]; x < dims[0];
-                    x++, pData++, pSrc++)
-            {
-                *pData = *pSrc;
-            }
-        }
+    	memcpy(pImage->pData, buffer+offset, dims[0] * dims[1]);
     }
     return pImage;
 }
@@ -463,8 +453,7 @@ NDArray* merlinDetector::copyToNDArray8(size_t *dims, char *buffer, int offset)
  */
 NDArray* merlinDetector::copyToNDArray16(size_t *dims, char *buffer, int offset)
 {
-    // copy the data into NDArray, switching to little endien and
-    // Inverting in the Y axis (merlin origin is at bottom left)
+    // copy the data into NDArray, straight, ASI camserver is not backwards
     epicsUInt16 *pData, *pSrc;
     size_t x, y;
 
@@ -480,17 +469,7 @@ NDArray* merlinDetector::copyToNDArray16(size_t *dims, char *buffer, int offset)
     }
     else
     {
-        for (y = 0; y < dims[1]; y++)
-        {
-            for (x = 0, pData = (epicsUInt16 *) pImage->pData + y * dims[0], pSrc =
-                    (epicsUInt16 *) (buffer + offset)
-                            + (dims[1] - y) * dims[0]; x < dims[0];
-                    x++, pData++, pSrc++)
-            {
-                *pData = *pSrc;
-                endian_swap(*pData);
-            }
-        }
+    	memcpy(pImage->pData, buffer+offset, dims[0] * dims[1] * 2);
     }
     return pImage;
 }
@@ -516,17 +495,7 @@ NDArray* merlinDetector::copyToNDArray32(size_t* dims, char* buffer, int offset)
     }
     else
     {
-        for (y = 0; y < dims[1]; y++)
-        {
-            for (x = 0, pData = (epicsUInt32 *) pImage->pData + y * dims[0], pSrc =
-                    (epicsUInt32 *) (buffer + offset)
-                            + (dims[1] - y) * dims[0]; x < dims[0];
-                    x++, pData++, pSrc++)
-            {
-                *pData = *pSrc;
-                endian_swap(*pData);
-            }
-        }
+    	memcpy(pImage->pData, buffer+offset, dims[0] * dims[1] * 4);
     }
     return pImage;
 }
@@ -732,47 +701,56 @@ asynStatus merlinDetector::setAcquireParams()
             Labview_DEFAULT_TIMEOUT);
 
     status = getIntegerParam(ADTriggerMode, &triggerMode);
-    if (status != asynSuccess)
-        triggerMode = TMInternal;
-    // merlin individually controls how start and stop triggers are read
-    // here we translate the chosen trigger mode into a combination of start
-    // and stop modes
-    switch (triggerMode)
-    {
-    case TMInternal:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigInternal,
-                Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
-                Labview_DEFAULT_TIMEOUT);
-        break;
-    case TMExternalEnable:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
-                Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigFalling,
-                Labview_DEFAULT_TIMEOUT);
-        break;
-    case TMExternalTriggerLow:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigFalling,
-                Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
-                Labview_DEFAULT_TIMEOUT);
-        break;
-    case TMExternalTriggerHigh:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
-                Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
-                Labview_DEFAULT_TIMEOUT);
-        break;
-    case TMExternalTriggerRising:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
-                Labview_DEFAULT_TIMEOUT);
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigRising,
-                Labview_DEFAULT_TIMEOUT);
-        break;
-    case TMSoftwareTrigger:
-        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigSoftware,
-                Labview_DEFAULT_TIMEOUT);
-        break;
+    if (detType == Cheetah1800) {
+		if (status != asynSuccess)
+			triggerMode = TMAuto;
+
+		epicsSnprintf(value, MPX_MAXLINE, "%d", triggerMode);
+		cmdConnection->mpxSet(MPXVAR_TRIGGERMODE, value,
+				Labview_DEFAULT_TIMEOUT);
+    } else {
+		if (status != asynSuccess)
+			triggerMode = TMInternal;
+		// merlin individually controls how start and stop triggers are read
+		// here we translate the chosen trigger mode into a combination of start
+		// and stop modes
+		switch (triggerMode)
+		{
+		case TMInternal:
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigInternal,
+					Labview_DEFAULT_TIMEOUT);
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
+					Labview_DEFAULT_TIMEOUT);
+			break;
+		case TMExternalEnable:
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
+					Labview_DEFAULT_TIMEOUT);
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigFalling,
+					Labview_DEFAULT_TIMEOUT);
+			break;
+		case TMExternalTriggerLow:
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigFalling,
+					Labview_DEFAULT_TIMEOUT);
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
+					Labview_DEFAULT_TIMEOUT);
+			break;
+		case TMExternalTriggerHigh:
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
+					Labview_DEFAULT_TIMEOUT);
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
+					Labview_DEFAULT_TIMEOUT);
+			break;
+		case TMExternalTriggerRising:
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigRising,
+					Labview_DEFAULT_TIMEOUT);
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigRising,
+					Labview_DEFAULT_TIMEOUT);
+			break;
+		case TMSoftwareTrigger:
+			cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigSoftware,
+					Labview_DEFAULT_TIMEOUT);
+			break;
+		}
     }
 
     // read the acquire period back from the server so that it can insert
@@ -1114,13 +1092,19 @@ asynStatus merlinDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
             }
             else // a standard image acquisition (or profile acquisition)
             {
-                epicsSnprintf(strVal, MPX_MAXLINE, "%d", imagesToAcquire);
+                // acquire only one image in single image mode
+                if (imageMode==MPXImageSingle) {
+                  epicsSnprintf(strVal, MPX_MAXLINE, "1");
+                }                
+                else {
+                  epicsSnprintf(strVal, MPX_MAXLINE, "%d", imagesToAcquire);
+                }
                 cmdConnection->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal,
                         Labview_DEFAULT_TIMEOUT);
 
                 if (profileMaskParm & (MPXPROFILES_IMAGE == MPXPROFILES_IMAGE))
                 {
-                    cmdConnection->mpxCommand(MPXCMD_STARTACQUISITION,
+			cmdConnection->mpxCommand(MPXCMD_STARTACQUISITION,
                             Labview_DEFAULT_TIMEOUT);
                 }
                 else
@@ -1480,6 +1464,11 @@ merlinDetector::merlinDetector(const char *portName,
     case MerlinQuad:
         setStringParam(ADManufacturer, "Merlin Consortium");
         setStringParam(ADModel, "Merlin Quad");
+        setStringParam(merlinSelectGui, "merlinQuadEmbedded.edl");
+        break;
+    case Cheetah1800:
+        setStringParam(ADManufacturer, "Amsterdam Scientific Instruments");
+        setStringParam(ADModel, "Cheetah 1800");
         setStringParam(merlinSelectGui, "merlinQuadEmbedded.edl");
         break;
 
