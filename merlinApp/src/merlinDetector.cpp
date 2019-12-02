@@ -1343,11 +1343,13 @@ extern "C" int merlinDetectorConfig(const char *portName,
  * After calling the base class constructor this method creates a thread to collect the detector data,
  * and sets reasonable default values for the parameters defined in this class, asynNDArrayDriver, and ADDriver.
  * \param[in] portName The name of the asyn port driver to be created.
- * \param[in] LabviewPort The name of the asyn port previously created with drvAsynIPPortConfigure to
+ * \param[in] LabviewCommandPort The name of the asyn port previously created with drvAsynIPPortConfigure to
+ *            communicate with Labview.
+ * \param[in] LabviewDataPort The name of the asyn port previously created with drvAsynIPPortConfigure to
  *            communicate with Labview.
  * \param[in] maxSizeX The size of the merlin detector in the X direction.
  * \param[in] maxSizeY The size of the merlin detector in the Y direction.
- * \param[in] portName The name of the asyn port driver to be created.
+ * \param[in] detectorType The detector type (Marlin, MerlinXBPM, etc.)
  * \param[in] maxBuffers The maximum number of NDArray buffers that the NDArrayPool for this driver is
  *            allowed to allocate. Set this to -1 to allow an unlimited number of buffers.
  * \param[in] maxMemory The maximum amount of memory that the NDArrayPool for this driver is

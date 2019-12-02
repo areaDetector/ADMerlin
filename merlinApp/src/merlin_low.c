@@ -151,8 +151,8 @@ int mpxCmd(const char *command)
  * Connect to the Labview program. This opens two TCP/IP sockets.
  *
  * @arg host - IP address
- * @commandPort - port number to send commands
- * @dataPort - port number to read data from
+ * @arg commandPort - port number to send commands
+ * @arg dataPort - port number to read data from
  * @return int - error code
  */
 int mpxConnect(const char *host, int commandPort, int dataPort)
@@ -256,7 +256,7 @@ int mpxDisconnect(void)
 /**
  * Return the error string for this error code.
  * @arg int - error number
- * @char pointer - pointer to char array. Must be at least MPX_MAXLINE bytes.
+ * @arg char pointer - pointer to char array. Must be at least MPX_MAXLINE bytes.
  */
 char * mpxError(int error, char *errMsg)
 {
