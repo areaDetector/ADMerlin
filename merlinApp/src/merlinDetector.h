@@ -78,6 +78,7 @@ typedef enum
 #define merlinThreshold6String             "THRESHOLD6"
 #define merlinThreshold7String             "THRESHOLD7"
 #define merlinOperatingEnergyString        "OPERATINGENERGY"
+#define merlinBoardTemperatureString       "TEMPERATURE"
 
 #define merlinThresholdApplyString         "THRESHOLD_APPLY"
 #define merlinThresholdAutoApplyString     "THRESHOLD_AUTO_APPLY"
@@ -142,6 +143,7 @@ protected:
     int merlinThreshold6;
     int merlinThreshold7;
     int merlinOperatingEnergy;
+    int merlinBoardTemperature;
     int merlinThresholdApply;
     int merlinThresholdAutoApply;
     int merlinArmed;
@@ -174,6 +176,7 @@ private:
     asynStatus getThreshold();
     asynStatus updateThresholdScanParms();
     asynStatus setROI();
+    asynStatus getBoardTemperature();
 
     NDArray* copyProfileToNDArray32(size_t *dims, char *buffer,
             int profileMask);

@@ -80,6 +80,11 @@ extern int mpxDisconnect(void);
 #define MPXVAR_COLOURMODE               (char*) "COLOURMODE"
 #define MPXVAR_CHARGESUMMING            (char*) "CHARGESUMMING"
 
+
+// variables - Status
+#define MPXVAR_TEMPERATURE               (char*) "TEMPERATURE"
+
+
 // variables Threshold Scan Control
 #define MPXVAR_THSSCAN 					(char*) "THSCAN"
 #define MPXVAR_THWINDOWMODE 			(char*) "THWINDOWMODE"

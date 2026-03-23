@@ -360,6 +360,31 @@ record(ai, "$(P)$(R)OperatingEnergy_RBV")
     field(SCAN, "I/O Intr")
 }
 
+# Board Temperature
+# % autosave 2
+##  gdatag, pv, rw, $(PORT)_merlin, BoardTemperature, Set BoardTemperature
+# record(ao, "$(P)$(R)BoardTemperature")
+# {
+#     field(PINI, "YES")
+#     field(DTYP, "asynFloat64")
+#     field(OUT,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))BOARDTEMPERATURE")
+#     field(DESC, "Board Temperature")
+#     field(EGU,  "C")
+#     field(PREC, "3")
+#     field(VAL, "20.000")
+# }
+
+##  gdatag, pv, ro, $(PORT)_merlin, BoardTemperature_RBV, Readback for BoardTemperature
+record(ai, "$(P)$(R)BoardTemperature_RBV")
+{
+    field(DTYP, "asynFloat64")
+    field(INP,  "@asyn($(PORT),$(ADDR),$(TIMEOUT))TEMPERATURE")
+    field(DESC, "Board Temperature")
+    field(EGU,  "C")
+    field(PREC, "3")
+    field(SCAN, "I/O Intr")
+}
+
 
 # Threshold Scan Start Energy
 # % autosave 2 

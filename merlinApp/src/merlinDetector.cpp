@@ -897,6 +897,25 @@ asynStatus merlinDetector::updateThresholdScanParms()
     return status;
 }
 
+asynStatus merlinDetector::getBoardTemperature()
+{
+    int status;
+
+    if (startingUp)
+        return asynSuccess;
+
+    status = cmdConnection->mpxGet(MPXVAR_TEMPERATURE,
+            Labview_DEFAULT_TIMEOUT);
+    if (status == asynSuccess)
+        setDoubleParam(merlinBoardTemperature,
+                atof(cmdConnection->fromLabviewValue));
+
+    callParamCallbacks();
+
+    return (asynSuccess);
+}
+
+
 static void merlinTaskC(void *drvPvt)
 {
     merlinDetector *pPvt = (merlinDetector *) drvPvt;
@@ -931,6 +950,7 @@ void merlinDetector::merlinStatus()
     setROI();
     updateThresholdScanParms();
     getThreshold();
+    getBoardTemperature();
 
     result = cmdConnection->mpxGet(MPXVAR_GETSOFTWAREVERSION,
             Labview_DEFAULT_TIMEOUT);
@@ -944,11 +964,17 @@ void merlinDetector::merlinStatus()
     while (1)
     {
         epicsThreadSleep(4);
+
         this->lock();
         getIntegerParam(ADStatus, &status);
 
         if (status == ADStatusIdle)
         {
+            status = cmdConnection->mpxGet(MPXVAR_TEMPERATURE,
+                                       Labview_DEFAULT_TIMEOUT);
+            if (status == asynSuccess)
+                setDoubleParam(merlinBoardTemperature, atof(cmdConnection->fromLabviewValue));
+
             setStringParam(ADStatusMessage, "Waiting for acquire command");
             callParamCallbacks();
         }
@@ -1417,6 +1443,8 @@ merlinDetector::merlinDetector(const char *portName,
     createParam(merlinThreshold7String, asynParamFloat64, &merlinThreshold7);
     createParam(merlinOperatingEnergyString, asynParamFloat64,
             &merlinOperatingEnergy);
+    createParam(merlinBoardTemperatureString, asynParamFloat64,
+            &merlinBoardTemperature);
     createParam(merlinThresholdApplyString, asynParamInt32,
             &merlinThresholdApply);
     createParam(merlinThresholdAutoApplyString, asynParamInt32,
