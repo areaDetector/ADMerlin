@@ -3,10 +3,10 @@ beginScreenProperties
 major 4
 minor 0
 release 1
-x 686
-y 857
-w 360
-h 180
+x 1673
+y 693
+w 381
+h 346
 font "arial-bold-r-12.0"
 ctlFont "arial-bold-r-12.0"
 btnFont "arial-bold-r-12.0"
@@ -25,6 +25,36 @@ snapToGrid
 gridSize 5
 endScreenProperties
 
+# (Rectangle)
+object activeRectangleClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 0
+y 5
+w 380
+h 180
+lineColor index 14
+fill
+fillColor index 3
+endObjectProperties
+
+# (Rectangle)
+object activeRectangleClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 0
+y 185
+w 380
+h 160
+lineColor index 14
+fill
+fillColor index 3
+endObjectProperties
+
 # (Related Display)
 object relatedDisplayClass
 beginObjectProperties
@@ -32,7 +62,7 @@ major 4
 minor 4
 release 0
 x 5
-y 135
+y 160
 w 105
 h 20
 fgColor index 14
@@ -55,7 +85,7 @@ major 4
 minor 0
 release 0
 x 270
-y 135
+y 160
 w 85
 h 20
 
@@ -68,7 +98,7 @@ major 4
 minor 0
 release 0
 x 270
-y 135
+y 160
 w 85
 h 20
 fgColor index 25
@@ -94,7 +124,7 @@ major 4
 minor 1
 release 1
 x 165
-y 135
+y 160
 w 100
 h 20
 font "arial-bold-r-12.0"
@@ -113,7 +143,7 @@ major 4
 minor 1
 release 1
 x 165
-y 110
+y 135
 w 90
 h 20
 font "arial-bold-r-12.0"
@@ -132,7 +162,7 @@ major 4
 minor 0
 release 0
 x 270
-y 110
+y 135
 w 85
 h 20
 
@@ -145,7 +175,7 @@ major 4
 minor 0
 release 0
 x 270
-y 110
+y 135
 w 85
 h 20
 fgColor index 25
@@ -171,7 +201,7 @@ major 4
 minor 0
 release 0
 x 270
-y 85
+y 110
 w 85
 h 20
 
@@ -184,7 +214,7 @@ major 4
 minor 0
 release 0
 x 270
-y 85
+y 110
 w 85
 h 20
 fgColor index 25
@@ -210,7 +240,7 @@ major 4
 minor 1
 release 1
 x 165
-y 85
+y 110
 w 90
 h 20
 font "arial-bold-r-12.0"
@@ -229,7 +259,7 @@ major 4
 minor 4
 release 0
 x 5
-y 90
+y 115
 w 105
 h 20
 fgColor index 14
@@ -252,7 +282,7 @@ major 10
 minor 0
 release 0
 x 245
-y 5
+y 10
 w 110
 h 20
 controlPv "$(P)$(R)ThresholdEnergy0_RBV"
@@ -271,7 +301,7 @@ major 4
 minor 6
 release 0
 x 125
-y 5
+y 10
 w 110
 h 20
 controlPv "$(P)$(R)ThresholdEnergy0"
@@ -296,7 +326,7 @@ major 4
 minor 1
 release 1
 x 5
-y 5
+y 10
 w 110
 h 20
 font "arial-bold-r-12.0"
@@ -315,7 +345,7 @@ major 10
 minor 0
 release 0
 x 245
-y 30
+y 35
 w 110
 h 20
 controlPv "$(P)$(R)ThresholdEnergy1_RBV"
@@ -334,7 +364,7 @@ major 4
 minor 6
 release 0
 x 125
-y 30
+y 35
 w 110
 h 20
 controlPv "$(P)$(R)ThresholdEnergy1"
@@ -359,7 +389,7 @@ major 4
 minor 1
 release 1
 x 5
-y 30
+y 35
 w 110
 h 20
 font "arial-bold-r-12.0"
@@ -378,7 +408,7 @@ major 10
 minor 0
 release 0
 x 245
-y 55
+y 60
 w 110
 h 20
 controlPv "$(P)$(R)OperatingEnergy_RBV"
@@ -397,7 +427,7 @@ major 4
 minor 6
 release 0
 x 125
-y 55
+y 60
 w 110
 h 20
 controlPv "$(P)$(R)OperatingEnergy"
@@ -422,7 +452,7 @@ major 4
 minor 1
 release 1
 x 5
-y 55
+y 60
 w 110
 h 20
 font "arial-bold-r-12.0"
@@ -432,5 +462,293 @@ useDisplayBg
 value {
   "Operating E (keV):"
 }
+endObjectProperties
+
+# (Textupdate)
+object TextupdateClass
+beginObjectProperties
+major 10
+minor 0
+release 0
+x 125
+y 85
+w 230
+h 20
+controlPv "$(P)$(R)BoardTemperature_RBV"
+fgColor index 16
+fgAlarm
+bgColor index 10
+fill
+font "arial-bold-r-12.0"
+fontAlign "center"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 5
+y 85
+w 110
+h 20
+font "arial-bold-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "Board Temp (°C):"
+}
+endObjectProperties
+
+# (Textupdate)
+object TextupdateClass
+beginObjectProperties
+major 10
+minor 0
+release 0
+x 100
+y 280
+w 275
+h 20
+controlPv "$(P)$(R)StringToServer_RBV"
+fgColor index 16
+fgAlarm
+bgColor index 10
+fill
+font "arial-bold-r-10.0"
+fontAlign "center"
+endObjectProperties
+
+# (Textupdate)
+object TextupdateClass
+beginObjectProperties
+major 10
+minor 0
+release 0
+x 100
+y 320
+w 275
+h 20
+controlPv "$(P)$(R)StringFromServer_RBV"
+fgColor index 16
+fgAlarm
+bgColor index 10
+fill
+font "arial-bold-r-10.0"
+fontAlign "center"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 10
+y 280
+w 90
+h 20
+font "arial-bold-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "To labview:"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 10
+y 320
+w 95
+h 20
+font "arial-bold-r-12.0"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "From labview:"
+}
+endObjectProperties
+
+# (Menu Button)
+object activeMenuButtonClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 250
+y 245
+w 110
+h 20
+fgColor index 25
+bgColor index 3
+inconsistentColor index 0
+topShadowColor index 1
+botShadowColor index 11
+controlPv "$(P)$(R)ArrayCallbacks"
+indicatorPv "$(P)$(R)ArrayCallbacks_RBV"
+font "arial-bold-r-12.0"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 135
+y 245
+w 105
+h 20
+font "arial-bold-r-12.0"
+fontAlign "right"
+fgColor index 14
+bgColor index 3
+useDisplayBg
+value {
+  "Callbacks:"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 175
+y 220
+w 147
+h 13
+font "arial-bold-r-12.0"
+fontAlign "center"
+fgColor index 19
+bgColor index 3
+useDisplayBg
+visMin "1"
+visMax "2"
+value {
+  "Data Channel Connected"
+}
+autoSize
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 175
+y 215
+w 185
+h 20
+font "arial-bold-r-12.0"
+fontAlign "center"
+fgColor index 21
+bgColor index 35
+visPv "$(P)$(R)LabviewAsynData.CNCT"
+visMin "0"
+visMax "1"
+value {
+  "Data Channel Err - reboot IOC!"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 175
+y 195
+w 184
+h 13
+font "arial-bold-r-12.0"
+fontAlign "center"
+fgColor index 19
+bgColor index 3
+useDisplayBg
+visMin "1"
+visMax "2"
+value {
+  "Command Channel Connected"
+}
+autoSize
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 175
+y 190
+w 185
+h 20
+font "arial-bold-r-12.0"
+fontAlign "center"
+fgColor index 21
+bgColor index 35
+visPv "$(P)$(R)LabviewAsynCmd.CNCT"
+visMin "0"
+visMax "1"
+value {
+  "Cmd Channel Err - reboot IOC!"
+}
+endObjectProperties
+
+# (Message Button)
+object activeMessageButtonClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 10
+y 240
+w 105
+h 25
+fgColor index 20
+onColor index 4
+offColor index 3
+topShadowColor index 1
+botShadowColor index 11
+controlPv "$(P)$(R)Reset"
+pressValue "1"
+onLabel "Reset"
+offLabel "Reset"
+3d
+useEnumNumeric
+font "arial-bold-r-12.0"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 1
+x 0
+y 0
+w 91
+h 13
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 5
+value {
+  "  Medipix driver  "
+}
+autoSize
+border
 endObjectProperties
 
