@@ -34,6 +34,10 @@ typedef enum
     TMExternalTriggerHigh,
     TMExternalTriggerLow,
     TMExternalTriggerRising,
+    TMLVDSExternalEnable,
+    TMLVDSExternalTriggerHigh,
+    TMLVDSExternalTriggerLow,
+    TMLVDSExternalTriggerRising,
     TMSoftwareTrigger
 } merlinTriggerMode;/** Trigger modes */
 
@@ -64,7 +68,9 @@ typedef enum
 #define TMTrigInternal  (char*)"0"
 #define TMTrigRising    (char*)"1"
 #define TMTrigFalling   (char*)"2"
-#define TMTrigSoftware  (char*)"3"
+#define TMLVDSTrigRising  (char*)"3"
+#define TMLVDSTrigFalling  (char*)"4"
+#define TMTrigSoftware  (char*)"5"
 
 /** ASYN PARAMETER NAMES **/
 

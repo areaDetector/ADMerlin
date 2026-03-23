@@ -769,6 +769,32 @@ asynStatus merlinDetector::setAcquireParams()
         cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigRising,
                 Labview_DEFAULT_TIMEOUT);
         break;
+        
+    case TMLVDSExternalEnable:
+        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMLVDSTrigRising,
+                Labview_DEFAULT_TIMEOUT);
+        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMLVDSTrigFalling,
+                Labview_DEFAULT_TIMEOUT);
+        break;
+    case TMLVDSExternalTriggerLow:
+        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMLVDSTrigFalling,
+                Labview_DEFAULT_TIMEOUT);
+        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
+                Labview_DEFAULT_TIMEOUT);
+        break;
+    case TMLVDSExternalTriggerHigh:
+        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMLVDSTrigRising,
+                Labview_DEFAULT_TIMEOUT);
+        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMTrigInternal,
+                Labview_DEFAULT_TIMEOUT);
+        break;
+    case TMLVDSExternalTriggerRising:
+        cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMLVDSTrigRising,
+                Labview_DEFAULT_TIMEOUT);
+        cmdConnection->mpxSet(MPXVAR_TRIGGERSTOP, TMLVDSTrigRising,
+                Labview_DEFAULT_TIMEOUT);
+        break;
+        
     case TMSoftwareTrigger:
         cmdConnection->mpxSet(MPXVAR_TRIGGERSTART, TMTrigSoftware,
                 Labview_DEFAULT_TIMEOUT);
