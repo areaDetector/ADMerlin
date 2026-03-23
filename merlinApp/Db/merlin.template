@@ -46,7 +46,7 @@ record(mbbi,"$(P)$(R)TriggerMode_RBV") {
     field(THVL,"3")
     field(THST,"Trigger start falling")
     field(FRVL,"4")
-    field(FRST,"Trigger both rising ")
+    field(FRST,"Trigger both rising")
     field(FVVL,"5")
     field(FVST,"Software")
 }
