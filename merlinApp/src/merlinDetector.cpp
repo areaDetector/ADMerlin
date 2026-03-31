@@ -1115,12 +1115,12 @@ asynStatus merlinDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
             else // a standard image acquisition (or profile acquisition)
             {
                 epicsSnprintf(strVal, MPX_MAXLINE, "%d", imagesToAcquire);
-                cmdConnection->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal,
+                status = cmdConnection->mpxSet(MPXVAR_NUMFRAMESTOACQUIRE, strVal,
                         Labview_DEFAULT_TIMEOUT);
 
                 if (profileMaskParm & (MPXPROFILES_IMAGE == MPXPROFILES_IMAGE))
                 {
-                    cmdConnection->mpxCommand(MPXCMD_STARTACQUISITION,
+                    status = cmdConnection->mpxCommand(MPXCMD_STARTACQUISITION,
                             Labview_DEFAULT_TIMEOUT);
                 }
                 else
@@ -1128,6 +1128,12 @@ asynStatus merlinDetector::writeInt32(asynUser *pasynUser, epicsInt32 value)
                     cmdConnection->mpxCommand(MPXCMD_PROFILES,
                             Labview_DEFAULT_TIMEOUT);
                 }
+            }
+            if (status)
+            {
+                setIntegerParam(ADStatus, ADStatusError);
+                setStringParam(ADStatusMessage, "Scan start failed");
+                status = setIntegerParam(ADAcquire, 0);
             }
         }
         if (!value && (adstatus == ADStatusAcquire))
