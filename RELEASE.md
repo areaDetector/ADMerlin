@@ -11,6 +11,10 @@ https://github.com/areaDetector/ADMerlin/releases.
 Release Notes
 =============
 
+R4-2 (XXX)
+---
+* Set epicsTS for every frame using updateTimeStamps(), so NDArrayEpicsTSSec/NDArrayEpicsTSnSec are no longer 0. Requires ADCore R3-13 or later.
+
 R4-1 (XXX-Feb-2019)
 ---
 * Comply with v2.0 of protocol for Uom devices - still backward compatible with Merlin Quad protocol
