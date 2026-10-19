@@ -56,7 +56,6 @@ void merlinDetector::merlinTask()
     int counterDepth;
     int imagSize;
     NDArray * pImage;
-    epicsTimeStamp startTime;
     const char *functionName = "merlinTask";
     size_t dims[2];
     int arrayCallbacks;
@@ -97,9 +96,6 @@ void merlinDetector::merlinTask()
     /* Loop forever */
     while (1)
     {
-        // Get the current time
-        epicsTimeGetCurrent(&startTime);
-
         // Acquire an image from the data channel
         memset(bigBuff, 0, MPX_IMG_FRAME_LEN);
 
@@ -254,8 +250,7 @@ void merlinDetector::merlinTask()
             {
                 // Put the frame number and time stamp into the buffer
                 pImage->uniqueId = imageCounter;
-                pImage->timeStamp = startTime.secPastEpoch
-                        + startTime.nsec / 1.e9;
+                updateTimeStamps(pImage);
 
                 // string attributes are global in HDF5 plugin so the most recent
                 // acquisition header is applied to all files
